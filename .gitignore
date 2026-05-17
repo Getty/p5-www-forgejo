@@ -1,0 +1,10 @@
+/.build/
+/Makefile
+/*.tar.gz
+/cover_db/
+/_build/
+/local/
+/cpanfile.lock
+*.bak
+*.tmp
+/.DS_Store
