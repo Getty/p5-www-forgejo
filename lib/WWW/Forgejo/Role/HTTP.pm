@@ -120,6 +120,19 @@ Perform a DELETE request.
 
 =cut
 
+sub patch {
+    my ($self, $path, $data) = @_;
+    return $self->_request('PATCH', $path, body => $data);
+}
+
+=method patch
+
+    my $data = $self->patch('/path', { key => 'value' });
+
+Perform a PATCH request with JSON body.
+
+=cut
+
 sub _set_auth {
     my ($self, $headers) = @_;
     $headers->{Authorization} = 'token ' . $self->token;
