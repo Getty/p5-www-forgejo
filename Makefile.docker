@@ -1,0 +1,62 @@
+.PHONY: up down logs test setup-admin
+
+FORGEJO_URL ?= http://localhost:30080
+FORGEJO_TOKEN ?= test-token
+
+up:
+	docker compose up -d
+	@echo "Waiting for Forgejo to be ready..."
+	@sleep 30 && docker compose exec forgejo wget -qO- http://localhost:3000/install > /dev/null 2>&1 && echo "Forgejo is ready at $(FORGEJO_URL)" || (echo "Forgejo not ready yet, check logs with: make logs")
+
+down:
+	docker compose down -v
+
+logs:
+	docker compose logs -f --tail=100
+
+restart:
+	docker compose restart
+
+test:
+	FORGEJO_URL=$(FORGEJO_URL) FORGEJO_TOKEN=$(FORGEJO_TOKEN) perl -Ilib t/90-live-admin.t
+
+test-verbose:
+	FORGEJO_URL=$(FORGEJO_URL) FORGEJO_TOKEN=$(FORGEJO_TOKEN) prove -vl t/90-live-admin.t
+
+check:
+	@echo "==> Checking if Forgejo is up..."
+	@curl -sf $(FORGEJO_URL)/ > /dev/null && echo "Forgejo is responding" || echo "Forgejo not responding"
+	@echo ""
+	@echo "==> Checking if /install is accessible..."
+	@curl -sf $(FORGEJO_URL)/install > /dev/null && echo "/install accessible" || echo "/install returns redirect (probably already installed)"
+
+setup-admin:
+	@echo "==> Getting CSRF token..."
+	@docker compose exec -T forgejo wget -qO- "http://localhost:3000/install" 2>/dev/null | grep -o 'csrfToken.*value="\([^"]*\)"' | sed 's/.*value="\([^"]*\)".*/\1/' > /tmp/forgejo_csrf.txt || true
+	@echo "CSRF: $$(cat /tmp/forgejo_csrf.txt 2>/dev/null || echo 'not found - already installed?')"
+	@if [ -s /tmp/forgejo_csrf.txt ]; then \
+		echo "==> Running installation..."; \
+		docker compose exec -T forgejo sh -c 'wget -qO- -O /dev/null "http://localhost:3000/install"'; \
+		curl -s -X POST "http://localhost:30080/install" \
+			-H "Content-Type: application/x-www-form-urlencoded" \
+			--data-urlencode "db_type=postgres" \
+			--data-urlencode "host=postgres:5432" \
+			--data-urlencode "user=forgejo" \
+			--data-urlencode "password=forgejo" \
+			--data-urlencode "db_name=forgejo" \
+			--data-urlencode "app_name=Forgejo Test" \
+			--data-urlencode "admin_name=admin" \
+			--data-urlencode "admin_passwd=Admin123!" \
+			--data-urlencode "admin_confirm_passwd=Admin123!" \
+			--data-urlencode "admin_email=admin@localhost" \
+			--data-urlencode "agree_to_terms=true" \
+			--data-urlencode "_csrf=$$(cat /tmp/forgejo_csrf.txt)" \
+			> /dev/null; \
+		echo "Done"; \
+	else \
+		echo "Already installed or cannot get CSRF token"; \
+	fi
+
+create-token:
+	@echo "Create a token at: $(FORGEJO_URL)/user/settings/applications"
+	@echo "Then run: FORGEJO_TOKEN=<your-token> make test"

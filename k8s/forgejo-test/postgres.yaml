@@ -1,0 +1,61 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: forgejo-test
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - name: POSTGRES_USER
+              value: forgejo
+            - name: POSTGRES_PASSWORD
+              value: forgejo
+            - name: POSTGRES_DB
+              value: forgejo
+          ports:
+            - containerPort: 5432
+              name: postgres
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: forgejo-postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: forgejo-test
+  labels:
+    app: postgres
+spec:
+  ports:
+    - port: 5432
+      targetPort: 5432
+      name: postgres
+  selector:
+    app: postgres
+  clusterIP: None

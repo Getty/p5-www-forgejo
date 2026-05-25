@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: forgejo
+      POSTGRES_PASSWORD: forgejo
+      POSTGRES_DB: forgejo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgejo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:8.0.3
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - FORGEJO__database__DB_TYPE=postgres
+      - FORGEJO__database__HOST=postgres:5432
+      - FORGEJO__database__NAME=forgejo
+      - FORGEJO__database__USER=forgejo
+      - FORGEJO__database__PASSWD=forgejo
+      - FORGEJO__server__PROTOCOL=http
+      - FORGEJO__server__DOMAIN=localhost
+      - FORGEJO__server__HTTP_PORT=3000
+      - FORGEJO__server__SSH_PORT=22
+      - FORGEJO__security__INSTALL_LOCK=true
+      - FORGEJO__server__ROOT_URL=http://localhost:30080
+      - FORGEJO__admin__DISABLE_REGULAR_ORG_CREATION=false
+      - FORGEJO__admin__DEFAULT_KEEP_EMAIL_PRIVATE=false
+      - FORGEJO__admin__DEFAULT_ALLOW_CREATE_ORGANIZATION=true
+      - FORGEJO__service__DISABLE_REGISTRATION=false
+      - FORGEJO__service__REQUIRE_SIGNIN_VIEW=false
+    ports:
+      - "30080:3000"
+      - "2222:22"
+    volumes:
+      - forgejo_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:3000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres_data:
+  forgejo_data:

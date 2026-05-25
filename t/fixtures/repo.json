@@ -1,0 +1,15 @@
+{
+   "id" : 1,
+   "name" : "test-repo",
+   "owner" : {
+      "id" : 1,
+      "login" : "test"
+   },
+   "full_name" : "test/test-repo",
+   "description" : "Test repository",
+   "private" : false,
+   "fork" : false,
+   "created" : "2026-01-01T00:00:00Z",
+   "updated" : "2026-01-01T00:00:00Z",
+   "default_branch" : "main"
+}

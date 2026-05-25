@@ -1,0 +1,9 @@
+{
+   "id" : 1,
+   "login" : "test",
+   "email" : "test@example",
+   "full_name" : "Test User",
+   "avatar_url" : "https://src.ci/user/test/avatar",
+   "created" : "2026-01-01T00:00:00Z",
+   "updated" : "2026-01-01T00:00:00Z"
+}

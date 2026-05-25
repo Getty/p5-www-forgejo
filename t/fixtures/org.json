@@ -1,0 +1,10 @@
+{
+   "id" : 1,
+   "login" : "test-org",
+   "full_name" : "Test Organization",
+   "description" : "Test organization",
+   "avatar_url" : "https://src.ci/org/test-org/avatar",
+   "visibility" : "public",
+   "created" : "2026-01-01T00:00:00Z",
+   "updated" : "2026-01-01T00:00:00Z"
+}
