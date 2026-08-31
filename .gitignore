@@ -8,3 +8,7 @@
 *.bak
 *.tmp
 /.DS_Store
+
+# karr materialized task view -- never commit
+tasks/
+config.yml

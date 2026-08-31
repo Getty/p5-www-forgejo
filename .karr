@@ -1,0 +1,9 @@
+claude: true
+prompt: |
+  Drain the WWW-Forgejo karr board. This is the synchronous LWP-based Forgejo
+  API v1 client and the semantics owner for the async sibling Net::Async::Forgejo
+  (../p5-net-async-forgejo), with which it is released together. Delegate
+  behavior-relevant code to the www-forgejo-worker agent and release audits to
+  www-forgejo-release-checker; follow .claude/rules/www-forgejo-rules.md. Never
+  release. Cross-repo work is a ticket on the other repo's board, never a direct
+  edit.

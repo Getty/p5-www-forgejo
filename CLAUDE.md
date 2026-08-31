@@ -1,33 +1,31 @@
-# CLAUDE.md
+# WWW::Forgejo
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Synchronous Perl client for the Forgejo API v1. `Moo`-based; `WWW::Forgejo`
+`with 'WWW::Forgejo::Role::HTTP'` and exposes lazy API-group accessors that return
+`WWW::Forgejo::Entity::*` objects. It owns all Forgejo semantics (paths, `token` auth,
+JSON, errors, endpoints); the HTTP transport is pluggable behind `Role::IO` (default
+`LWPIO`). It is the semantics owner for the async sibling `Net::Async::Forgejo`
+(`../p5-net-async-forgejo`), with which it is released in lockstep.
 
-## Perl Rules
-
-**MANDATORY: load the `perl-core` skill via the Skill tool before editing any Perl code in this workspace.** It encodes Getty's house rules (module loading, Moose patterns, cpanfile versioning for Getty-authored CPAN distributions, style). The rules below are the TL;DR — the skill has the full list and rationale.
-
-- **`use Module;`** to load modules. `require` only when you absolutely know why (runtime plugin loading, not just "I want lazy").
-- **Never copy a `$VERSION` from a Getty-authored repo into a cpanfile** — repo is the next unreleased version. Check `cpanm --info` for the actual released version. Every Getty-authored dependency must be pinned to its latest released CPAN version.
-
-## Workspace Overview
-
-This is a Perl CPAN distribution for the Forgejo API v1.
-
-## Build System
-
-Uses **Dist::Zilla** for building and releasing to CPAN.
-
-### Standard Commands
+## Build / test
 
 ```bash
-dzil build          # Build the distribution
-dzil test           # Run tests
-dzil release        # Release to CPAN
+prove -l t/     # offline suite; t/9x-live-*.t self-skip without TEST_FORGEJO_URL/TOKEN
+dzil test       # full distribution ([@Author::GETTY] bundle)
+dzil build
 ```
 
-## Skills
+## Delegation
 
-This project includes shared skills via `.claude/skills/`:
+Delegate behavior-relevant code to the right agent instead of touching it yourself —
+principle and lane are in `.claude/rules/www-forgejo-rules.md`.
 
-- `create-perl-distribution` - Scaffold new Perl CPAN distributions
-- `perl-ai-proxy-skeid` - Langertha::Skeid LLM proxy integration
+| Task | Agent |
+|---|---|
+| Implement / refactor / debug behavior-relevant code | `www-forgejo-worker` (default) |
+| Pre-release audit | `www-forgejo-release-checker` |
+
+The agents carry their skills via `briefing.skills` (see `.claude/agents/`); the main
+agent delegates rather than loading them. Skill sources live under `.claude/skills/`
+(`www-forgejo-core` plus hardlinked shared skills). House rules and the delegation lock:
+`.claude/rules/www-forgejo-rules.md`.
