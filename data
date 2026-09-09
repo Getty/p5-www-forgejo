@@ -1,0 +1,17 @@
+---
+class: standard
+completed: 2026-09-09T10:39:32Z
+created: 2026-08-31T04:21:52Z
+id: 6
+priority: medium
+started: 2026-09-09T10:29:09Z
+status: done
+tags:
+- tests
+title: Mock-backed test coverage for admin/repos/issues/PRs
+updated: 2026-09-09T10:39:32Z
+---
+
+TODO.md Phase 8 lists t/10-admin-users.t, t/20-repos.t, t/30-issues-prs.t against the Role::IO mock. Only 00-load/01-client/02-http-mock exist offline. Add mock-driven coverage for the main controllers and Entity round-trips.
+
+2026-09-09 10:39 Added three dedicated mock backed test files t 10 admin users t 20 repos t 30 issues prs targeting the gaps especially PullRequests which had zero coverage plus deeper issues repos admin ops and Entity round trips. No duplication of t 02. prove green 132 tests. Two latent controller bugs surfaced tracked as tickets 8 and 9 the tests assert current behavior. Commit 39cbbbe.
