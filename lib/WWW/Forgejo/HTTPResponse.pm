@@ -13,7 +13,10 @@ our $VERSION = '0.001';
     my $res = WWW::Forgejo::HTTPResponse->new(
         status  => 200,
         content => '{"ok":true}',
+        headers => { 'X-Total-Count' => 42 },
     );
+
+    my $total = $res->headers->{'x-total-count'};
 
 =head1 DESCRIPTION
 
@@ -35,6 +38,25 @@ has content => (is => 'ro', default => '');
 =attr content
 
 The response body content.
+
+=cut
+
+has headers => (
+    is      => 'ro',
+    coerce  => sub {
+        my $h = shift;
+        return {} unless defined $h;
+        return { map { lc($_) => $h->{$_} } keys %$h };
+    },
+    default => sub { {} },
+);
+
+=attr headers
+
+The response headers as a hashref. Keys are always lower-cased at
+construction, so a header passed as C<X-Total-Count> is retrieved via
+C<< $res->headers->{'x-total-count'} >>; values are preserved as-is.
+Defaults to an empty hashref when omitted.
 
 =cut
 
