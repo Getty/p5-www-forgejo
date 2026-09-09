@@ -1,0 +1,19 @@
+---
+class: standard
+completed: 2026-09-09T09:51:02Z
+created: 2026-08-31T04:21:32Z
+id: 1
+priority: high
+started: 2026-09-09T09:42:59Z
+status: done
+tags:
+- transport
+- seam
+- coupling
+title: HTTPResponse lacks headers attribute
+updated: 2026-09-09T09:51:02Z
+---
+
+WWW::Forgejo::HTTPResponse has only status+content. The async sibling bridge and t/02-http-mock.t already pass headers => {...}, silently dropped by Moo. Add a headers attribute with lower-cased keys. Coordinated/paired change with Net::Async::Forgejo -- ticket the sibling board too.
+
+2026-09-09 09:50 Added headers attribute to HTTPResponse with lowercase keys via coerce default empty hashref. New offline test t 03 httpresponse fails without the attribute. prove green 60 tests. Commit 1083fa8. Sibling Net Async Forgejo needs a matching bridge change tracked separately.
