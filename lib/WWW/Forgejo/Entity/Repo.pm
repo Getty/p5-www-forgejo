@@ -7,13 +7,12 @@ use warnings;
 package WWW::Forgejo::Entity::Repo;
 
 use Moo;
+extends 'WWW::Forgejo::Entity';
 use Log::Any qw($log);
 use JSON::MaybeXS qw(encode_json decode_json);
 
-has client => (is => 'ro', required => 1);
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
-has data   => (is => 'ro', required => 1);
 
 # Sub-resource accessors - lazy loaded
 has branches => (

@@ -7,10 +7,8 @@ use warnings;
 package WWW::Forgejo::Entity::WorkflowJob;
 
 use Moo;
+extends 'WWW::Forgejo::Entity';
 use JSON::MaybeXS qw(encode_json);
-
-has client => (is => 'ro', required => 1);
-has data   => (is => 'ro', required => 1);
 
 sub id          { shift->data->{id} }
 sub name        { shift->data->{name} }

@@ -3,10 +3,8 @@ package WWW::Forgejo::Entity::CronTask;
 # PODNAME: WWW::Forgejo::Entity::CronTask
 
 use Moo;
+extends 'WWW::Forgejo::Entity';
 use Log::Any qw($log);
-
-has client => (is => 'ro', required => 1);
-has data => (is => 'ro', required => 1);
 
 sub name     { shift->data->{name} }
 sub schedule { shift->data->{schedule} }

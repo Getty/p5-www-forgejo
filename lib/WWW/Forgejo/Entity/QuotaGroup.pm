@@ -3,10 +3,8 @@ package WWW::Forgejo::Entity::QuotaGroup;
 # PODNAME: WWW::Forgejo::Entity::QuotaGroup
 
 use Moo;
+extends 'WWW::Forgejo::Entity';
 use Log::Any qw($log);
-
-has client => (is => 'ro', required => 1);
-has data => (is => 'ro', required => 1);
 
 sub name        { shift->data->{name} }
 sub description { shift->data->{description} }

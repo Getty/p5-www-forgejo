@@ -7,12 +7,11 @@ use warnings;
 package WWW::Forgejo::Entity::Collaborator;
 
 use Moo;
+extends 'WWW::Forgejo::Entity';
 use JSON::MaybeXS qw(encode_json);
 
-has client => (is => 'ro', required => 1);
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
-has data   => (is => 'ro', required => 1);
 
 sub login { shift->data->{login} }
 sub id { shift->data->{id} }
