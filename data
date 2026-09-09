@@ -1,0 +1,18 @@
+---
+class: standard
+completed: 2026-09-09T10:12:21Z
+created: 2026-08-31T04:21:44Z
+id: 4
+priority: medium
+started: 2026-09-09T09:53:01Z
+status: done
+tags:
+- transport
+- correctness
+title: URL-encode owner/repo/username path segments
+updated: 2026-09-09T10:12:21Z
+---
+
+Path segments are interpolated raw into URLs in _build_request and _path_for helpers. Owner/repo/user names with special chars break. Apply URI::Escape::uri_escape at path construction (URI::Escape is already a declared dep).
+
+2026-09-09 10:12 URL encode all user controlled path segments in path for helpers and top level controllers plus GET query keys and values in build request. Also fixed a latent double backslash repo bug in 24 of 25 path for helpers where the repo name never reached the URL never shipped. Branch tag names with a slash now percent encoded flagged for review. New offline test t 05 urlencode. prove green 70 tests. Commit ac6d823.
