@@ -13,6 +13,8 @@ use Log::Any qw($log);
 
 our $VERSION = '0.001';
 
+use constant DEFAULT_MAX_PAGES => 100;
+
 =head1 SYNOPSIS
 
     package WWW::Forgejo::API;
@@ -70,8 +72,57 @@ Defaults to L<WWW::Forgejo::LWPIO>.
 =cut
 
 sub get {
-    my ($self, $path, %params) = @_;
-    return $self->_request('GET', $path, %params);
+    my ($self, $path, %opts) = @_;
+
+    my $page_size = delete $opts{page_size};
+    my $max_pages = delete $opts{max_pages} // DEFAULT_MAX_PAGES;
+
+    my $pinned = $opts{params} && defined $opts{params}{page};
+
+    # An explicit page_size must apply to the first request too, so every
+    # fetched page uses the same limit and Forgejo's (page-1)*limit offsets
+    # stay contiguous. Without one we leave the first request untouched and
+    # adopt the server's own page size below.
+    if (defined $page_size && !$pinned) {
+        $opts{params} = { %{ $opts{params} || {} }, limit => $page_size };
+    }
+
+    my ($data, $response) = $self->_request_with_response('GET', $path, %opts);
+
+    # Auto-paginate only bare JSON arrays that the server reports as truncated,
+    # and only when the caller has not pinned a specific page. Single-object
+    # responses, arrays without an X-Total-Count header, and explicitly-paged
+    # requests are returned unchanged with no extra HTTP calls.
+    return $data unless ref $data eq 'ARRAY';
+    return $data if $pinned;
+
+    my $total = $response->headers->{'x-total-count'};
+    return $data unless defined $total && $total =~ /^[0-9]+$/;
+    return $data unless $total > scalar @$data;
+
+    # Keep the per-page limit consistent across every fetched page so offsets
+    # stay aligned. With no explicit page_size the server's page size is exactly
+    # the number of items the first page returned, so reuse that: page N then
+    # starts at (N-1)*limit, contiguous with no skipped or duplicated items.
+    my $limit = defined $page_size ? $page_size : scalar @$data;
+    return $data unless $limit;
+
+    my @items = @$data;
+    my $page  = 1;
+    while (@items < $total && $page < $max_pages) {
+        $page++;
+        my %page_opts = %opts;
+        $page_opts{params} = {
+            %{ $opts{params} || {} },
+            page  => $page,
+            limit => $limit,
+        };
+        my ($page_data) = $self->_request_with_response('GET', $path, %page_opts);
+        last unless ref $page_data eq 'ARRAY' && @$page_data;
+        push @items, @$page_data;
+    }
+
+    return \@items;
 }
 
 =method get
@@ -79,6 +130,39 @@ sub get {
     my $data = $self->get('/path', params => { key => 'value' });
 
 Perform a GET request.
+
+When the response is a JSON array and the server reports more results via the
+C<X-Total-Count> header than were returned on the first page, C<get>
+transparently collects the remaining pages and returns the combined arrayref
+(in order). This happens only when the caller has not pinned a page (no
+C<< params->{page} >>); single-object responses, arrays without an
+C<X-Total-Count> header, and explicitly-paged requests are returned as-is with
+no extra HTTP calls.
+
+The per-page C<limit> is kept consistent across every fetched page so that
+Forgejo's C<(page - 1) * limit> offsets stay contiguous - no items are skipped
+or duplicated between pages.
+
+Two top-level options (alongside C<params>) tune the pagination:
+
+=over 4
+
+=item * C<page_size> - an optional per-page C<limit>. When given it is sent on
+B<every> request (including the first) so all pages share the same size. When
+omitted, no C<limit> is forced: the server's own page size is used, and
+subsequent pages reuse the item count returned by the first page to keep
+offsets aligned.
+
+=item * C<max_pages> - the maximum number of pages fetched, a safety cap
+against unbounded loops. Defaults to 100.
+
+=back
+
+    # collect all repos, 100 per page, at most 20 pages
+    my $repos = $self->get('/repos', page_size => 100, max_pages => 20);
+
+List controllers that forward their C<%params> into C<get> expose these to
+callers, e.g. C<< $api->list(page_size => 100) >>.
 
 =cut
 
@@ -226,13 +310,32 @@ Useful for async workflows where response parsing happens after transport.
 
 sub _request {
     my ($self, $method, $path, %opts) = @_;
+    my ($data) = $self->_request_with_response($method, $path, %opts);
+    return $data;
+}
+
+sub _request_with_response {
+    my ($self, $method, $path, %opts) = @_;
 
     croak "No API token configured" unless $self->token;
 
     my $req = $self->_build_request($method, $path, %opts);
     my $response = $self->io->call($req);
-    return $self->_parse_response($response, $method, $path);
+    my $data = $self->_parse_response($response, $method, $path);
+    return ($data, $response);
 }
+
+=method _request_with_response
+
+    my ($data, $response) = $self->_request_with_response('GET', '/orgs');
+
+Runs a request like the internal path used by the verb methods, but returns
+both the parsed data B<and> the L<WWW::Forgejo::HTTPResponse>, so callers (such
+as the auto-pagination logic in L</get>) can read response headers like
+C<X-Total-Count>. The public verb methods (C<post>/C<put>/C<patch>/C<delete>)
+still return only the parsed data via L</_request>.
+
+=cut
 
 =head1 SEE ALSO
 
