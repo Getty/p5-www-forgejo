@@ -1,0 +1,18 @@
+---
+class: standard
+completed: 2026-09-09T10:12:08Z
+created: 2026-08-31T04:21:40Z
+id: 3
+priority: medium
+started: 2026-09-09T09:52:57Z
+status: done
+tags:
+- entity
+- consistency
+title: Concrete Entities do not extend base WWW::Forgejo::Entity
+updated: 2026-09-09T10:12:08Z
+---
+
+Entity/Repo.pm, Entity/Release.pm etc redefine client/owner/repo/data standalone with a plain required client, and do not extends WWW::Forgejo::Entity (which has weak_ref client + update/delete croak stubs). Unify: either make concretes extend the base or retire the base. Client ref should be weak to avoid cycles.
+
+2026-09-09 10:12 All 23 concrete entities now extend the base Entity dropped redundant client data inheriting the weak client and update delete stubs. data optional consistent. New offline test t 04 entity asserts isa weak client and inherited croaks. prove green 70 tests. Commit ed12a10.
