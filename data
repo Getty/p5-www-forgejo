@@ -1,0 +1,18 @@
+---
+class: standard
+completed: 2026-09-09T10:28:24Z
+created: 2026-08-31T04:21:48Z
+id: 5
+priority: medium
+started: 2026-09-09T10:14:54Z
+status: done
+tags:
+- api
+- pagination
+title: list methods do not paginate
+updated: 2026-09-09T10:28:24Z
+---
+
+list/search controllers return only the first page; Forgejo uses page+limit and returns X-Total-Count. Implement auto-pagination (default) with page_size/max_pages overrides. Depends on HTTPResponse carrying headers (see headers ticket).
+
+2026-09-09 10:28 get now auto paginates bare array list responses using X Total Count collecting all pages with a consistent per page limit so offsets stay aligned no skips or dupes. page size and max pages overrides default max pages 100. Uses the headers attribute from ticket 1. Refactored request over request with response. New offline test t 06 pagination red before green confirmed. prove green 77 tests. Commit 48c14fa. Search object responses deferred see follow up. Async sibling pagination ticketed on its board.
