@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Misc;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 has client => (
     is       => 'ro',
@@ -129,7 +130,7 @@ Get settings. Without an argument returns all settings sections.
 
 sub settings {
     my ($self, $section) = @_;
-    my $path = $section ? "/settings/$section" : '/settings';
+    my $path = $section ? "/settings/" . uri_escape($section) : '/settings';
     return $self->{client}->get($path);
 }
 

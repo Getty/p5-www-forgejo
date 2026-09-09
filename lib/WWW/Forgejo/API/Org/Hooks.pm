@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Org::Hooks;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has client => (is => 'ro', init_arg => 'client');
@@ -26,7 +27,7 @@ sub list {
     my ($self, $org) = @_;
     $org ||= $self->owner if $self->has_owner;
     croak "Organization name required" unless $org;
-    return $self->{client}->get("/orgs/$org/hooks");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/hooks");
 }
 
 =method get
@@ -41,7 +42,7 @@ sub get {
     my ($self, $org, $hook_id) = @_;
     croak "Organization name required" unless $org;
     croak "Hook ID required" unless $hook_id;
-    return $self->{client}->get("/orgs/$org/hooks/$hook_id");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/hooks/" . uri_escape($hook_id));
 }
 
 =method create
@@ -61,7 +62,7 @@ sub create {
     croak "Organization name required" unless $org;
     croak "Hook type required" unless $params{type};
     croak "Hook config required" unless $params{config};
-    return $self->{client}->post("/orgs/$org/hooks", \%params);
+    return $self->{client}->post("/orgs/" . uri_escape($org) . "/hooks", \%params);
 }
 
 =method edit
@@ -78,7 +79,7 @@ sub edit {
     my ($self, $org, $hook_id, %params) = @_;
     croak "Organization name required" unless $org;
     croak "Hook ID required" unless $hook_id;
-    return $self->{client}->post("/orgs/$org/hooks/$hook_id", \%params);
+    return $self->{client}->post("/orgs/" . uri_escape($org) . "/hooks/" . uri_escape($hook_id), \%params);
 }
 
 =method delete
@@ -93,7 +94,7 @@ sub delete {
     my ($self, $org, $hook_id) = @_;
     croak "Organization name required" unless $org;
     croak "Hook ID required" unless $hook_id;
-    return $self->{client}->delete("/orgs/$org/hooks/$hook_id");
+    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/hooks/" . uri_escape($hook_id));
 }
 
 =method test
@@ -108,7 +109,7 @@ sub test {
     my ($self, $org, $hook_id) = @_;
     croak "Organization name required" unless $org;
     croak "Hook ID required" unless $hook_id;
-    return $self->{client}->post("/orgs/$org/hooks/$hook_id/tests", {});
+    return $self->{client}->post("/orgs/" . uri_escape($org) . "/hooks/" . uri_escape($hook_id) . "/tests", {});
 }
 
 1;

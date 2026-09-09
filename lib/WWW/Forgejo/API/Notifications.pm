@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Notifications;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 has client => (
     is       => 'ro',
@@ -77,7 +78,7 @@ Mark a specific thread as read.
 
 sub mark_read_thread {
     my ($self, $thread_id) = @_;
-    return $self->client->post("/notifications/threads/$thread_id/mark-read");
+    return $self->client->post("/notifications/threads/" . uri_escape($thread_id) . "/mark-read");
 }
 
 =method list_for_repo
@@ -91,7 +92,7 @@ List notifications for a specific repository.
 
 sub list_for_repo {
     my ($self, $owner, $repo, %params) = @_;
-    return $self->client->get("/repos/$owner/$repo/notifications", params => \%params);
+    return $self->client->get("/repos/" . uri_escape($owner) . "/" . uri_escape($repo) . "/notifications", params => \%params);
 }
 
 =method mark_read_repo
@@ -105,7 +106,7 @@ Mark all notifications for a repository as read.
 
 sub mark_read_repo {
     my ($self, $owner, $repo, %params) = @_;
-    return $self->client->post("/repos/$owner/$repo/notifications/mark-all-read", \%params);
+    return $self->client->post("/repos/" . uri_escape($owner) . "/" . uri_escape($repo) . "/notifications/mark-all-read", \%params);
 }
 
 1;

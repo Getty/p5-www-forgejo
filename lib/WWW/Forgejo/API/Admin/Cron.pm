@@ -4,6 +4,7 @@ package WWW::Forgejo::API::Admin::Cron;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has client => (
@@ -34,7 +35,7 @@ Get a specific cron task by name.
 
 sub get {
     my ($self, $task) = @_;
-    return $self->{client}->get("/admin/cron/$task");
+    return $self->{client}->get("/admin/cron/" . uri_escape($task));
 }
 
 =method run
@@ -47,7 +48,7 @@ Run a cron task.
 
 sub run {
     my ($self, $task) = @_;
-    return $self->{client}->post("/admin/cron/$task");
+    return $self->{client}->post("/admin/cron/" . uri_escape($task));
 }
 
 1;

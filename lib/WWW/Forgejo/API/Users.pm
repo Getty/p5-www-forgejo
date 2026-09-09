@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Users;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has _client => (
@@ -48,7 +49,7 @@ Get a user by username.
 
 sub get {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/$username");
+    return $self->_client->get("/users/" . uri_escape($username));
 }
 
 =method keys
@@ -61,7 +62,7 @@ List public keys for a user.
 
 sub keys {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/$username/keys");
+    return $self->_client->get("/users/" . uri_escape($username) . "/keys");
 }
 
 =method gpg_keys
@@ -74,7 +75,7 @@ List GPG keys for a user.
 
 sub gpg_keys {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/$username/gpg_keys");
+    return $self->_client->get("/users/" . uri_escape($username) . "/gpg_keys");
 }
 
 =method followers
@@ -87,7 +88,7 @@ List followers for a user.
 
 sub followers {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/$username/followers");
+    return $self->_client->get("/users/" . uri_escape($username) . "/followers");
 }
 
 =method following
@@ -100,7 +101,7 @@ List following for a user.
 
 sub following {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/$username/following");
+    return $self->_client->get("/users/" . uri_escape($username) . "/following");
 }
 
 =method starred
@@ -113,7 +114,7 @@ List starred repositories for a user.
 
 sub starred {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/$username/starred");
+    return $self->_client->get("/users/" . uri_escape($username) . "/starred");
 }
 
 =method subscriptions
@@ -126,7 +127,7 @@ List watched repositories for a user.
 
 sub subscriptions {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/$username/subscriptions");
+    return $self->_client->get("/users/" . uri_escape($username) . "/subscriptions");
 }
 
 =method repos
@@ -139,7 +140,7 @@ List repositories for a user.
 
 sub repos {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/$username/repos");
+    return $self->_client->get("/users/" . uri_escape($username) . "/repos");
 }
 
 =method tokens
@@ -152,7 +153,7 @@ List access tokens for a user. Requires admin permissions.
 
 sub tokens {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/$username/tokens");
+    return $self->_client->get("/users/" . uri_escape($username) . "/tokens");
 }
 
 =method heatmap
@@ -165,7 +166,7 @@ Get contribution heatmap for a user.
 
 sub heatmap {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/$username/heatmap");
+    return $self->_client->get("/users/" . uri_escape($username) . "/heatmap");
 }
 
 =method activities
@@ -178,7 +179,7 @@ Get activities for a user.
 
 sub activities {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/$username/activities");
+    return $self->_client->get("/users/" . uri_escape($username) . "/activities");
 }
 
 1;

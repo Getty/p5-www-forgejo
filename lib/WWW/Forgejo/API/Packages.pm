@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Packages;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 has client => (
     is       => 'ro',
@@ -39,7 +40,7 @@ Get a specific package.
 
 sub get {
     my ($self, $owner, $type, $name, $version) = @_;
-    return $self->client->get("/packages/$owner/$type/$name/$version");
+    return $self->client->get("/packages/" . uri_escape($owner) . "/" . uri_escape($type) . "/" . uri_escape($name) . "/" . uri_escape($version));
 }
 
 =method delete
@@ -52,7 +53,7 @@ Delete a package.
 
 sub delete {
     my ($self, $owner, $type, $name, $version) = @_;
-    return $self->client->delete("/packages/$owner/$type/$name/$version");
+    return $self->client->delete("/packages/" . uri_escape($owner) . "/" . uri_escape($type) . "/" . uri_escape($name) . "/" . uri_escape($version));
 }
 
 =method files
@@ -65,7 +66,7 @@ List files for a specific package version.
 
 sub files {
     my ($self, $owner, $type, $name, $version) = @_;
-    return $self->client->get("/packages/$owner/$type/$name/$version/files");
+    return $self->client->get("/packages/" . uri_escape($owner) . "/" . uri_escape($type) . "/" . uri_escape($name) . "/" . uri_escape($version) . "/files");
 }
 
 1;

@@ -17,7 +17,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/collaborators/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/collaborators/" . join('/', @path);
 }
 
 =method list

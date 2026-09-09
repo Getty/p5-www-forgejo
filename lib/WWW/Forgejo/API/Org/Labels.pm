@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Org::Labels;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has client => (is => 'ro', init_arg => 'client');
@@ -26,7 +27,7 @@ sub list {
     my ($self, $org) = @_;
     $org ||= $self->owner if $self->has_owner;
     croak "Organization name required" unless $org;
-    return $self->{client}->get("/orgs/$org/labels");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/labels");
 }
 
 =method get
@@ -41,7 +42,7 @@ sub get {
     my ($self, $org, $label_id) = @_;
     croak "Organization name required" unless $org;
     croak "Label ID required" unless $label_id;
-    return $self->{client}->get("/orgs/$org/labels/$label_id");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/labels/" . uri_escape($label_id));
 }
 
 =method create
@@ -61,7 +62,7 @@ sub create {
     croak "Organization name required" unless $org;
     croak "Label name required" unless $params{name};
     croak "Label color required" unless $params{color};
-    return $self->{client}->post("/orgs/$org/labels", \%params);
+    return $self->{client}->post("/orgs/" . uri_escape($org) . "/labels", \%params);
 }
 
 =method edit
@@ -79,7 +80,7 @@ sub edit {
     my ($self, $org, $label_id, %params) = @_;
     croak "Organization name required" unless $org;
     croak "Label ID required" unless $label_id;
-    return $self->{client}->post("/orgs/$org/labels/$label_id", \%params);
+    return $self->{client}->post("/orgs/" . uri_escape($org) . "/labels/" . uri_escape($label_id), \%params);
 }
 
 =method delete
@@ -94,7 +95,7 @@ sub delete {
     my ($self, $org, $label_id) = @_;
     croak "Organization name required" unless $org;
     croak "Label ID required" unless $label_id;
-    return $self->{client}->delete("/orgs/$org/labels/$label_id");
+    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/labels/" . uri_escape($label_id));
 }
 
 1;

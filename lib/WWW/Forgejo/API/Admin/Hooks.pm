@@ -4,6 +4,7 @@ package WWW::Forgejo::API::Admin::Hooks;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has client => (
@@ -34,7 +35,7 @@ Get a specific hook by ID.
 
 sub get {
     my ($self, $id) = @_;
-    return $self->{client}->get("/admin/hooks/$id");
+    return $self->{client}->get("/admin/hooks/" . uri_escape($id));
 }
 
 =method create
@@ -63,7 +64,7 @@ Edit an existing hook.
 
 sub edit {
     my ($self, $id, %params) = @_;
-    return $self->{client}->put("/admin/hooks/$id", \%params);
+    return $self->{client}->put("/admin/hooks/" . uri_escape($id), \%params);
 }
 
 =method delete
@@ -76,7 +77,7 @@ Delete a hook.
 
 sub delete {
     my ($self, $id) = @_;
-    return $self->{client}->delete("/admin/hooks/$id");
+    return $self->{client}->delete("/admin/hooks/" . uri_escape($id));
 }
 
 =method list_repos
@@ -89,7 +90,7 @@ List repositories attached to a hook.
 
 sub list_repos {
     my ($self, $id) = @_;
-    return $self->{client}->get("/admin/hooks/$id/repos");
+    return $self->{client}->get("/admin/hooks/" . uri_escape($id) . "/repos");
 }
 
 =method list_orgs
@@ -102,7 +103,7 @@ List organizations attached to a hook.
 
 sub list_orgs {
     my ($self, $id) = @_;
-    return $self->{client}->get("/admin/hooks/$id/orgs");
+    return $self->{client}->get("/admin/hooks/" . uri_escape($id) . "/orgs");
 }
 
 1;

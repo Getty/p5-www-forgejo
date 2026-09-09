@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Topics;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
@@ -15,7 +16,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/topics/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/topics/" . join('/', @path);
 }
 
 =method list
@@ -56,7 +57,7 @@ Remove a topic from a repository.
 
 sub remove {
     my ($self, $topic) = @_;
-    $self->{client}->delete($self->_path_for($topic));
+    $self->{client}->delete($self->_path_for(uri_escape($topic)));
     return;
 }
 

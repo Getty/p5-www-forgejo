@@ -4,6 +4,7 @@ package WWW::Forgejo::API::Admin::Runners;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has client => (
@@ -34,7 +35,7 @@ Get a specific runner by token.
 
 sub get {
     my ($self, $token) = @_;
-    return $self->{client}->get("/admin/runners/$token");
+    return $self->{client}->get("/admin/runners/" . uri_escape($token));
 }
 
 =method delete
@@ -47,7 +48,7 @@ Delete a runner by token.
 
 sub delete {
     my ($self, $token) = @_;
-    return $self->{client}->delete("/admin/runners/$token");
+    return $self->{client}->delete("/admin/runners/" . uri_escape($token));
 }
 
 =method update
@@ -60,7 +61,7 @@ Update a runner.
 
 sub update {
     my ($self, $token, %params) = @_;
-    return $self->{client}->patch("/admin/runners/$token", \%params);
+    return $self->{client}->patch("/admin/runners/" . uri_escape($token), \%params);
 }
 
 1;

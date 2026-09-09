@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Actions;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use WWW::Forgejo::Entity::WorkflowRun;
 use WWW::Forgejo::Entity::WorkflowJob;
 
@@ -17,7 +18,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/actions/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/actions/" . join('/', @path);
 }
 
 =method list_runs
@@ -51,7 +52,7 @@ Get a workflow run by ID.
 
 sub get_run {
     my ($self, $run_id) = @_;
-    my $data = $self->{client}->get($self->_path_for('runs', $run_id));
+    my $data = $self->{client}->get($self->_path_for('runs', uri_escape($run_id)));
     return WWW::Forgejo::Entity::WorkflowRun->new(
         client => $self->client,
         owner  => $self->owner,
@@ -70,7 +71,7 @@ Get jobs for a workflow run.
 
 sub get_run_jobs {
     my ($self, $run_id) = @_;
-    my $data = $self->{client}->get($self->_path_for('runs', $run_id, 'jobs'));
+    my $data = $self->{client}->get($self->_path_for('runs', uri_escape($run_id), 'jobs'));
     return map {
         WWW::Forgejo::Entity::WorkflowJob->new(
             client => $self->client,
@@ -89,7 +90,7 @@ Cancel a workflow run.
 
 sub cancel_run {
     my ($self, $run_id) = @_;
-    $self->{client}->post($self->_path_for('runs', $run_id, 'cancel'));
+    $self->{client}->post($self->_path_for('runs', uri_escape($run_id), 'cancel'));
     return 1;
 }
 
@@ -103,7 +104,7 @@ Re-run a workflow.
 
 sub rerun {
     my ($self, $run_id) = @_;
-    $self->{client}->post($self->_path_for('runs', $run_id, 'rerun'));
+    $self->{client}->post($self->_path_for('runs', uri_escape($run_id), 'rerun'));
     return 1;
 }
 
@@ -117,7 +118,7 @@ Delete a workflow run.
 
 sub delete_run {
     my ($self, $run_id) = @_;
-    $self->{client}->delete($self->_path_for('runs', $run_id));
+    $self->{client}->delete($self->_path_for('runs', uri_escape($run_id)));
     return 1;
 }
 
@@ -137,7 +138,7 @@ Get an action secret.
 
 sub get_secret {
     my ($self, $name) = @_;
-    my $data = $self->{client}->get($self->_path_for("secrets/$name"));
+    my $data = $self->{client}->get($self->_path_for("secrets/" . uri_escape($name)));
     return $data;
 }
 
@@ -168,7 +169,7 @@ Delete an action secret.
 
 sub delete_secret {
     my ($self, $name) = @_;
-    $self->{client}->delete($self->_path_for("secrets/$name"));
+    $self->{client}->delete($self->_path_for("secrets/" . uri_escape($name)));
     return;
 }
 
@@ -196,7 +197,7 @@ Get an action variable.
 
 sub get_variable {
     my ($self, $name) = @_;
-    my $data = $self->{client}->get($self->_path_for("variables/$name"));
+    my $data = $self->{client}->get($self->_path_for("variables/" . uri_escape($name)));
     return $data;
 }
 
@@ -227,7 +228,7 @@ Delete an action variable.
 
 sub delete_variable {
     my ($self, $name) = @_;
-    $self->{client}->delete($self->_path_for("variables/$name"));
+    $self->{client}->delete($self->_path_for("variables/" . uri_escape($name)));
     return;
 }
 

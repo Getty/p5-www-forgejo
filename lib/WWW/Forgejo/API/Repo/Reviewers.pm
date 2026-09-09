@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Reviewers;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
@@ -15,7 +16,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/reviewers/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/reviewers/" . join('/', @path);
 }
 
 =method list
@@ -28,7 +29,7 @@ List reviewers for a pull request.
 
 sub list {
     my ($self, $index) = @_;
-    my $data = $self->{client}->get($self->_path_for("../pulls/$index/reviewers"));
+    my $data = $self->{client}->get($self->_path_for("../pulls/" . uri_escape($index) . "/reviewers"));
     return @$data;
 }
 
@@ -42,7 +43,7 @@ Add reviewers to a pull request.
 
 sub add {
     my ($self, $index, $reviewers) = @_;
-    my $data = $self->{client}->post($self->_path_for("../pulls/$index/reviewers"), { reviewers => $reviewers });
+    my $data = $self->{client}->post($self->_path_for("../pulls/" . uri_escape($index) . "/reviewers"), { reviewers => $reviewers });
     return $data;
 }
 
@@ -56,7 +57,7 @@ Remove a reviewer from a pull request.
 
 sub remove {
     my ($self, $index, $username) = @_;
-    $self->{client}->delete($self->_path_for("../pulls/$index/reviewers/$username"));
+    $self->{client}->delete($self->_path_for("../pulls/" . uri_escape($index) . "/reviewers/" . uri_escape($username)));
     return;
 }
 

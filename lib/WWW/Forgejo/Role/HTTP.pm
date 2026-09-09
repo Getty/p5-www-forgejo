@@ -7,6 +7,7 @@ use WWW::Forgejo::HTTPRequest;
 use WWW::Forgejo::HTTPResponse;
 use WWW::Forgejo::LWPIO;
 use JSON::MaybeXS qw(decode_json encode_json);
+use URI::Escape qw(uri_escape);
 use Carp qw(croak);
 use Log::Any qw($log);
 
@@ -160,7 +161,7 @@ sub _build_request {
         for my $k (keys %{$opts{params}}) {
             my $v = $opts{params}{$k};
             next unless defined $v;
-            push @pairs, "$k=$v";
+            push @pairs, uri_escape($k) . '=' . uri_escape($v);
         }
         $url .= '?' . join('&', @pairs) if @pairs;
     }
