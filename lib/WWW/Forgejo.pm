@@ -7,6 +7,7 @@ use warnings;
 package WWW::Forgejo;
 
 use Moo;
+use Carp qw(croak);
 use WWW::Forgejo::Role::HTTP;
 use WWW::Forgejo::API::Misc;
 use WWW::Forgejo::API::Users;
@@ -21,16 +22,64 @@ use namespace::clean;
 
 our $VERSION = '0.001';
 
+=attr url
+
+Base URL of your Forgejo instance, e.g. C<https://src.ci>. Resolved at
+construction from the C<url> option, else the C<FORGEJO_URL> environment
+variable; if neither is set the constructor croaks with a helpful message.
+The value is normalised to end in C</api/v1> (idempotent: an already-suffixed
+URL is left unchanged), and the resolved value is available via
+L</base_url>.
+
+=cut
+
+has base_url => (
+    is       => 'ro',
+    init_arg => 'url',
+);
+
+=attr token
+
+Your Forgejo personal access token. Resolved at construction from the C<token>
+option, else the C<FORGEJO_TOKEN> environment variable, else the empty string.
+A missing token does not croak at construction; a request made without one
+croaks at call time.
+
+=cut
+
 has token => (
     is      => 'ro',
     default => sub { '' },
 );
 
-has base_url => (
-    is       => 'ro',
-    init_arg => 'url',
-    default  => sub { 'https://forgejo.example/api/v1' },
-);
+around BUILDARGS => sub {
+    my ( $orig, $class, @args ) = @_;
+    my $args = $class->$orig(@args);
+
+    # Resolve the instance URL: explicit url option, else FORGEJO_URL, else
+    # croak with help naming both. Matches the Net::Async::Forgejo sibling.
+    my $url = defined $args->{url} ? $args->{url} : $ENV{FORGEJO_URL};
+    croak
+          "No Forgejo URL configured.\n\n"
+        . "Set url via:\n"
+        . "  Environment: FORGEJO_URL\n"
+        . "  Option:      url => \$url\n\n"
+        . "Example: https://src.ci"
+        unless defined $url && length $url;
+
+    # Ensure base_url ends in /api/v1, idempotently: strip trailing slashes,
+    # then append only when it is not already suffixed (no double-append).
+    $url =~ s{/+$}{};
+    $url .= '/api/v1' unless $url =~ m{/api/v1$};
+    $args->{url} = $url;
+
+    # Token: explicit token option, else FORGEJO_TOKEN; the attribute default
+    # supplies '' when neither is set.
+    $args->{token} = $ENV{FORGEJO_TOKEN}
+        if !defined $args->{token} && defined $ENV{FORGEJO_TOKEN};
+
+    return $args;
+};
 
 with 'WWW::Forgejo::Role::HTTP';
 
