@@ -1,0 +1,20 @@
+---
+class: standard
+completed: 2026-09-09T10:47:13Z
+created: 2026-08-31T04:21:36Z
+id: 2
+priority: high
+started: 2026-09-09T10:40:35Z
+status: done
+tags:
+- config
+- api
+title: No ENV fallback or /api/v1 auto-append in config
+updated: 2026-09-09T10:47:13Z
+---
+
+base_url uses the passed url verbatim; there is no FORGEJO_URL/FORGEJO_TOKEN ENV fallback and no ${url}/api/v1 suffixing, despite TODO.md Phase 2 and the sibling convention. t/01-client.t currently asserts base_url == url unchanged; a change must update that test. Decide and implement the resolution order (explicit -> ENV -> croak with help).
+
+2026-09-09 10:46 Added around BUILDARGS resolving url from url option else FORGEJO_URL else croak with help and normalising to end in api v1 idempotently. token resolves from token option else FORGEJO_TOKEN else empty missing token still croaks at call time. Order and croak wording match the async sibling append is an idempotent superset. Updated t 01 client and t 02 http mock. prove green 137 tests red before green confirmed. Commit HASH_PLACEHOLDER.
+
+2026-09-09 10:47 Commit hash for the above is baa6197 (the previous note placeholder).
