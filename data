@@ -1,0 +1,16 @@
+---
+class: standard
+completed: 2026-09-18T02:53:16Z
+created: 2026-09-09T10:38:48Z
+id: 9
+priority: medium
+started: 2026-09-18T02:53:16Z
+status: done
+tags:
+- api
+- bug
+title: Issues and PullRequests list drop query filters flat params not forwarded
+updated: 2026-09-18T02:53:16Z
+---
+
+API Repo Issues list and API Repo PullRequests list call client get path percent params passing params flat but Role HTTP get and build_request only build a query string from a params hashref key. So repo issues list state open sends no state query param the filter is silently dropped. Repos search and Admin Users search_emails use the correct params hashref form. Fix the list controllers to forward filters under params. Found during Phase 2 batch ticket 6.
