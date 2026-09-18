@@ -85,25 +85,23 @@ subtest 'admin users edit' => sub {
     like($req->content, qr{"admin"}, 'body carries admin key');
 };
 
-subtest 'admin users delete_user' => sub {
+subtest 'admin users delete' => sub {
     clear_responses;
     add_response(204, '');
 
-    # The delete method is named delete_user (see BUG note below).
-    $users->delete_user('someuser');
+    $users->delete('someuser');
     my $req = last_req;
-    is($req->method, 'DELETE', 'delete_user => DELETE');
-    like($req->url, qr{/admin/users/someuser$}, 'delete_user path');
+    is($req->method, 'DELETE', 'delete => DELETE');
+    like($req->url, qr{/admin/users/someuser$}, 'delete path');
 };
 
-subtest 'admin users delete method-name mismatch (documents current behavior)' => sub {
-    # BUG: the POD documents the method as `delete`, but the sub is named
-    # `delete_user`, and the class does not extend Entity, so there is no
-    # `delete` method. Asserting current behavior; reported, not fixed.
-    ok( WWW::Forgejo::API::Admin::Users->can('delete_user'),
-        'delete_user method exists' );
-    ok( !WWW::Forgejo::API::Admin::Users->can('delete'),
-        'no delete method despite POD documenting delete()' );
+subtest 'admin users delete method matches its POD' => sub {
+    # The bare `delete` verb matches its POD and the single-resource
+    # convention (get/edit/create/rename are bare too).
+    ok( WWW::Forgejo::API::Admin::Users->can('delete'),
+        'delete method exists' );
+    ok( !WWW::Forgejo::API::Admin::Users->can('delete_user'),
+        'no stray delete_user method' );
 };
 
 subtest 'admin users rename' => sub {

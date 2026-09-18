@@ -75,7 +75,7 @@ Delete a user.
 
 =cut
 
-sub delete_user {
+sub delete {
     my ($self, $username) = @_;
     return $self->{client}->delete("/admin/users/" . uri_escape($username));
 }
