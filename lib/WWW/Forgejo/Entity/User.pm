@@ -3,10 +3,8 @@ package WWW::Forgejo::Entity::User;
 # PODNAME: WWW::Forgejo::Entity::User
 
 use Moo;
+extends 'WWW::Forgejo::Entity';
 use Log::Any qw($log);
-
-has client => (is => 'ro', required => 1);
-has data => (is => 'ro', required => 1);
 
 sub id             { shift->data->{id} }
 sub login          { shift->data->{login} }

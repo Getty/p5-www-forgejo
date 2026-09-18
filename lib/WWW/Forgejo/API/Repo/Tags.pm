@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Tags;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
@@ -15,7 +16,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/tags/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/tags/" . join('/', @path);
 }
 
 =method list
@@ -42,7 +43,7 @@ Get a tag.
 
 sub get {
     my ($self, $tag_name) = @_;
-    my $path = $self->_path_for($tag_name);
+    my $path = $self->_path_for(uri_escape($tag_name));
     my $data = $self->{client}->get($path);
     return $data;
 }
@@ -75,7 +76,7 @@ Delete a tag.
 
 sub delete {
     my ($self, $tag_name) = @_;
-    my $path = $self->_path_for($tag_name);
+    my $path = $self->_path_for(uri_escape($tag_name));
     return $self->{client}->delete($path);
 }
 

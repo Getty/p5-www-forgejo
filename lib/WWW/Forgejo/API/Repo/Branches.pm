@@ -18,7 +18,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\$self->repo}/branches/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/branches/" . join('/', @path);
 }
 
 =method list
@@ -52,7 +52,7 @@ Get a single branch.
 
 sub get {
     my ($self, $branch) = @_;
-    my $data = $self->{client}->get($self->_path_for($branch));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($branch)));
     return WWW::Forgejo::Entity::Branch->new(
         client => $self->client,
         owner  => $self->owner,
@@ -94,7 +94,7 @@ Delete a branch.
 
 sub delete {
     my ($self, $branch) = @_;
-    my $path = $self->_path_for($branch);
+    my $path = $self->_path_for(uri_escape($branch));
     return $self->{client}->delete($path);
 }
 
@@ -108,7 +108,7 @@ Protect a branch.
 
 sub protect {
     my ($self, $branch) = @_;
-    my $path = $self->_path_for($branch, 'protection');
+    my $path = $self->_path_for(uri_escape($branch), 'protection');
     my $result = $self->{client}->get($path);
     return WWW::Forgejo::Entity::BranchProtection->new(
         client => $self->client,
@@ -128,7 +128,7 @@ Unprotect a branch.
 
 sub unprotect {
     my ($self, $branch) = @_;
-    my $path = $self->_path_for($branch, 'protection');
+    my $path = $self->_path_for(uri_escape($branch), 'protection');
     return $self->{client}->delete($path);
 }
 

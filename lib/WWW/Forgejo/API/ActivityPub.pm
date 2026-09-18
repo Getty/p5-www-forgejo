@@ -8,6 +8,7 @@ package WWW::Forgejo::API::ActivityPub;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 
 =method actor
@@ -20,7 +21,7 @@ Get ActivityPub actor information for a user.
 
 sub actor {
     my ($self, $username) = @_;
-    return $self->{client}->get("/activitypub/user/$username");
+    return $self->{client}->get("/activitypub/user/" . uri_escape($username));
 }
 
 =method inbox
@@ -33,7 +34,7 @@ Send an activity to a user's inbox.
 
 sub inbox {
     my ($self, $username, $activity) = @_;
-    return $self->{client}->post("/activitypub/user/$username/inbox", $activity);
+    return $self->{client}->post("/activitypub/user/" . uri_escape($username) . "/inbox", $activity);
 }
 
 =method outbox
@@ -46,7 +47,7 @@ Get ActivityPub outbox for a user.
 
 sub outbox {
     my ($self, $username) = @_;
-    return $self->{client}->get("/activitypub/user/$username/outbox");
+    return $self->{client}->get("/activitypub/user/" . uri_escape($username) . "/outbox");
 }
 
 1;

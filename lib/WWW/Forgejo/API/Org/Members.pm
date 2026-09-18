@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Org::Members;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has client => (is => 'ro', init_arg => 'client');
@@ -26,7 +27,7 @@ sub list {
     my ($self, $org) = @_;
     $org ||= $self->owner if $self->has_owner;
     croak "Organization name required" unless $org;
-    return $self->{client}->get("/orgs/$org/members");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/members");
 }
 
 =method get
@@ -41,7 +42,7 @@ sub get {
     my ($self, $org, $username) = @_;
     croak "Organization name required" unless $org;
     croak "Username required" unless $username;
-    return $self->{client}->get("/orgs/$org/members/$username");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/members/" . uri_escape($username));
 }
 
 =method remove
@@ -56,7 +57,7 @@ sub remove {
     my ($self, $org, $username) = @_;
     croak "Organization name required" unless $org;
     croak "Username required" unless $username;
-    return $self->{client}->delete("/orgs/$org/members/$username");
+    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/members/" . uri_escape($username));
 }
 
 =method public
@@ -71,7 +72,7 @@ sub public {
     my ($self, $org, $username) = @_;
     croak "Organization name required" unless $org;
     croak "Username required" unless $username;
-    return $self->{client}->get("/orgs/$org/public_members/$username");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/public_members/" . uri_escape($username));
 }
 
 =method publicize
@@ -86,7 +87,7 @@ sub publicize {
     my ($self, $org, $username) = @_;
     croak "Organization name required" unless $org;
     croak "Username required" unless $username;
-    return $self->{client}->put("/orgs/$org/public_members/$username", {});
+    return $self->{client}->put("/orgs/" . uri_escape($org) . "/public_members/" . uri_escape($username), {});
 }
 
 =method conceal
@@ -101,7 +102,7 @@ sub conceal {
     my ($self, $org, $username) = @_;
     croak "Organization name required" unless $org;
     croak "Username required" unless $username;
-    return $self->{client}->delete("/orgs/$org/public_members/$username");
+    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/public_members/" . uri_escape($username));
 }
 
 1;

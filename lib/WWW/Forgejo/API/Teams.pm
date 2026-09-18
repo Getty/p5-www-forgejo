@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Teams;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 use WWW::Forgejo::Entity::Team;
 
@@ -42,7 +43,7 @@ Get a specific team by ID.
 sub get {
     my ($self, $team_id) = @_;
     croak "Team ID required" unless $team_id;
-    my $data = $self->client->get("/teams/$team_id");
+    my $data = $self->client->get("/teams/" . uri_escape($team_id));
     return WWW::Forgejo::Entity::Team->new(client => $self->client, data => $data);
 }
 
@@ -77,7 +78,7 @@ Edit a team.
 sub edit {
     my ($self, $team_id, %params) = @_;
     croak "Team ID required" unless $team_id;
-    my $data = $self->client->post("/teams/$team_id", \%params);
+    my $data = $self->client->post("/teams/" . uri_escape($team_id), \%params);
     return WWW::Forgejo::Entity::Team->new(client => $self->client, data => $data);
 }
 
@@ -92,7 +93,7 @@ Delete a team.
 sub delete {
     my ($self, $team_id) = @_;
     croak "Team ID required" unless $team_id;
-    return $self->client->delete("/teams/$team_id");
+    return $self->client->delete("/teams/" . uri_escape($team_id));
 }
 
 =method list_members
@@ -106,7 +107,7 @@ List all members of a team.
 sub list_members {
     my ($self, $team_id) = @_;
     croak "Team ID required" unless $team_id;
-    return $self->client->get("/teams/$team_id/members");
+    return $self->client->get("/teams/" . uri_escape($team_id) . "/members");
 }
 
 =method add_member
@@ -121,7 +122,7 @@ sub add_member {
     my ($self, $team_id, $username) = @_;
     croak "Team ID required" unless $team_id;
     croak "Username required" unless $username;
-    return $self->client->put("/teams/$team_id/members/$username", {});
+    return $self->client->put("/teams/" . uri_escape($team_id) . "/members/" . uri_escape($username), {});
 }
 
 =method remove_member
@@ -136,7 +137,7 @@ sub remove_member {
     my ($self, $team_id, $username) = @_;
     croak "Team ID required" unless $team_id;
     croak "Username required" unless $username;
-    return $self->client->delete("/teams/$team_id/members/$username");
+    return $self->client->delete("/teams/" . uri_escape($team_id) . "/members/" . uri_escape($username));
 }
 
 =method list_repos
@@ -150,7 +151,7 @@ List all repositories a team has access to.
 sub list_repos {
     my ($self, $team_id) = @_;
     croak "Team ID required" unless $team_id;
-    return $self->client->get("/teams/$team_id/repos");
+    return $self->client->get("/teams/" . uri_escape($team_id) . "/repos");
 }
 
 =method add_repo
@@ -166,7 +167,7 @@ sub add_repo {
     croak "Team ID required" unless $team_id;
     croak "Organization name required" unless $org;
     croak "Repository name required" unless $repo;
-    return $self->client->put("/teams/$team_id/repos/$org/$repo", {});
+    return $self->client->put("/teams/" . uri_escape($team_id) . "/repos/" . uri_escape($org) . "/" . uri_escape($repo), {});
 }
 
 =method remove_repo
@@ -182,7 +183,7 @@ sub remove_repo {
     croak "Team ID required" unless $team_id;
     croak "Organization name required" unless $org;
     croak "Repository name required" unless $repo;
-    return $self->client->delete("/teams/$team_id/repos/$org/$repo");
+    return $self->client->delete("/teams/" . uri_escape($team_id) . "/repos/" . uri_escape($org) . "/" . uri_escape($repo));
 }
 
 1;

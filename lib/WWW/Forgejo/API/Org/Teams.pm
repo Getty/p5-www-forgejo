@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Org::Teams;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has client => (is => 'ro', init_arg => 'client');
@@ -26,7 +27,7 @@ sub list {
     my ($self, $org) = @_;
     $org ||= $self->owner if $self->has_owner;
     croak "Organization name required" unless $org;
-    return $self->{client}->get("/orgs/$org/teams");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/teams");
 }
 
 =method get
@@ -41,7 +42,7 @@ sub get {
     my ($self, $org, $team_id) = @_;
     croak "Organization name required" unless $org;
     croak "Team ID required" unless $team_id;
-    return $self->{client}->get("/orgs/$org/teams/$team_id");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id));
 }
 
 =method search
@@ -55,7 +56,7 @@ Search teams across the Forgejo instance.
 sub search {
     my ($self, %params) = @_;
     croak "Organization name required" unless $params{org};
-    return $self->{client}->get("/orgs/$params{org}/teams/search", params => \%params);
+    return $self->{client}->get("/orgs/" . uri_escape($params{org}) . "/teams/search", params => \%params);
 }
 
 =method create
@@ -70,7 +71,7 @@ sub create {
     my ($self, $org, %params) = @_;
     croak "Organization name required" unless $org;
     croak "Team name required" unless $params{name};
-    return $self->{client}->post("/orgs/$org/teams", \%params);
+    return $self->{client}->post("/orgs/" . uri_escape($org) . "/teams", \%params);
 }
 
 =method edit
@@ -85,7 +86,7 @@ sub edit {
     my ($self, $org, $team_id, %params) = @_;
     croak "Organization name required" unless $org;
     croak "Team ID required" unless $team_id;
-    return $self->{client}->patch("/orgs/$org/teams/$team_id", \%params);
+    return $self->{client}->patch("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id), \%params);
 }
 
 =method delete
@@ -100,7 +101,7 @@ sub delete {
     my ($self, $org, $team_id) = @_;
     croak "Organization name required" unless $org;
     croak "Team ID required" unless $team_id;
-    return $self->{client}->delete("/orgs/$org/teams/$team_id");
+    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id));
 }
 
 =method list_members
@@ -115,7 +116,7 @@ sub list_members {
     my ($self, $org, $team_id) = @_;
     croak "Organization name required" unless $org;
     croak "Team ID required" unless $team_id;
-    return $self->{client}->get("/orgs/$org/teams/$team_id/members");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/members");
 }
 
 =method add_member
@@ -131,7 +132,7 @@ sub add_member {
     croak "Organization name required" unless $org;
     croak "Team ID required" unless $team_id;
     croak "Username required" unless $username;
-    return $self->{client}->put("/orgs/$org/teams/$team_id/members/$username", {});
+    return $self->{client}->put("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/members/" . uri_escape($username), {});
 }
 
 =method remove_member
@@ -147,7 +148,7 @@ sub remove_member {
     croak "Organization name required" unless $org;
     croak "Team ID required" unless $team_id;
     croak "Username required" unless $username;
-    return $self->{client}->delete("/orgs/$org/teams/$team_id/members/$username");
+    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/members/" . uri_escape($username));
 }
 
 =method list_repos
@@ -162,7 +163,7 @@ sub list_repos {
     my ($self, $org, $team_id) = @_;
     croak "Organization name required" unless $org;
     croak "Team ID required" unless $team_id;
-    return $self->{client}->get("/orgs/$org/teams/$team_id/repos");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/repos");
 }
 
 =method add_repo
@@ -178,7 +179,7 @@ sub add_repo {
     croak "Organization name required" unless $org;
     croak "Team ID required" unless $team_id;
     croak "Repository name required" unless $repo;
-    return $self->{client}->put("/orgs/$org/teams/$team_id/repos/$repo", {});
+    return $self->{client}->put("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/repos/" . uri_escape($repo), {});
 }
 
 =method remove_repo
@@ -194,7 +195,7 @@ sub remove_repo {
     croak "Organization name required" unless $org;
     croak "Team ID required" unless $team_id;
     croak "Repository name required" unless $repo;
-    return $self->{client}->delete("/orgs/$org/teams/$team_id/repos/$repo");
+    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/repos/" . uri_escape($repo));
 }
 
 1;

@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repos;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 use WWW::Forgejo::Entity::Repo;
 
@@ -43,7 +44,7 @@ Get a single repository.
 
 sub get {
     my ($self, $owner, $repo) = @_;
-    my $data = $self->{client}->get("/repos/$owner/$repo");
+    my $data = $self->{client}->get("/repos/" . uri_escape($owner) . "/" . uri_escape($repo));
     return WWW::Forgejo::Entity::Repo->new(
         client => $self->{client},
         owner  => $owner,
@@ -87,7 +88,7 @@ Create a repository from a template.
 
 sub create_from_template {
     my ($self, $template_owner, $template_repo, %params) = @_;
-    my $result = $self->{client}->post("/repos/$template_owner/$template_repo/generate", \%params);
+    my $result = $self->{client}->post("/repos/" . uri_escape($template_owner) . "/" . uri_escape($template_repo) . "/generate", \%params);
     return WWW::Forgejo::Entity::Repo->new(
         client => $self->{client},
         owner  => $result->{owner}->{login},
@@ -129,7 +130,7 @@ Delete a repository.
 
 sub delete {
     my ($self, $owner, $repo) = @_;
-    $self->{client}->delete("/repos/$owner/$repo");
+    $self->{client}->delete("/repos/" . uri_escape($owner) . "/" . uri_escape($repo));
     return 1;
 }
 
@@ -145,7 +146,7 @@ Transfer a repository to another owner.
 
 sub transfer {
     my ($self, $owner, $repo, %params) = @_;
-    my $result = $self->{client}->post("/repos/$owner/$repo/transfer", \%params);
+    my $result = $self->{client}->post("/repos/" . uri_escape($owner) . "/" . uri_escape($repo) . "/transfer", \%params);
     return WWW::Forgejo::Entity::Repo->new(
         client => $self->{client},
         owner  => $result->{owner}->{login},
@@ -166,7 +167,7 @@ Fork a repository.
 
 sub fork {
     my ($self, $owner, $repo, %params) = @_;
-    my $result = $self->{client}->post("/repos/$owner/$repo/forks", \%params);
+    my $result = $self->{client}->post("/repos/" . uri_escape($owner) . "/" . uri_escape($repo) . "/forks", \%params);
     return WWW::Forgejo::Entity::Repo->new(
         client => $self->{client},
         owner  => $result->{owner}->{login},
@@ -188,7 +189,7 @@ Generate repository content.
 
 sub generate {
     my ($self, $owner, $repo, %params) = @_;
-    return $self->{client}->post("/repos/$owner/$repo/generate", \%params);
+    return $self->{client}->post("/repos/" . uri_escape($owner) . "/" . uri_escape($repo) . "/generate", \%params);
 }
 
 =method mirror_sync
@@ -201,7 +202,7 @@ Sync a mirror repository.
 
 sub mirror_sync {
     my ($self, $owner, $repo) = @_;
-    return $self->{client}->post("/repos/$owner/$repo/mirror_sync");
+    return $self->{client}->post("/repos/" . uri_escape($owner) . "/" . uri_escape($repo) . "/mirror_sync");
 }
 
 =method push_mirrors
@@ -214,7 +215,7 @@ Get push mirrors for a repository.
 
 sub push_mirrors {
     my ($self, $owner, $repo) = @_;
-    return $self->{client}->get("/repos/$owner/$repo/push_mirrors");
+    return $self->{client}->get("/repos/" . uri_escape($owner) . "/" . uri_escape($repo) . "/push_mirrors");
 }
 
 =method add_push_mirror
@@ -230,7 +231,7 @@ Add a push mirror to a repository.
 
 sub add_push_mirror {
     my ($self, $owner, $repo, %params) = @_;
-    return $self->{client}->post("/repos/$owner/$repo/push_mirrors", \%params);
+    return $self->{client}->post("/repos/" . uri_escape($owner) . "/" . uri_escape($repo) . "/push_mirrors", \%params);
 }
 
 =method delete_push_mirror
@@ -243,7 +244,7 @@ Delete a push mirror from a repository.
 
 sub delete_push_mirror {
     my ($self, $owner, $repo, $name) = @_;
-    $self->{client}->delete("/repos/$owner/$repo/push_mirrors/$name");
+    $self->{client}->delete("/repos/" . uri_escape($owner) . "/" . uri_escape($repo) . "/push_mirrors/" . uri_escape($name));
     return 1;
 }
 
@@ -258,7 +259,7 @@ List repositories for an organization.
 sub list_for_org {
     my ($self, $org, %params) = @_;
     croak "Organization name required" unless $org;
-    my $data = $self->{client}->get("/orgs/$org/repos", %params);
+    my $data = $self->{client}->get("/orgs/" . uri_escape($org) . "/repos", %params);
     return [ map { WWW::Forgejo::Entity::Repo->new(client => $self->{client}, owner => $org, repo => $_->{name}, data => $_) } @{$data} ];
 }
 

@@ -329,7 +329,7 @@ subtest 'admin users create' => sub {
     } else {
         ok($new_user, 'create user works');
         # Cleanup
-        eval { $client->admin->users->delete_user('newtestuser') };
+        eval { $client->admin->users->delete('newtestuser') };
         diag explain $new_user;
     }
 };

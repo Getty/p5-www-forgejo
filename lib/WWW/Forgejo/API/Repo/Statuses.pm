@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Statuses;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use WWW::Forgejo::Entity::CommitStatus;
 
 has owner  => (is => 'ro', required => 1);
@@ -16,7 +17,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/statuses/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/statuses/" . join('/', @path);
 }
 
 =method list
@@ -29,7 +30,7 @@ List commit statuses.
 
 sub list {
     my ($self, $sha) = @_;
-    my $data = $self->{client}->get($self->_path_for($sha));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($sha)));
     return map {
         WWW::Forgejo::Entity::CommitStatus->new(
             client => $self->client,
@@ -55,7 +56,7 @@ Create a commit status.
 
 sub create {
     my ($self, $sha, $data) = @_;
-    my $status = $self->{client}->post($self->_path_for($sha), $data);
+    my $status = $self->{client}->post($self->_path_for(uri_escape($sha)), $data);
     return WWW::Forgejo::Entity::CommitStatus->new(
         client => $self->client,
         owner  => $self->owner,

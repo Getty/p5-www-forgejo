@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Issues;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 use WWW::Forgejo::Entity::Issue;
 use WWW::Forgejo::Entity::IssueComment;
@@ -18,7 +19,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/issues/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/issues/" . join('/', @path);
 }
 
 =method list
@@ -31,7 +32,7 @@ List all issues.
 
 sub list {
     my ($self, %params) = @_;
-    my $data = $self->{client}->get($self->_path_for, %params);
+    my $data = $self->{client}->get($self->_path_for, params => \%params);
     return map {
         WWW::Forgejo::Entity::Issue->new(
             client => $self->client,
@@ -52,7 +53,7 @@ Get an issue by ID.
 
 sub get {
     my ($self, $id) = @_;
-    my $data = $self->{client}->get($self->_path_for($id));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($id)));
     return WWW::Forgejo::Entity::Issue->new(
         client => $self->client,
         owner  => $self->owner,
@@ -94,7 +95,7 @@ Edit an issue.
 
 sub edit {
     my ($self, $index, $data) = @_;
-    my $result = $self->{client}->patch($self->_path_for($index), $data);
+    my $result = $self->{client}->patch($self->_path_for(uri_escape($index)), $data);
     return WWW::Forgejo::Entity::Issue->new(
         client => $self->client,
         owner  => $self->owner,
@@ -123,7 +124,7 @@ Delete an issue.
 
 sub delete {
     my ($self, $index) = @_;
-    $self->{client}->delete($self->_path_for($index));
+    $self->{client}->delete($self->_path_for(uri_escape($index)));
     return 1;
 }
 
@@ -137,7 +138,7 @@ List comments on an issue.
 
 sub list_comments {
     my ($self, $index) = @_;
-    my $data = $self->{client}->get($self->_path_for($index, 'comments'));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($index), 'comments'));
     return map {
         WWW::Forgejo::Entity::IssueComment->new(
             client => $self->client,
@@ -168,7 +169,7 @@ Add a comment to an issue.
 
 sub add_comment {
     my ($self, $index, $data) = @_;
-    my $result = $self->{client}->post($self->_path_for($index, 'comments'), $data);
+    my $result = $self->{client}->post($self->_path_for(uri_escape($index), 'comments'), $data);
     return $result;
 }
 
@@ -182,7 +183,7 @@ List labels on an issue.
 
 sub list_labels {
     my ($self, $index) = @_;
-    my $data = $self->{client}->get($self->_path_for($index, 'labels'));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($index), 'labels'));
     return @$data;
 }
 
@@ -206,13 +207,13 @@ Add a label to an issue.
 
 sub add_label {
     my ($self, $index, $data) = @_;
-    my $result = $self->{client}->post($self->_path_for($index, 'labels'), $data);
+    my $result = $self->{client}->post($self->_path_for(uri_escape($index), 'labels'), $data);
     return $result;
 }
 
 sub remove_label {
     my ($self, $index, $label) = @_;
-    $self->{client}->delete($self->_path_for($index, 'labels', $label));
+    $self->{client}->delete($self->_path_for(uri_escape($index), 'labels', uri_escape($label)));
     return 1;
 }
 

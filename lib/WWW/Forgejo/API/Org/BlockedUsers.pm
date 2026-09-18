@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Org::BlockedUsers;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has client => (is => 'ro', init_arg => 'client');
@@ -26,7 +27,7 @@ sub list {
     my ($self, $org) = @_;
     $org ||= $self->owner if $self->has_owner;
     croak "Organization name required" unless $org;
-    return $self->{client}->get("/orgs/$org/blocked_users");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/blocked_users");
 }
 
 =method block
@@ -41,7 +42,7 @@ sub block {
     my ($self, $org, $username) = @_;
     croak "Organization name required" unless $org;
     croak "Username required" unless $username;
-    return $self->{client}->put("/orgs/$org/blocked_users/$username", {});
+    return $self->{client}->put("/orgs/" . uri_escape($org) . "/blocked_users/" . uri_escape($username), {});
 }
 
 =method unblock
@@ -56,7 +57,7 @@ sub unblock {
     my ($self, $org, $username) = @_;
     croak "Organization name required" unless $org;
     croak "Username required" unless $username;
-    return $self->{client}->delete("/orgs/$org/blocked_users/$username");
+    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/blocked_users/" . uri_escape($username));
 }
 
 =method check
@@ -71,7 +72,7 @@ sub check {
     my ($self, $org, $username) = @_;
     croak "Organization name required" unless $org;
     croak "Username required" unless $username;
-    return $self->{client}->get("/orgs/$org/blocked_users/$username");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/blocked_users/" . uri_escape($username));
 }
 
 1;

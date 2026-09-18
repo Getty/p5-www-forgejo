@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Orgs;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 use WWW::Forgejo::Entity::Org;
 
@@ -41,7 +42,7 @@ Get a specific organization by name.
 sub get {
     my ($self, $org) = @_;
     croak "Organization name required" unless defined $org;
-    my $data = $self->{client}->get("/orgs/$org");
+    my $data = $self->{client}->get("/orgs/" . uri_escape($org));
     return WWW::Forgejo::Entity::Org->new(client => $self->client, data => $data);
 }
 
@@ -74,7 +75,7 @@ Edit an organization.
 sub edit {
     my ($self, $org, %params) = @_;
     croak "Organization name required" unless $org;
-    my $data = $self->{client}->post("/orgs/$org", \%params);
+    my $data = $self->{client}->post("/orgs/" . uri_escape($org), \%params);
     return WWW::Forgejo::Entity::Org->new(client => $self->client, data => $data);
 }
 
@@ -89,7 +90,7 @@ Delete an organization.
 sub delete {
     my ($self, $org) = @_;
     croak "Organization name required" unless $org;
-    return $self->{client}->delete("/orgs/$org");
+    return $self->{client}->delete("/orgs/" . uri_escape($org));
 }
 
 =method rename
@@ -104,7 +105,7 @@ sub rename {
     my ($self, $org, %params) = @_;
     croak "Organization name required" unless $org;
     croak "New name required" unless $params{new_name};
-    my $data = $self->{client}->post("/orgs/$org/rename", \%params);
+    my $data = $self->{client}->post("/orgs/" . uri_escape($org) . "/rename", \%params);
     return WWW::Forgejo::Entity::Org->new(client => $self->client, data => $data);
 }
 

@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Org::Actions;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has client => (is => 'ro', init_arg => 'client');
@@ -26,7 +27,7 @@ sub list {
     my ($self, $org, %params) = @_;
     $org ||= $self->owner if $self->has_owner;
     croak "Organization name required" unless $org;
-    return $self->{client}->get("/orgs/$org/actions/runs", params => \%params);
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/actions/runs", params => \%params);
 }
 
 =method get
@@ -39,7 +40,7 @@ Get a specific workflow run.
 
 sub get {
     my ($self, $org, $run_id) = @_;
-    return $self->{client}->get("/orgs/$org/actions/runs/$run_id");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/actions/runs/" . uri_escape($run_id));
 }
 
 =method list_workflows
@@ -52,7 +53,7 @@ List all workflows for an organization.
 
 sub list_workflows {
     my ($self, $org) = @_;
-    return $self->{client}->get("/orgs/$org/actions/workflows");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/actions/workflows");
 }
 
 =method get_workflow
@@ -65,7 +66,7 @@ Get a specific workflow.
 
 sub get_workflow {
     my ($self, $org, $workflow_id) = @_;
-    return $self->{client}->get("/orgs/$org/actions/workflows/$workflow_id");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/actions/workflows/" . uri_escape($workflow_id));
 }
 
 =method list_secrets
@@ -78,7 +79,7 @@ List all secrets for an organization.
 
 sub list_secrets {
     my ($self, $org) = @_;
-    return $self->{client}->get("/orgs/$org/actions/secrets");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/actions/secrets");
 }
 
 =method get_secret
@@ -91,7 +92,7 @@ Get a specific secret.
 
 sub get_secret {
     my ($self, $org, $secret_name) = @_;
-    return $self->{client}->get("/orgs/$org/actions/secrets/$secret_name");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/actions/secrets/" . uri_escape($secret_name));
 }
 
 =method set_secret
@@ -104,7 +105,7 @@ Set a secret.
 
 sub set_secret {
     my ($self, $org, $secret_name, $data) = @_;
-    return $self->{client}->put("/orgs/$org/actions/secrets/$secret_name", $data);
+    return $self->{client}->put("/orgs/" . uri_escape($org) . "/actions/secrets/" . uri_escape($secret_name), $data);
 }
 
 =method delete_secret
@@ -117,7 +118,7 @@ Delete a secret.
 
 sub delete_secret {
     my ($self, $org, $secret_name) = @_;
-    return $self->{client}->delete("/orgs/$org/actions/secrets/$secret_name");
+    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/actions/secrets/" . uri_escape($secret_name));
 }
 
 =method list_variables
@@ -130,7 +131,7 @@ List all variables for an organization.
 
 sub list_variables {
     my ($self, $org) = @_;
-    return $self->{client}->get("/orgs/$org/actions/variables");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/actions/variables");
 }
 
 =method get_variable
@@ -143,7 +144,7 @@ Get a specific variable.
 
 sub get_variable {
     my ($self, $org, $var_name) = @_;
-    return $self->{client}->get("/orgs/$org/actions/variables/$var_name");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/actions/variables/" . uri_escape($var_name));
 }
 
 =method set_variable
@@ -156,7 +157,7 @@ Set a variable.
 
 sub set_variable {
     my ($self, $org, $var_name, $data) = @_;
-    return $self->{client}->put("/orgs/$org/actions/variables/$var_name", $data);
+    return $self->{client}->put("/orgs/" . uri_escape($org) . "/actions/variables/" . uri_escape($var_name), $data);
 }
 
 =method delete_variable
@@ -169,7 +170,7 @@ Delete a variable.
 
 sub delete_variable {
     my ($self, $org, $var_name) = @_;
-    return $self->{client}->delete("/orgs/$org/actions/variables/$var_name");
+    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/actions/variables/" . uri_escape($var_name));
 }
 
 =method list_runners
@@ -182,7 +183,7 @@ List all organization runners.
 
 sub list_runners {
     my ($self, $org) = @_;
-    return $self->{client}->get("/orgs/$org/actions/runners");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/actions/runners");
 }
 
 =method get_runner
@@ -195,7 +196,7 @@ Get a specific runner.
 
 sub get_runner {
     my ($self, $org, $runner_id) = @_;
-    return $self->{client}->get("/orgs/$org/actions/runners/$runner_id");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/actions/runners/" . uri_escape($runner_id));
 }
 
 =method delete_runner
@@ -208,7 +209,7 @@ Delete a runner.
 
 sub delete_runner {
     my ($self, $org, $runner_id) = @_;
-    return $self->{client}->delete("/orgs/$org/actions/runners/$runner_id");
+    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/actions/runners/" . uri_escape($runner_id));
 }
 
 =method regenerate_runner_token
@@ -221,7 +222,7 @@ Regenerate a runner token.
 
 sub regenerate_runner_token {
     my ($self, $org, $runner_id) = @_;
-    return $self->{client}->post("/orgs/$org/actions/runners/$runner_id regeneration");
+    return $self->{client}->post("/orgs/" . uri_escape($org) . "/actions/runners/" . uri_escape($runner_id) . " regeneration");
 }
 
 1;

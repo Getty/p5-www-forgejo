@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::BranchProtections;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use WWW::Forgejo::Entity::BranchProtection;
 
 has owner  => (is => 'ro', required => 1);
@@ -16,7 +17,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/branch_protections/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/branch_protections/" . join('/', @path);
 }
 
 =method list
@@ -50,7 +51,7 @@ Get a branch protection.
 
 sub get {
     my ($self, $branch_name) = @_;
-    my $path = $self->_path_for($branch_name);
+    my $path = $self->_path_for(uri_escape($branch_name));
     my $data = $self->{client}->get($path);
     return WWW::Forgejo::Entity::BranchProtection->new(
         client => $self->client,
@@ -93,7 +94,7 @@ Update a branch protection.
 
 sub update {
     my ($self, $branch_name, $data) = @_;
-    my $path = $self->_path_for($branch_name);
+    my $path = $self->_path_for(uri_escape($branch_name));
     my $result = $self->{client}->patch($path, $data);
     return WWW::Forgejo::Entity::BranchProtection->new(
         client => $self->client,
@@ -126,7 +127,7 @@ Delete a branch protection.
 
 sub delete {
     my ($self, $branch_name) = @_;
-    my $path = $self->_path_for($branch_name);
+    my $path = $self->_path_for(uri_escape($branch_name));
     return $self->{client}->delete($path);
 }
 

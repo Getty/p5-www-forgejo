@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Wiki;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
@@ -15,7 +16,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/wiki/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/wiki/" . join('/', @path);
 }
 
 =method list
@@ -42,7 +43,7 @@ Get a wiki page.
 
 sub get_page {
     my ($self, $slug) = @_;
-    my $data = $self->{client}->get($self->_path_for($slug));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($slug)));
     return $data;
 }
 
@@ -78,7 +79,7 @@ Edit a wiki page.
 
 sub edit_page {
     my ($self, $slug, $data) = @_;
-    my $page = $self->{client}->patch($self->_path_for($slug), $data);
+    my $page = $self->{client}->patch($self->_path_for(uri_escape($slug)), $data);
     return $page;
 }
 
@@ -94,7 +95,7 @@ Delete a wiki page.
 
 sub delete_page {
     my ($self, $slug, $data) = @_;
-    $self->{client}->delete($self->_path_for($slug), $data ? $data : {});
+    $self->{client}->delete($self->_path_for(uri_escape($slug)), $data ? $data : {});
     return;
 }
 

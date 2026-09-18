@@ -17,7 +17,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/hooks/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/hooks/" . join('/', @path);
 }
 
 =method list
@@ -51,7 +51,7 @@ Get a hook by ID.
 
 sub get {
     my ($self, $id) = @_;
-    my $data = $self->{client}->get($self->_path_for($id));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($id)));
     return WWW::Forgejo::Entity::Hook->new(
         client => $self->client,
         owner  => $self->owner,
@@ -95,7 +95,7 @@ Update a hook.
 
 sub update {
     my ($self, $id, $data) = @_;
-    my $path = $self->_path_for($id);
+    my $path = $self->_path_for(uri_escape($id));
     my $result = $self->{client}->patch($path, $data);
     return WWW::Forgejo::Entity::Hook->new(
         client => $self->client,
@@ -128,7 +128,7 @@ Delete a hook.
 
 sub delete {
     my ($self, $id) = @_;
-    my $path = $self->_path_for($id);
+    my $path = $self->_path_for(uri_escape($id));
     return $self->{client}->delete($path);
 }
 
@@ -142,7 +142,7 @@ Test a hook.
 
 sub test {
     my ($self, $id) = @_;
-    my $path = $self->_path_for($id, 'tests');
+    my $path = $self->_path_for(uri_escape($id), 'tests');
     return $self->{client}->post($path, {});
 }
 
@@ -156,7 +156,7 @@ Ping a hook.
 
 sub ping {
     my ($self, $id) = @_;
-    my $path = $self->_path_for($id, 'tests');
+    my $path = $self->_path_for(uri_escape($id), 'tests');
     return $self->{client}->post($path, {});
 }
 

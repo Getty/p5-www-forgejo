@@ -134,7 +134,8 @@ subtest 'API error raises exception' => sub {
 };
 
 subtest 'auth required' => sub {
-    eval { WWW::Forgejo->new(token => '')->get('/test') };
+    delete local $ENV{FORGEJO_TOKEN};
+    eval { WWW::Forgejo->new(url => 'https://test.example', token => '')->get('/test') };
     like($@, qr/No API token configured/i);
 };
 

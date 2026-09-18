@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::TagProtections;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
@@ -15,7 +16,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/tag_protections/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/tag_protections/" . join('/', @path);
 }
 
 =method list
@@ -42,7 +43,7 @@ Get a tag protection.
 
 sub get {
     my ($self, $id) = @_;
-    my $path = $self->_path_for($id);
+    my $path = $self->_path_for(uri_escape($id));
     my $data = $self->{client}->get($path);
     return $data;
 }
@@ -73,7 +74,7 @@ Delete a tag protection.
 
 sub delete {
     my ($self, $id) = @_;
-    my $path = $self->_path_for($id);
+    my $path = $self->_path_for(uri_escape($id));
     return $self->{client}->delete($path);
 }
 

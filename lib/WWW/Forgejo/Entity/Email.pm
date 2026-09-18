@@ -3,10 +3,8 @@ package WWW::Forgejo::Entity::Email;
 # PODNAME: WWW::Forgejo::Entity::Email
 
 use Moo;
+extends 'WWW::Forgejo::Entity';
 use Log::Any qw($log);
-
-has client => (is => 'ro', required => 1);
-has data => (is => 'ro', required => 1);
 
 sub email { shift->data->{email} }
 sub primary { shift->data->{primary} }

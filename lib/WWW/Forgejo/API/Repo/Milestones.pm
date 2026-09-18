@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Milestones;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 use WWW::Forgejo::Entity::Milestone;
 use WWW::Forgejo::Entity::Issue;
@@ -18,7 +19,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/milestones/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/milestones/" . join('/', @path);
 }
 
 sub _to_milestone {
@@ -55,7 +56,7 @@ Get a milestone by ID.
 
 sub get {
     my ($self, $id) = @_;
-    my $data = $self->{client}->get($self->_path_for($id));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($id)));
     return $self->_to_milestone($data);
 }
 
@@ -87,7 +88,7 @@ Edit a milestone.
 
 sub edit {
     my ($self, $id, $data) = @_;
-    my $result = $self->{client}->patch($self->_path_for($id), $data);
+    my $result = $self->{client}->patch($self->_path_for(uri_escape($id)), $data);
     return $self->_to_milestone($result);
 }
 
@@ -111,7 +112,7 @@ Delete a milestone.
 
 sub delete {
     my ($self, $id) = @_;
-    $self->{client}->delete($self->_path_for($id));
+    $self->{client}->delete($self->_path_for(uri_escape($id)));
     return 1;
 }
 
@@ -125,7 +126,7 @@ List issues in a milestone.
 
 sub issues {
     my ($self, $id) = @_;
-    my $data = $self->{client}->get($self->_path_for($id, 'issues'));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($id), 'issues'));
     return map {
         WWW::Forgejo::Entity::Issue->new(
             client => $self->client,

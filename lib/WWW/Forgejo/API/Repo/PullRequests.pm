@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::PullRequests;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 use WWW::Forgejo::Entity::PullRequestReview;
 use WWW::Forgejo::Entity::IssueComment;
@@ -19,7 +20,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/pulls/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/pulls/" . join('/', @path);
 }
 
 =method list
@@ -32,7 +33,7 @@ List all pull requests.
 
 sub list {
     my ($self, %params) = @_;
-    my $data = $self->{client}->get($self->_path_for, %params);
+    my $data = $self->{client}->get($self->_path_for, params => \%params);
     return map { $self->_to_pr($_) } @$data;
 }
 
@@ -46,7 +47,7 @@ Get a pull request by ID.
 
 sub get {
     my ($self, $id) = @_;
-    my $data = $self->{client}->get($self->_path_for($id));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($id)));
     return $self->_to_pr($data);
 }
 
@@ -89,7 +90,7 @@ Edit a pull request.
 
 sub edit {
     my ($self, $index, $data) = @_;
-    my $result = $self->{client}->patch($self->_path_for($index), $data);
+    my $result = $self->{client}->patch($self->_path_for(uri_escape($index)), $data);
     return $self->_to_pr($result);
 }
 
@@ -113,7 +114,7 @@ Delete a pull request.
 
 sub delete {
     my ($self, $index) = @_;
-    $self->{client}->delete($self->_path_for($index));
+    $self->{client}->delete($self->_path_for(uri_escape($index)));
     return 1;
 }
 
@@ -128,7 +129,7 @@ Merge a pull request.
 sub merge {
     my ($self, $index, $data) = @_;
     $data //= {};
-    my $result = $self->{client}->post($self->_path_for($index, 'merge'), $data);
+    my $result = $self->{client}->post($self->_path_for(uri_escape($index), 'merge'), $data);
     return $result;
 }
 
@@ -142,7 +143,7 @@ Check if a pull request is merged.
 
 sub is_merged {
     my ($self, $index) = @_;
-    my $result = $self->{client}->get($self->_path_for($index, 'merged'));
+    my $result = $self->{client}->get($self->_path_for(uri_escape($index), 'merged'));
     return $result;
 }
 
@@ -156,7 +157,7 @@ List reviews for a pull request.
 
 sub reviews {
     my ($self, $index) = @_;
-    my $data = $self->{client}->get($self->_path_for($index, 'reviews'));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($index), 'reviews'));
     return map {
         WWW::Forgejo::Entity::PullRequestReview->new(
             client => $self->client,
@@ -169,13 +170,13 @@ sub reviews {
 
 sub create_review {
     my ($self, $index, $data) = @_;
-    my $result = $self->{client}->post($self->_path_for($index, 'reviews'), $data);
+    my $result = $self->{client}->post($self->_path_for(uri_escape($index), 'reviews'), $data);
     return $result;
 }
 
 sub comments {
     my ($self, $index) = @_;
-    my $data = $self->{client}->get($self->_path_for($index, 'comments'));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($index), 'comments'));
     return map {
         WWW::Forgejo::Entity::IssueComment->new(
             client => $self->client,

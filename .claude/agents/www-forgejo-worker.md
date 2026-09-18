@@ -9,6 +9,7 @@ briefing:
     - getty-perl-moo
     - getty-perl-core
     - perl-release-dist-ini
+    - feedback-loop-debugging
     - kanban-issues-karr-cli
 ---
 

@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Org::Quota;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has client => (is => 'ro', init_arg => 'client');
@@ -26,7 +27,7 @@ sub get {
     my ($self, $org) = @_;
     $org ||= $self->owner if $self->has_owner;
     croak "Organization name required" unless $org;
-    return $self->{client}->get("/orgs/$org/quota");
+    return $self->{client}->get("/orgs/" . uri_escape($org) . "/quota");
 }
 
 =method set
@@ -42,7 +43,7 @@ Set organization quota.
 sub set {
     my ($self, $org, %params) = @_;
     croak "Organization name required" unless $org;
-    return $self->{client}->post("/orgs/$org/quota", \%params);
+    return $self->{client}->post("/orgs/" . uri_escape($org) . "/quota", \%params);
 }
 
 1;

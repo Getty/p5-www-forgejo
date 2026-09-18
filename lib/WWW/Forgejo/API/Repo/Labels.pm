@@ -16,7 +16,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/labels/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/labels/" . join('/', @path);
 }
 
 =method list
@@ -43,7 +43,7 @@ Get a label by ID.
 
 sub get {
     my ($self, $id) = @_;
-    my $data = $self->{client}->get($self->_path_for($id));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($id)));
     return $data;
 }
 
@@ -75,7 +75,7 @@ Update a label.
 
 sub update {
     my ($self, $id, $data) = @_;
-    my $path = $self->_path_for($id);
+    my $path = $self->_path_for(uri_escape($id));
     return $self->{client}->patch($path, $data);
 }
 
@@ -102,7 +102,7 @@ Delete a label.
 
 sub delete {
     my ($self, $id) = @_;
-    my $path = $self->_path_for($id);
+    my $path = $self->_path_for(uri_escape($id));
     return $self->{client}->delete($path);
 }
 

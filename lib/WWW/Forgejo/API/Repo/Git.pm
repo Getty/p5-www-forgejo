@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Git;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
@@ -15,7 +16,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/git/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/git/" . join('/', @path);
 }
 
 =method refs
@@ -87,7 +88,7 @@ Get a commit.
 
 sub get_commit {
     my ($self, $sha) = @_;
-    my $data = $self->{client}->get($self->_path_for("commits/$sha"));
+    my $data = $self->{client}->get($self->_path_for("commits/" . uri_escape($sha)));
     return $data;
 }
 
@@ -101,7 +102,7 @@ Get a tree.
 
 sub get_tree {
     my ($self, $sha) = @_;
-    my $data = $self->{client}->get($self->_path_for("trees/$sha"));
+    my $data = $self->{client}->get($self->_path_for("trees/" . uri_escape($sha)));
     return $data;
 }
 
@@ -115,7 +116,7 @@ Get a blob.
 
 sub get_blob {
     my ($self, $sha) = @_;
-    my $data = $self->{client}->get($self->_path_for("blobs/$sha"));
+    my $data = $self->{client}->get($self->_path_for("blobs/" . uri_escape($sha)));
     return $data;
 }
 

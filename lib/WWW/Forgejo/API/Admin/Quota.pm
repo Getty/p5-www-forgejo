@@ -4,6 +4,7 @@ package WWW::Forgejo::API::Admin::Quota;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 
 has client => (
@@ -34,7 +35,7 @@ Get a specific quota group by name.
 
 sub get_group {
     my ($self, $name) = @_;
-    return $self->{client}->get("/admin/quota/groups/$name");
+    return $self->{client}->get("/admin/quota/groups/" . uri_escape($name));
 }
 
 =method create_group
@@ -60,7 +61,7 @@ Delete a quota group.
 
 sub delete_group {
     my ($self, $name) = @_;
-    return $self->{client}->delete("/admin/quota/groups/$name");
+    return $self->{client}->delete("/admin/quota/groups/" . uri_escape($name));
 }
 
 1;

@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Assignees;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
@@ -15,7 +16,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/assignees/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/assignees/" . join('/', @path);
 }
 
 =method list
@@ -42,7 +43,7 @@ Check if user is an assignee.
 
 sub check {
     my ($self, $username) = @_;
-    my $data = $self->{client}->get($self->_path_for($username));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($username)));
     return $data;
 }
 
@@ -56,7 +57,7 @@ Add an assignee to an issue.
 
 sub add {
     my ($self, $index, $username) = @_;
-    my $data = $self->{client}->post($self->_path_for("../issues/$index/assignees"), { assignee => $username });
+    my $data = $self->{client}->post($self->_path_for("../issues/" . uri_escape($index) . "/assignees"), { assignee => $username });
     return $data;
 }
 
@@ -70,7 +71,7 @@ Remove an assignee from an issue.
 
 sub remove {
     my ($self, $index, $username) = @_;
-    $self->{client}->delete($self->_path_for("../issues/$index/assignees/$username"));
+    $self->{client}->delete($self->_path_for("../issues/" . uri_escape($index) . "/assignees/" . uri_escape($username)));
     return;
 }
 

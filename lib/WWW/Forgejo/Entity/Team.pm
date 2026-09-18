@@ -7,31 +7,9 @@ use warnings;
 package WWW::Forgejo::Entity::Team;
 
 use Moo;
+extends 'WWW::Forgejo::Entity';
 use Log::Any qw($log);
 use Carp qw(croak);
-
-=attr client
-
-The WWW::Forgejo client instance (weaker_ref to avoid cycles).
-
-=cut
-
-has client => (
-    is       => 'ro',
-    weak_ref => 1,
-    required => 1,
-);
-
-=attr data
-
-The raw data hashref from the API response.
-
-=cut
-
-has data => (
-    is       => 'ro',
-    required => 1,
-);
 
 =method id
 

@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Releases;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 use Carp qw(croak);
 use WWW::Forgejo::Entity::Release;
 use WWW::Forgejo::Entity::ReleaseAsset;
@@ -18,7 +19,7 @@ has client => (is => 'ro', init_arg => 'client');
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\$self->owner}/${\\$self->repo}/releases/" . join('/', @path);
+    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/releases/" . join('/', @path);
 }
 
 =method list
@@ -52,7 +53,7 @@ Get a release by ID.
 
 sub get {
     my ($self, $id) = @_;
-    my $data = $self->{client}->get($self->_path_for($id));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($id)));
     return WWW::Forgejo::Entity::Release->new(
         client => $self->client,
         owner  => $self->owner,
@@ -71,7 +72,7 @@ Get a release by tag.
 
 sub get_by_tag {
     my ($self, $tag) = @_;
-    my $data = $self->{client}->get($self->_path_for('tags', $tag));
+    my $data = $self->{client}->get($self->_path_for('tags', uri_escape($tag)));
     return WWW::Forgejo::Entity::Release->new(
         client => $self->client,
         owner  => $self->owner,
@@ -114,7 +115,7 @@ Edit a release.
 
 sub edit {
     my ($self, $id, $data) = @_;
-    my $result = $self->{client}->patch($self->_path_for($id), $data);
+    my $result = $self->{client}->patch($self->_path_for(uri_escape($id)), $data);
     return WWW::Forgejo::Entity::Release->new(
         client => $self->client,
         owner  => $self->owner,
@@ -143,7 +144,7 @@ Delete a release.
 
 sub delete {
     my ($self, $id) = @_;
-    $self->{client}->delete($self->_path_for($id));
+    $self->{client}->delete($self->_path_for(uri_escape($id)));
     return 1;
 }
 
@@ -157,7 +158,7 @@ List assets for a release.
 
 sub assets {
     my ($self, $id) = @_;
-    my $data = $self->{client}->get($self->_path_for($id, 'assets'));
+    my $data = $self->{client}->get($self->_path_for(uri_escape($id), 'assets'));
     return map {
         WWW::Forgejo::Entity::ReleaseAsset->new(
             client => $self->client,
@@ -170,7 +171,7 @@ sub assets {
 
 sub upload_asset {
     my ($self, $id, $data) = @_;
-    my $result = $self->{client}->post($self->_path_for($id, 'assets'), $data);
+    my $result = $self->{client}->post($self->_path_for(uri_escape($id), 'assets'), $data);
     return $result;
 }
 

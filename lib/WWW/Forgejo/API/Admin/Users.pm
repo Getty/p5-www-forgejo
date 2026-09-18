@@ -4,6 +4,7 @@ package WWW::Forgejo::API::Admin::Users;
 
 use Moo;
 use Log::Any qw($log);
+use URI::Escape;
 
 has client => (
     is       => 'ro',
@@ -33,7 +34,7 @@ Get a specific user by username.
 
 sub get {
     my ($self, $username) = @_;
-    return $self->{client}->get("/users/$username");
+    return $self->{client}->get("/users/" . uri_escape($username));
 }
 
 =method create
@@ -63,7 +64,7 @@ Edit an existing user.
 
 sub edit {
     my ($self, $username, %params) = @_;
-    return $self->{client}->put("/admin/users/$username", \%params);
+    return $self->{client}->put("/admin/users/" . uri_escape($username), \%params);
 }
 
 =method delete
@@ -74,9 +75,9 @@ Delete a user.
 
 =cut
 
-sub delete_user {
+sub delete {
     my ($self, $username) = @_;
-    return $self->{client}->delete("/admin/users/$username");
+    return $self->{client}->delete("/admin/users/" . uri_escape($username));
 }
 
 =method rename
@@ -89,7 +90,7 @@ Rename a user.
 
 sub rename {
     my ($self, $username, $new_name) = @_;
-    return $self->{client}->post("/admin/users/$username/rename", { new_name => $new_name });
+    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/rename", { new_name => $new_name });
 }
 
 =method add_email
@@ -102,7 +103,7 @@ Add an email address to a user.
 
 sub add_email {
     my ($self, $username, $email) = @_;
-    return $self->{client}->post("/admin/users/$username/emails", { email => $email });
+    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/emails", { email => $email });
 }
 
 =method delete_email
@@ -115,7 +116,7 @@ Delete an email address from a user.
 
 sub delete_email {
     my ($self, $username, $email) = @_;
-    return $self->{client}->delete("/admin/users/$username/emails/$email");
+    return $self->{client}->delete("/admin/users/" . uri_escape($username) . "/emails/" . uri_escape($email));
 }
 
 =method search_emails
@@ -141,7 +142,7 @@ List all public keys for a user.
 
 sub list_keys {
     my ($self, $username) = @_;
-    return $self->{client}->get("/admin/users/$username/keys");
+    return $self->{client}->get("/admin/users/" . uri_escape($username) . "/keys");
 }
 
 =method add_key
@@ -154,7 +155,7 @@ Add a public key to a user.
 
 sub add_key {
     my ($self, $username, %params) = @_;
-    return $self->{client}->post("/admin/users/$username/keys", \%params);
+    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/keys", \%params);
 }
 
 =method delete_key
@@ -167,7 +168,7 @@ Delete a public key from a user.
 
 sub delete_key {
     my ($self, $username, $key_id) = @_;
-    return $self->{client}->delete("/admin/users/$username/keys/$key_id");
+    return $self->{client}->delete("/admin/users/" . uri_escape($username) . "/keys/" . uri_escape($key_id));
 }
 
 =method list_orgs
@@ -180,7 +181,7 @@ List all organizations for a user.
 
 sub list_orgs {
     my ($self, $username) = @_;
-    return $self->{client}->get("/admin/users/$username/orgs");
+    return $self->{client}->get("/admin/users/" . uri_escape($username) . "/orgs");
 }
 
 =method create_org_for
@@ -193,7 +194,7 @@ Create an organization for a user.
 
 sub create_org_for {
     my ($self, $username, %params) = @_;
-    return $self->{client}->post("/admin/users/$username/orgs", \%params);
+    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/orgs", \%params);
 }
 
 =method list_repos
@@ -206,7 +207,7 @@ List all repositories for a user.
 
 sub list_repos {
     my ($self, $username) = @_;
-    return $self->{client}->get("/admin/users/$username/repos");
+    return $self->{client}->get("/admin/users/" . uri_escape($username) . "/repos");
 }
 
 =method create_repo_for
@@ -219,7 +220,7 @@ Create a repository for a user.
 
 sub create_repo_for {
     my ($self, $username, %params) = @_;
-    return $self->{client}->post("/admin/users/$username/repos", \%params);
+    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/repos", \%params);
 }
 
 =method quota
@@ -232,7 +233,7 @@ Get quota information for a user.
 
 sub quota {
     my ($self, $username) = @_;
-    return $self->{client}->get("/admin/users/$username/quota");
+    return $self->{client}->get("/admin/users/" . uri_escape($username) . "/quota");
 }
 
 =method add_to_quota_group
@@ -245,7 +246,7 @@ Add a user to a quota group.
 
 sub add_to_quota_group {
     my ($self, $username, $group) = @_;
-    return $self->{client}->post("/admin/users/$username/quota/group", { group_name => $group });
+    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/quota/group", { group_name => $group });
 }
 
 1;
