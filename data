@@ -1,0 +1,16 @@
+---
+class: standard
+completed: 2026-09-18T02:53:07Z
+created: 2026-09-09T10:28:28Z
+id: 7
+priority: low
+started: 2026-09-18T02:53:07Z
+status: done
+tags:
+- api
+- pagination
+title: Auto-paginate search-object responses ok data array shape
+updated: 2026-09-18T02:53:07Z
+---
+
+Ticket 5 added auto pagination for bare JSON array list responses via X Total Count. Search endpoints return an object wrapping the array like ok true data array plus X Total Count. That shape was deliberately deferred because keying pagination off has a data arrayref could mis collect non search object responses across many controllers. Decide a safe trigger for the search object shape and paginate it too. Found during Phase 2 batch.
