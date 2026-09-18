@@ -32,7 +32,7 @@ List all issues.
 
 sub list {
     my ($self, %params) = @_;
-    my $data = $self->{client}->get($self->_path_for, %params);
+    my $data = $self->{client}->get($self->_path_for, params => \%params);
     return map {
         WWW::Forgejo::Entity::Issue->new(
             client => $self->client,

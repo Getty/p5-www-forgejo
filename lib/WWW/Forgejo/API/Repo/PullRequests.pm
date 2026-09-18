@@ -33,7 +33,7 @@ List all pull requests.
 
 sub list {
     my ($self, %params) = @_;
-    my $data = $self->{client}->get($self->_path_for, %params);
+    my $data = $self->{client}->get($self->_path_for, params => \%params);
     return map { $self->_to_pr($_) } @$data;
 }
 

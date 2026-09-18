@@ -93,6 +93,18 @@ subtest 'pulls list' => sub {
     like($req->url, qr{/repos/testorg/test-repo/pulls}, 'list path');
 };
 
+subtest 'pulls list forwards filter params to the query string' => sub {
+    clear_responses;
+    add_response(200, '[{"id":10,"number":1,"title":"First PR","state":"open"}]');
+
+    my @prs = $pulls->list(state => 'open');
+    is(scalar @prs, 1, 'one PR returned');
+
+    my $req = last_req;
+    is($req->method, 'GET', 'filtered list => GET');
+    like($req->url, qr{[?&]state=open(?:&|$)}, 'state filter reaches the query string');
+};
+
 subtest 'pulls get + entity accessors' => sub {
     clear_responses;
     add_response(200,
@@ -323,6 +335,18 @@ subtest 'issues list' => sub {
     my $req = last_req;
     is($req->method, 'GET', 'list => GET');
     like($req->url, qr{/repos/testorg/test-repo/issues}, 'list path');
+};
+
+subtest 'issues list forwards filter params to the query string' => sub {
+    clear_responses;
+    add_response(200, '[{"id":1,"number":1,"title":"Bug","state":"open","labels":[]}]');
+
+    my @list = $issues->list(state => 'open');
+    is(scalar @list, 1, 'one issue returned');
+
+    my $req = last_req;
+    is($req->method, 'GET', 'filtered list => GET');
+    like($req->url, qr{[?&]state=open(?:&|$)}, 'state filter reaches the query string');
 };
 
 subtest 'issues get + entity accessors' => sub {
