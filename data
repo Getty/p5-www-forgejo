@@ -1,0 +1,11 @@
+---
+class: standard
+created: 2026-09-18T23:11:10Z
+id: 17
+priority: high
+status: backlog
+title: Live-Suite manuell gegen echte/docker Forgejo-Instanz verifizieren vor Release
+updated: 2026-09-18T23:11:10Z
+---
+
+Aus TODO.md Phase 10 uebernommen (Datei wird geloescht, Plan ist sonst vollstaendig umgesetzt). Vor dem finalen Release-Schritt sollte die Live-Testsuite (t/90-live-admin.t, t/91-live-comprehensive.t, t/92-live-comprehensive.t) mit TEST_FORGEJO_URL/TEST_FORGEJO_TOKEN gegen eine echte Instanz laufen -- lokale Docker/k8s-Testinfra (docker-compose.yaml, Makefile.docker, k8s/forgejo-test/, scripts/setup-forgejo-test.sh) existiert dafuer bereits im Repo, wurde aber laut Audit noch nicht als Nachweis erwaehnt. Kein Release-Freigabe ohne diesen Nachweis.
