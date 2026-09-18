@@ -1,0 +1,14 @@
+---
+class: standard
+created: 2026-09-18T16:11:25Z
+id: 12
+priority: low
+status: backlog
+tags:
+- docs
+- pod
+title: 'POD gap: Repo::Issues/PullRequests list() POD does not mention filter params'
+updated: 2026-09-18T16:11:25Z
+---
+
+karr #9 (a68b753) made list() in WWW::Forgejo::API::Repo::Issues and WWW::Forgejo::API::Repo::PullRequests forward %params into the query string (list(state => 'open')), and it is tested (t/30-issues-prs.t: 'list forwards filter params to the query string'). But the =method list POD block in both modules still only shows $self->list with no arguments and says just 'List all issues.' / 'List all pull requests.' - no mention that filter params are accepted and forwarded. Non-blocking, but worth a one-line POD update for www-forgejo-worker before or shortly after release. Found during www-forgejo-release-checker audit of main (commit 3e4e592).
