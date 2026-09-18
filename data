@@ -1,0 +1,17 @@
+---
+class: standard
+completed: 2026-09-18T02:53:12Z
+created: 2026-09-09T10:38:44Z
+id: 8
+priority: medium
+started: 2026-09-18T02:53:12Z
+status: done
+tags:
+- api
+- bug
+- doc
+title: Admin::Users delete method is named delete_user but POD says delete
+updated: 2026-09-18T02:53:12Z
+---
+
+API Admin Users defines the delete method as delete_user but its POD (inline method block and the head2 in END) documents it as delete username. The class does not extend the base Entity so client admin users delete username dies with Can not locate object method delete. Either rename the method to delete or fix the POD to delete_user. Found by the new t 10 admin users test which asserts current behavior can delete_user true can delete false. Phase 2 batch ticket 6.
