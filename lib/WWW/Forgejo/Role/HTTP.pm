@@ -89,27 +89,31 @@ sub get {
 
     my ($data, $response) = $self->_request_with_response('GET', $path, %opts);
 
-    # Auto-paginate only bare JSON arrays that the server reports as truncated,
-    # and only when the caller has not pinned a specific page. Single-object
-    # responses, arrays without an X-Total-Count header, and explicitly-paged
-    # requests are returned unchanged with no extra HTTP calls.
-    return $data unless ref $data eq 'ARRAY';
+    # Locate the collection this response paginates over: a bare JSON array, or
+    # the arrayref inside a Forgejo search envelope ({ ok => ..., data => [...] }).
+    # Auto-paginate only when the server reports the collection as truncated via
+    # X-Total-Count, and only when the caller has not pinned a specific page.
+    # Plain objects (no `data` arrayref), arrays/envelopes without an
+    # X-Total-Count header, and explicitly-paged requests are returned unchanged
+    # with no extra HTTP calls.
+    my $items = $self->_collection_ref($data);
+    return $data unless $items;
     return $data if $pinned;
 
     my $total = $response->headers->{'x-total-count'};
     return $data unless defined $total && $total =~ /^[0-9]+$/;
-    return $data unless $total > scalar @$data;
+    return $data unless $total > scalar @$items;
 
     # Keep the per-page limit consistent across every fetched page so offsets
     # stay aligned. With no explicit page_size the server's page size is exactly
     # the number of items the first page returned, so reuse that: page N then
     # starts at (N-1)*limit, contiguous with no skipped or duplicated items.
-    my $limit = defined $page_size ? $page_size : scalar @$data;
+    my $limit = defined $page_size ? $page_size : scalar @$items;
     return $data unless $limit;
 
-    my @items = @$data;
+    my @collected = @$items;
     my $page  = 1;
-    while (@items < $total && $page < $max_pages) {
+    while (@collected < $total && $page < $max_pages) {
         $page++;
         my %page_opts = %opts;
         $page_opts{params} = {
@@ -118,12 +122,36 @@ sub get {
             limit => $limit,
         };
         my ($page_data) = $self->_request_with_response('GET', $path, %page_opts);
-        last unless ref $page_data eq 'ARRAY' && @$page_data;
-        push @items, @$page_data;
+        my $page_items = $self->_collection_ref($page_data);
+        last unless $page_items && @$page_items;
+        push @collected, @$page_items;
     }
 
-    return \@items;
+    # Return the same shape we received: a bare array as the merged arrayref, a
+    # search envelope with its `data` replaced by the merged collection so
+    # callers keep the { ok => ..., data => [...] } object they consume.
+    return { %$data, data => \@collected } if ref $data eq 'HASH';
+    return \@collected;
 }
+
+sub _collection_ref {
+    my ($self, $data) = @_;
+    return $data if ref $data eq 'ARRAY';
+    return $data->{data} if ref $data eq 'HASH' && ref $data->{data} eq 'ARRAY';
+    return;
+}
+
+=method _collection_ref
+
+    my $items = $self->_collection_ref($data);
+
+Returns the paginatable collection inside a decoded GET body, or nothing when
+there is none: the arrayref itself for a bare JSON array, or the C<data>
+arrayref for a Forgejo search envelope (C<< { ok => ..., data => [...] } >>).
+Any other shape - a plain object, or an envelope whose C<data> is not an
+arrayref - yields C<undef>, so L</get> leaves it untouched.
+
+=cut
 
 =method get
 
@@ -131,13 +159,16 @@ sub get {
 
 Perform a GET request.
 
-When the response is a JSON array and the server reports more results via the
-C<X-Total-Count> header than were returned on the first page, C<get>
-transparently collects the remaining pages and returns the combined arrayref
-(in order). This happens only when the caller has not pinned a page (no
-C<< params->{page} >>); single-object responses, arrays without an
-C<X-Total-Count> header, and explicitly-paged requests are returned as-is with
-no extra HTTP calls.
+When the response is a paginatable collection and the server reports more
+results via the C<X-Total-Count> header than were returned on the first page,
+C<get> transparently collects the remaining pages and returns them combined (in
+order). Two collection shapes are recognised: a bare JSON array (returned as the
+merged arrayref) and a Forgejo search envelope C<< { ok => ..., data => [...] } >>
+(returned as the same object with C<data> replaced by the merged collection).
+This happens only when the caller has not pinned a page (no
+C<< params->{page} >>); plain objects (no C<data> arrayref), collections without
+an C<X-Total-Count> header, and explicitly-paged requests are returned as-is
+with no extra HTTP calls.
 
 The per-page C<limit> is kept consistent across every fetched page so that
 Forgejo's C<(page - 1) * limit> offsets stay contiguous - no items are skipped

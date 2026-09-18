@@ -151,4 +151,43 @@ subtest 'explicitly-paged call is not auto-paginated' => sub {
     is(scalar @$items, 2, 'returned page as-is');
 };
 
+# (f) Forgejo search endpoints wrap the collection in an envelope object,
+# { ok => true, data => [ ... ] }, still with X-Total-Count. That shape must
+# paginate exactly like a bare array: fetch the remaining pages, concatenate
+# each page's `data`, and return the SAME envelope with the merged `data` so
+# search callers (e.g. repos->search, admin->users->search_emails) keep the
+# object they consume.
+subtest 'auto-paginates a search-object envelope, merging data across pages' => sub {
+    reset_mock();
+    queue('{"ok":true,"data":[{"id":1},{"id":2}]}', 'X-Total-Count' => 3);
+    queue('{"ok":true,"data":[{"id":3}]}',          'X-Total-Count' => 3);
+
+    my $result = $client->get('/repos/search');
+
+    is(ref $result, 'HASH', 'envelope hashref returned (shape preserved)');
+    ok($result->{ok}, 'envelope ok flag preserved');
+    is(ref $result->{data}, 'ARRAY', 'data is an arrayref');
+    is(scalar @{ $result->{data} }, 3, 'all 3 items collected across pages');
+    is_deeply([ map { $_->{id} } @{ $result->{data} } ], [ 1, 2, 3 ], 'data merged in order');
+    is(scalar @Test::MockIO::requests, 2, 'exactly two HTTP calls');
+    like($Test::MockIO::requests[1]->url, qr/\bpage=2\b/,  'second call requests page 2');
+    like($Test::MockIO::requests[1]->url, qr/\blimit=2\b/, 'second call limit = first-page data count');
+};
+
+# (g) The trigger is TIGHT: an object with a `data` arrayref but NO
+# X-Total-Count is an ordinary response, not a paginated collection, and must
+# be handed back untouched with no extra HTTP calls. (Test (e) covers the other
+# half: an object carrying X-Total-Count but no `data` arrayref.)
+subtest 'object with data key but no X-Total-Count is returned intact' => sub {
+    reset_mock();
+    queue('{"id":7,"data":[{"id":1}]}');
+
+    my $obj = $client->get('/some/object');
+
+    is(ref $obj, 'HASH', 'hash returned unchanged');
+    is($obj->{id}, 7, 'object content intact');
+    is_deeply($obj->{data}, [ { id => 1 } ], 'data key left exactly as received');
+    is(scalar @Test::MockIO::requests, 1, 'exactly one call, non-envelope never paginates');
+};
+
 done_testing;
