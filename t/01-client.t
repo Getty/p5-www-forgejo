@@ -10,6 +10,7 @@ subtest 'construction' => sub {
         token => 'test-token',
     );
     isa_ok($client, 'WWW::Forgejo');
+    is($client->url, 'https://src.ci', 'url keeps the raw instance URL as given');
     is($client->base_url, 'https://src.ci/api/v1', 'url gets /api/v1 appended');
     is($client->token, 'test-token');
 };

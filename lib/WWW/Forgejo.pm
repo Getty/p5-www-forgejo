@@ -24,18 +24,28 @@ our $VERSION = '0.001';
 
 =attr url
 
-Base URL of your Forgejo instance, e.g. C<https://src.ci>. Resolved at
-construction from the C<url> option, else the C<FORGEJO_URL> environment
-variable; if neither is set the constructor croaks with a helpful message.
-The value is normalised to end in C</api/v1> (idempotent: an already-suffixed
-URL is left unchanged), and the resolved value is available via
-L</base_url>.
+Raw base URL of your Forgejo instance as given, e.g. C<https://src.ci>
+(without the C</api/v1> suffix). Resolved at construction from the C<url>
+option, else the C<FORGEJO_URL> environment variable; if neither is set the
+constructor croaks with a helpful message. Any trailing slash is stripped.
+The normalised API base is available via L</base_url>.
+
+=cut
+
+has url => (
+    is => 'ro',
+);
+
+=attr base_url
+
+The API base URL: L</url> normalised to end in C</api/v1> (idempotent: an
+already-suffixed URL is left unchanged). Derived from L</url> at construction;
+this is the URL requests are built against.
 
 =cut
 
 has base_url => (
-    is       => 'ro',
-    init_arg => 'url',
+    is => 'ro',
 );
 
 =attr token
@@ -67,11 +77,15 @@ around BUILDARGS => sub {
         . "Example: https://src.ci"
         unless defined $url && length $url;
 
-    # Ensure base_url ends in /api/v1, idempotently: strip trailing slashes,
-    # then append only when it is not already suffixed (no double-append).
+    # Strip trailing slashes; the result is the raw instance URL as given.
     $url =~ s{/+$}{};
-    $url .= '/api/v1' unless $url =~ m{/api/v1$};
     $args->{url} = $url;
+
+    # base_url is url normalised to end in /api/v1, idempotently: append only
+    # when it is not already suffixed (no double-append).
+    my $base_url = $url;
+    $base_url .= '/api/v1' unless $base_url =~ m{/api/v1$};
+    $args->{base_url} = $base_url;
 
     # Token: explicit token option, else FORGEJO_TOKEN; the attribute default
     # supplies '' when neither is set.
