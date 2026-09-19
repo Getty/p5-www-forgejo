@@ -1,0 +1,44 @@
+---
+claimed_at: 2026-09-19T00:04:05Z
+claimed_by: p5-www-forgejo
+class: standard
+created: 2026-09-18T16:11:12Z
+id: 11
+priority: high
+started: 2026-09-18T23:24:22Z
+status: backlog
+tags:
+- release
+- packaging
+- dist-ini
+title: dist.ini needs PruneFiles before release - tarball ships .claude, .karr, TODO.md,
+  k8s, docker files
+updated: 2026-09-19T00:04:05Z
+---
+
+Pre-release audit (main @ 3e4e592) found dzil build ships far more than the distribution. dzil build --in /tmp/x produced a tarball whose MANIFEST includes, alongside lib/ and t/:
+
+.claude/agents/*.md, .claude/rules/*.md, .claude/settings.json, .claude/skills/**/*.md
+.karr (contains the internal orchestration prompt text verbatim)
+.gitignore
+TODO.md (internal German implementation-plan notes)
+CLAUDE.md
+docker-compose.yaml, Makefile.docker
+k8s/forgejo-test/*.yaml plus Makefile
+scripts/setup-forgejo-test.sh
+
+Root cause: dist.ini only has @Author::GETTY with no PruneFiles section (and no MANIFEST.SKIP). Git::GatherDir gathers every git-tracked file; PruneCruft only strips generic build byproducts, not project-specific dirs like k8s/ or docker-compose.yaml. Net effect: every dzil release would publish internal agent prompts, karr board bootstrap text, and local test-infra manifests to public CPAN.
+
+Suggested fix (for www-forgejo-worker): add a PruneFiles section to dist.ini excluding .claude, .karr, .gitignore, TODO.md, docker-compose.yaml, Makefile.docker, k8s, scripts (decide whether CLAUDE.md should stay public or be pruned too), or an equivalent MANIFEST.SKIP. Re-run dzil build and confirm the MANIFEST only lists lib/t/Changes/LICENSE/META files/Makefile.PL/README/cpanfile/dist.ini afterward.
+
+Found during: www-forgejo-release-checker audit of main (commit 3e4e592). Not a code-behavior defect, packaging/dist.ini only. Blocks a clean dzil release.
+
+2026-09-18 23:24 Scope decision from maintainer: ONLY .karr is pruned. All other originally-suggested candidates (.claude/**, .claude/settings.json, .gitignore, CLAUDE.md, docker-compose.yaml, Makefile.docker, k8s/forgejo-test/*, scripts/setup-forgejo-test.sh) stay in the tarball on purpose — do not add them to PruneFiles later without a new decision. TODO.md was already removed from the repo separately, so it needed no PruneFiles entry.
+
+Change: dist.ini gets [PruneFiles] with 'filename = .karr', placed directly after [@Author::GETTY] (plugin bundle expands in place; an explicit plugin listed after it is appended to the plugin chain, so PruneFiles runs alongside the bundle's own PruneCruft in the prune phase — no conflict).
+
+Verified via dzil build: MANIFEST/tarball no longer contain .karr; .claude/**, .gitignore, CLAUDE.md, docker-compose.yaml, Makefile.docker, k8s/forgejo-test/*, scripts/setup-forgejo-test.sh all still present. Build output (WWW-Forgejo-0.001/ dir + tarball) removed from repo root after verification. prove -l t/ still green (141 tests, live tests self-skip as before). Not committed — leaving that to the maintainer/orchestrator session per instructions.
+
+2026-09-18 23:24 dist.ini change verified, ready for maintainer to commit (not committed by me).
+
+2026-09-19 00:04 Maintainer-Entscheidung revidiert: kein [PruneFiles] in diesem dist.ini. .karr wird stattdessen zentral ueber das geteilte Author::GETTY dist-Bundle ausgeschlossen (repo-uebergreifend, nicht pro-Projekt). dist.ini in diesem Repo wurde auf den urspruenglichen Stand zurueckgesetzt (git restore, kein Commit noetig, da die PruneFiles-Aenderung nie committet war). Kein Follow-up in p5-www-forgejo noetig -- Ticket kann geschlossen werden, sobald das Bundle den Ausschluss traegt.
