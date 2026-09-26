@@ -2,7 +2,6 @@
 name: www-forgejo-worker
 description: "Default WWW::Forgejo worker — implement, refactor, debug, and test code in this distribution (the synchronous LWP-based Forgejo API v1 client). Pre-loaded with the client architecture, Moo conventions, the transport seam, and release setup. Use for any behavior-relevant change to lib/ or t/. Leaves a commit-ready tree; never commits — commits belong to www-forgejo-release-manager."
 model: inherit
-allowed-tools: Read, Edit, Write, Bash, Glob, Grep
 briefing:
   skills:
     - www-forgejo-core
