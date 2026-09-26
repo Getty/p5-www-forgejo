@@ -23,7 +23,7 @@ principle and lane are in `.claude/rules/www-forgejo-rules.md`.
 | Task | Agent |
 |---|---|
 | Implement / refactor / debug behavior-relevant code | `www-forgejo-worker` (default) |
-| Pre-release audit | `www-forgejo-release-checker` |
+| Commits, `Changes`, card → done, pre-release audit | `www-forgejo-release-manager` |
 
 The agents carry their skills via `briefing.skills` (see `.claude/agents/`); the main
 agent delegates rather than loading them. Skill sources live under `.claude/skills/`

@@ -27,14 +27,14 @@ This rule depends on whether the Agent/Task tool is available to you.
 
 - **You can spawn subagents** (orchestrating main agent): Do NOT touch
   behavior-relevant code yourself — delegate to `www-forgejo-worker`. Your lane:
-  coordinate, inspect, plan, review diffs, run tests, manage git, edit non-behavioral
+  coordinate, inspect, plan, review diffs, run tests, edit non-behavioral
   docs. Why: only the `www-forgejo-*` agents get their skills force-loaded via
   `briefing.skills`; you get no briefing.
 
   | Task | Agent |
   |---|---|
   | Implement / refactor / debug behavior-relevant code | `www-forgejo-worker` (default) |
-  | Pre-release audit | `www-forgejo-release-checker` |
+  | Commits, `Changes`, card → done, pre-release audit | `www-forgejo-release-manager` |
 
 - **You cannot spawn subagents** (you ARE a `www-forgejo-*` agent): The lock does not
   apply — implement, refactor, debug, and test per these rules.
@@ -44,10 +44,13 @@ the transport seam (`Role::HTTP` / `Role::IO` / `LWPIO`), `_build_request` /
 `_parse_response`, the `HTTPRequest` / `HTTPResponse` value objects, auth, error
 handling, tests. Pure prose docs and Changes notes are not.
 
+**Only `www-forgejo-release-manager` commits.** A worker leaves a commit-ready tree and hands its card
+to `review`; you then dispatch `www-forgejo-release-manager` to cut the commit and close the card.
+
 ## Coordination — karr board (always in scope)
 
 Ticket coordination is the orchestrating agent's job, so `karr` is always in scope —
-don't invoke the `kanban-issues-karr-cli` skill first, just use it. Git-native
+don't invoke the `kanban-issues-karr-coordination` skill first, just use it. Git-native
 kanban; state lives in `refs/karr/*`; this repo has its own board.
 
 - `karr list --compact` / `karr board` — open work · `karr show ID` — detail
