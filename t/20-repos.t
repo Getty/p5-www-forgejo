@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 use strict;
 use warnings;
 use Test::More;
@@ -63,7 +64,7 @@ subtest 'repos search' => sub {
     add_response(200,
         '{"ok":true,"data":[{"id":1,"name":"repo1"},{"id":2,"name":"repo2"}]}');
 
-    my $res = $repos->search(query => 'test', limit => 5);
+    my $res = $repos->search(q => 'test', limit => 5);
     ok($res->{ok}, 'search response ok flag');
     is(ref $res->{data}, 'ARRAY', 'data is arrayref');
     is(scalar @{$res->{data}}, 2, 'two results');
@@ -71,8 +72,8 @@ subtest 'repos search' => sub {
     my $req = last_req;
     is($req->method, 'GET', 'search => GET');
     like($req->url, qr{/repos/search}, 'search path');
-    like($req->url, qr{query=test}, 'query param present');
-    like($req->url, qr{limit=5}, 'limit param present');
+    is($req->url, 'https://test.example/api/v1/repos/search?limit=5&q=test',
+        'q and limit are sent as query string');
 };
 
 subtest 'repos search (single positional query)' => sub {
@@ -82,7 +83,8 @@ subtest 'repos search (single positional query)' => sub {
     $repos->search('needle');
     my $req = last_req;
     is($req->method, 'GET', 'positional search => GET');
-    like($req->url, qr{query=needle}, 'odd arg becomes query param');
+    is($req->url, 'https://test.example/api/v1/repos/search?q=needle',
+        'single argument is the search term q');
 };
 
 subtest 'repos create_from_template => Entity::Repo' => sub {
@@ -118,7 +120,7 @@ subtest 'repos migrate => Entity::Repo' => sub {
 
     my $req = last_req;
     is($req->method, 'POST', 'migrate => POST');
-    like($req->url, qr{/repos/migrations$}, 'migrations path');
+    like($req->url, qr{/api/v1/repos/migrate$}, 'POST /repos/migrate');
     like($req->content, qr{clone_addr}, 'body carries clone_addr');
 };
 
@@ -136,7 +138,7 @@ subtest 'repos delete' => sub {
 
 subtest 'repos transfer => Entity::Repo' => sub {
     clear_responses;
-    add_response(200, '{"id":1,"name":"test-repo","owner":{"login":"newowner"}}');
+    add_response(202, '{"id":1,"name":"test-repo","owner":{"login":"newowner"}}');
 
     my $repo = $repos->transfer('testorg', 'test-repo', new_owner => 'newowner');
     isa_ok($repo, 'WWW::Forgejo::Entity::Repo');
@@ -162,17 +164,11 @@ subtest 'repos fork => Entity::Repo' => sub {
     like($req->content, qr{organization}, 'body carries organization');
 };
 
-subtest 'repos generate (raw content)' => sub {
-    clear_responses;
-    add_response(201, '{"content":"README"}');
-
-    my $r = $repos->generate('testorg', 'test-repo',
-        filename => 'README.md', content => 'x');
-    ok($r, 'generate returns data');
-
-    my $req = last_req;
-    is($req->method, 'POST', 'generate => POST');
-    like($req->url, qr{/repos/testorg/test-repo/generate$}, 'generate path');
+# POST /repos/{template_owner}/{template_repo}/generate creates a repository
+# from a template; that is create_from_template above. There is no other
+# "generate" operation.
+subtest 'repos generate is create_from_template' => sub {
+    ok(!WWW::Forgejo::API::Repos->can('generate'), 'no separate generate method');
 };
 
 subtest 'repos mirror_sync' => sub {
@@ -182,7 +178,7 @@ subtest 'repos mirror_sync' => sub {
     $repos->mirror_sync('testorg', 'test-repo');
     my $req = last_req;
     is($req->method, 'POST', 'mirror_sync => POST');
-    like($req->url, qr{/repos/testorg/test-repo/mirror_sync$}, 'mirror_sync path');
+    like($req->url, qr{/repos/testorg/test-repo/mirror-sync$}, 'POST /repos/{owner}/{repo}/mirror-sync');
     ok(!$req->has_content, 'mirror_sync sends no body');
 };
 
@@ -241,7 +237,7 @@ subtest 'Entity::Repo data + sub-resource accessors (direct construction)' => su
             description => 'a repo',
         },
     );
-    is($repo->client, $client, 'weak client ref stays populated');
+    is($repo->client, $client, 'client');
     is($repo->owner, 'testorg', 'owner');
     is($repo->repo, 'test-repo', 'repo');
     is($repo->data->{full_name}, 'testorg/test-repo', 'data accessor');

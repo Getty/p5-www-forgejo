@@ -7,20 +7,31 @@ use warnings;
 package WWW::Forgejo::API::Notifications;
 
 use Moo;
-use Log::Any qw($log);
-use URI::Escape;
+use URI::Escape qw(uri_escape);
+use namespace::clean;
 
-has client => (
-    is       => 'ro',
-    init_arg => 'client',
-);
+our $VERSION = '0.001';
 
+has client => (is => 'ro', required => 1);
+
+=attr client
+
+The L<WWW::Forgejo> client the requests are sent through. Required.
+
+=cut
+
+sub _repo_path {
+    my ($self, $owner, $repo) = @_;
+    return join '/', '/repos', uri_escape($owner), uri_escape($repo), 'notifications';
+}
 
 =method list
 
-    my $notifications = $self->list;
+    my $notifications = $forgejo->notifications->list;
+    my $notifications = $forgejo->notifications->list(all => 'true');
 
-List all notifications for the current user.
+List the notification threads of the current user (C<GET /notifications>).
+Named arguments are sent as the query string of the request.
 
 =cut
 
@@ -29,24 +40,12 @@ sub list {
     return $self->client->get('/notifications', params => \%params);
 }
 
-=method count
-
-    my $count = $self->count;
-
-Get the count of unread notifications.
-
-=cut
-
-sub count {
-    my ($self) = @_;
-    return $self->client->get('/notifications/count');
-}
-
 =method check
 
-    my $new = $self->check;
+    my $new = $forgejo->notifications->check;
 
-Check for new notifications.
+Check whether unread notifications exist (C<GET /notifications/new>). Returns
+the decoded response, which carries the number of unread notifications.
 
 =cut
 
@@ -55,58 +54,103 @@ sub check {
     return $self->client->get('/notifications/new');
 }
 
+=method get_thread
+
+    my $thread = $forgejo->notifications->get_thread($thread_id);
+
+Get one notification thread (C<GET /notifications/threads/{id}>).
+
+=cut
+
+sub get_thread {
+    my ($self, $thread_id) = @_;
+    return $self->client->get("/notifications/threads/" . uri_escape($thread_id));
+}
+
 =method mark_read
 
-    $self->mark_read;
+    $forgejo->notifications->mark_read;
+    $forgejo->notifications->mark_read(last_read_at => $timestamp);
 
-Mark all notifications as read.
+Mark the notification threads as read (C<PUT /notifications>). Named arguments
+are sent as the query string of the request.
 
 =cut
 
 sub mark_read {
     my ($self, %params) = @_;
-    return $self->client->post('/notifications/mark-all-read', \%params);
+    return $self->client->put('/notifications', undef, params => \%params);
 }
 
 =method mark_read_thread
 
-    $self->mark_read_thread($thread_id);
+    $forgejo->notifications->mark_read_thread($thread_id);
 
-Mark a specific thread as read.
+Mark a specific thread as read (C<PATCH /notifications/threads/{id}>). Further
+named arguments are sent as the query string of the request.
 
 =cut
 
 sub mark_read_thread {
-    my ($self, $thread_id) = @_;
-    return $self->client->post("/notifications/threads/" . uri_escape($thread_id) . "/mark-read");
+    my ($self, $thread_id, %params) = @_;
+    return $self->client->patch("/notifications/threads/" . uri_escape($thread_id), undef, params => \%params);
 }
 
 =method list_for_repo
 
-    my $notifications = $self->list_for_repo($owner, $repo);
-    my $notifications = $self->list_for_repo($owner, $repo, status => 'unread');
+    my $notifications = $forgejo->notifications->list_for_repo($owner, $repo);
+    my $notifications = $forgejo->notifications->list_for_repo($owner, $repo, all => 'true');
 
-List notifications for a specific repository.
+List the notification threads of the current user in one repository
+(C<GET /repos/{owner}/{repo}/notifications>). Further named arguments are sent
+as the query string of the request.
 
 =cut
 
 sub list_for_repo {
     my ($self, $owner, $repo, %params) = @_;
-    return $self->client->get("/repos/" . uri_escape($owner) . "/" . uri_escape($repo) . "/notifications", params => \%params);
+    return $self->client->get($self->_repo_path($owner, $repo), params => \%params);
 }
 
 =method mark_read_repo
 
-    $self->mark_read_repo($owner, $repo);
-    $self->mark_read_repo($owner, $repo, last_read_at => $timestamp);
+    $forgejo->notifications->mark_read_repo($owner, $repo);
+    $forgejo->notifications->mark_read_repo($owner, $repo, last_read_at => $timestamp);
 
-Mark all notifications for a repository as read.
+Mark the notification threads of a repository as read
+(C<PUT /repos/{owner}/{repo}/notifications>). Further named arguments are sent
+as the query string of the request.
 
 =cut
 
 sub mark_read_repo {
     my ($self, $owner, $repo, %params) = @_;
-    return $self->client->post("/repos/" . uri_escape($owner) . "/" . uri_escape($repo) . "/notifications/mark-all-read", \%params);
+    return $self->client->put($self->_repo_path($owner, $repo), undef, params => \%params);
 }
 
 1;
+
+__END__
+
+=head1 SYNOPSIS
+
+    my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
+
+    my $notifications = $forgejo->notifications->list;
+    my $new           = $forgejo->notifications->check;
+
+    $forgejo->notifications->mark_read;
+
+=head1 DESCRIPTION
+
+The C</notifications> endpoints of the authenticated user, including the
+per-repository notification endpoints. Available as
+C<< $forgejo->notifications >>.
+
+All methods return the decoded JSON response as plain Perl data.
+
+=head1 SEE ALSO
+
+L<WWW::Forgejo>
+
+=cut

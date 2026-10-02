@@ -1,0 +1,27 @@
+# Forgejo REST API response schemas: "Schema: field field ..." per line.
+# Extracted from the definitions of the same Swagger document as
+# forgejo-api-paths.txt (Forgejo 16.0.0-dev, https://codeberg.org/swagger.v1.json,
+# fetched 2026-10-02). Used by t/33-entity-schema.t; regenerate it together
+# with forgejo-api-paths.txt.
+ActionRun: ScheduleID approved_by commit_sha created duration event event_payload html_url id index_in_repo is_fork_pull_request is_ref_deleted need_approval prettyref repository started status stopped title trigger_event trigger_user updated workflow_id
+ActionRunJob: attempt handle id name needs owner_id repo_id run_id runs_on status task_id
+Attachment: browser_download_url created_at download_count id name size type uuid
+Branch: commit effective_branch_protection_name enable_status_check name protected required_approvals status_check_contexts user_can_merge user_can_push
+BranchProtection: apply_to_admins approvals_whitelist_teams approvals_whitelist_username block_on_official_review_requests block_on_outdated_branch block_on_rejected_reviews branch_name created_at dismiss_stale_approvals enable_approvals_whitelist enable_merge_whitelist enable_push enable_push_whitelist enable_status_check ignore_stale_approvals merge_whitelist_teams merge_whitelist_usernames protected_file_patterns push_whitelist_deploy_keys push_whitelist_teams push_whitelist_usernames require_signed_commits required_approvals rule_name status_check_contexts unprotected_file_patterns updated_at
+Comment: assets body created_at html_url id issue_url original_author original_author_id pull_request_url updated_at user
+CommitStatus: context created_at creator description id status target_url updated_at url
+Cron: exec_times name next prev schedule
+DeployKey: created_at fingerprint id key key_id read_only repository title url
+Email: email primary user_id username verified
+Hook: active authorization_header branch_filter config content_type created_at events id metadata type updated_at url
+Issue: assets assignee assignees body closed_at comments created_at due_date html_url id is_locked labels milestone number original_author original_author_id pin_order pull_request ref repository state title updated_at url user
+Milestone: closed_at closed_issues created_at description due_on id open_issues state title updated_at
+Organization: avatar_url created description email full_name id location name repo_admin_change_team_access username visibility website
+PullRequest: additions allow_maintainer_edit assignee assignees base body changed_files closed_at comments created_at deletions diff_url draft due_date flow head html_url id is_locked labels merge_base merge_commit_sha mergeable merged merged_at merged_by milestone number patch_url pin_order requested_reviewers requested_reviewers_teams review_comments state title updated_at url user
+PullReview: body comments_count commit_id dismissed html_url id official pull_request_url stale state submitted_at team updated_at user
+QuotaGroup: name rules
+QuotaRuleInfo: limit name subjects
+Release: archive_download_count assets author body created_at draft hide_archive_links html_url id name prerelease published_at tag_name tarball_url target_commitish upload_url url zipball_url
+Repository: allow_fast_forward_only_merge allow_merge_commits allow_rebase allow_rebase_explicit allow_rebase_update allow_squash_merge archived archived_at avatar_url clone_url created_at default_allow_maintainer_edit default_branch default_delete_branch_after_merge default_merge_style default_update_style description empty external_tracker external_wiki fork forks_count full_name globally_editable_wiki has_actions has_issues has_packages has_projects has_pull_requests has_releases has_wiki has_wiki_contents html_url id ignore_whitespace_conflicts internal internal_tracker language languages_url link mirror mirror_interval mirror_updated name object_format_name open_issues_count open_pr_counter original_url owner parent permissions private release_counter repo_transfer size ssh_url stars_count template topics updated_at url watchers_count website wiki_branch wiki_clone_url wiki_ssh_url
+Team: can_create_org_repo description id includes_all_repositories name organization permission units units_map
+User: active avatar_url created description email followers_count following_count full_name html_url id is_admin language last_login location login login_name prohibit_login pronouns restricted source_id starred_repos_count visibility website

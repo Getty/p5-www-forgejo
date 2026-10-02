@@ -1,166 +1,158 @@
-package WWW::Forgejo::API::Admin::Users;
-# ABSTRACT: Forgejo Admin API - Users
+# ABSTRACT: Forgejo Admin Users API
 # PODNAME: WWW::Forgejo::API::Admin::Users
 
-use Moo;
-use Log::Any qw($log);
-use URI::Escape;
+use strict;
+use warnings;
 
-has client => (
-    is       => 'ro',
-    init_arg => 'client',
-);
+package WWW::Forgejo::API::Admin::Users;
+
+use Moo;
+use URI::Escape qw(uri_escape);
+use namespace::clean;
+
+our $VERSION = '0.001';
+
+has client => (is => 'ro', required => 1);
+
+=attr client
+
+The L<WWW::Forgejo> client the requests are sent through. Required.
+
+=cut
 
 =method list
 
-    my $users = $self->list;
+    my $users = $forgejo->admin->users->list;
 
-List all users.
+List all users. Named arguments are sent as the query string of the request.
+
+The admin API has no call to read a single user; that is
+L<WWW::Forgejo::API::Users/get> (C<< $forgejo->users->get($username) >>).
 
 =cut
 
 sub list {
-    my ($self) = @_;
-    return $self->{client}->get('/admin/users');
-}
-
-=method get
-
-    my $user = $self->get($username);
-
-Get a specific user by username.
-
-=cut
-
-sub get {
-    my ($self, $username) = @_;
-    return $self->{client}->get("/users/" . uri_escape($username));
+    my ($self, %params) = @_;
+    return $self->client->get('/admin/users', params => \%params);
 }
 
 =method create
 
-    my $user = $self->create(
-        email => 'user@example.com',
+    my $user = $forgejo->admin->users->create(
         username => 'testuser',
+        email    => 'user@example.com',
         password => 'secret',
     );
 
-Create a new user.
+Create a new user; the API requires C<username> and C<email>. The key/value
+pairs are sent as the JSON body.
 
 =cut
 
 sub create {
     my ($self, %params) = @_;
-    return $self->{client}->post('/admin/users', \%params);
+    return $self->client->post('/admin/users', \%params);
 }
 
 =method edit
 
-    my $user = $self->edit($username, %params);
+    my $user = $forgejo->admin->users->edit($username, full_name => 'New Name');
 
-Edit an existing user.
+Edit an existing user (C<PATCH /admin/users/{username}>). The key/value
+pairs are sent as the JSON body.
 
 =cut
 
 sub edit {
     my ($self, $username, %params) = @_;
-    return $self->{client}->put("/admin/users/" . uri_escape($username), \%params);
+    return $self->client->patch('/admin/users/' . uri_escape($username), \%params);
 }
 
 =method delete
 
-    $self->delete($username);
+    $forgejo->admin->users->delete($username);
+    $forgejo->admin->users->delete($username, purge => 'true');
 
-Delete a user.
+Delete a user. Named arguments are sent as the query string of the request.
 
 =cut
 
 sub delete {
-    my ($self, $username) = @_;
-    return $self->{client}->delete("/admin/users/" . uri_escape($username));
+    my ($self, $username, %params) = @_;
+    return $self->client->delete('/admin/users/' . uri_escape($username), undef, params => \%params);
 }
 
 =method rename
 
-    my $user = $self->rename($username, $new_name);
+    $forgejo->admin->users->rename($username, $new_username);
 
-Rename a user.
+Rename a user (C<POST /admin/users/{username}/rename>).
 
 =cut
 
 sub rename {
-    my ($self, $username, $new_name) = @_;
-    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/rename", { new_name => $new_name });
+    my ($self, $username, $new_username) = @_;
+    return $self->client->post('/admin/users/' . uri_escape($username) . '/rename', { new_username => $new_username });
 }
 
-=method add_email
+=method list_emails
 
-    my $email = $self->add_email($username, $email);
+    my $emails = $forgejo->admin->users->list_emails($username);
 
-Add an email address to a user.
+List the email addresses of a user.
 
 =cut
 
-sub add_email {
-    my ($self, $username, $email) = @_;
-    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/emails", { email => $email });
+sub list_emails {
+    my ($self, $username) = @_;
+    return $self->client->get('/admin/users/' . uri_escape($username) . '/emails');
 }
 
 =method delete_email
 
-    $self->delete_email($username, $email);
+    $forgejo->admin->users->delete_email($username, 'old@example.com');
 
-Delete an email address from a user.
+Delete one or more email addresses of a user (C<DELETE
+/admin/users/{username}/emails>, the addresses travel in the request body).
 
 =cut
 
 sub delete_email {
-    my ($self, $username, $email) = @_;
-    return $self->{client}->delete("/admin/users/" . uri_escape($username) . "/emails/" . uri_escape($email));
+    my ($self, $username, @emails) = @_;
+    return $self->client->delete('/admin/users/' . uri_escape($username) . '/emails', { emails => \@emails });
 }
 
 =method search_emails
 
-    my $results = $self->search_emails(email => 'user@example.com');
+    my $results = $forgejo->admin->users->search_emails(q => 'example.com');
 
-Search for email addresses.
+Search all email addresses of the instance (C<GET /admin/emails/search>);
+C<q> is the search term. Named arguments are sent as the query string of the
+request.
 
 =cut
 
 sub search_emails {
     my ($self, %params) = @_;
-    return $self->{client}->get('/admin/users/emails/search', params => \%params);
-}
-
-=method list_keys
-
-    my $keys = $self->list_keys($username);
-
-List all public keys for a user.
-
-=cut
-
-sub list_keys {
-    my ($self, $username) = @_;
-    return $self->{client}->get("/admin/users/" . uri_escape($username) . "/keys");
+    return $self->client->get('/admin/emails/search', params => \%params);
 }
 
 =method add_key
 
-    my $key = $self->add_key($username, title => 'My Key', key => $public_key);
+    my $key = $forgejo->admin->users->add_key($username, title => 'My Key', key => $public_key);
 
-Add a public key to a user.
+Add a public key to a user. The key/value pairs are sent as the JSON body.
 
 =cut
 
 sub add_key {
     my ($self, $username, %params) = @_;
-    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/keys", \%params);
+    return $self->client->post('/admin/users/' . uri_escape($username) . '/keys', \%params);
 }
 
 =method delete_key
 
-    $self->delete_key($username, $key_id);
+    $forgejo->admin->users->delete_key($username, $key_id);
 
 Delete a public key from a user.
 
@@ -168,64 +160,40 @@ Delete a public key from a user.
 
 sub delete_key {
     my ($self, $username, $key_id) = @_;
-    return $self->{client}->delete("/admin/users/" . uri_escape($username) . "/keys/" . uri_escape($key_id));
-}
-
-=method list_orgs
-
-    my $orgs = $self->list_orgs($username);
-
-List all organizations for a user.
-
-=cut
-
-sub list_orgs {
-    my ($self, $username) = @_;
-    return $self->{client}->get("/admin/users/" . uri_escape($username) . "/orgs");
+    return $self->client->delete('/admin/users/' . uri_escape($username) . '/keys/' . uri_escape($key_id));
 }
 
 =method create_org_for
 
-    my $org = $self->create_org_for($username, name => 'myorg');
+    my $org = $forgejo->admin->users->create_org_for($username, username => 'myorg');
 
-Create an organization for a user.
+Create an organization owned by a user; C<username> is the name of the
+organization. The key/value pairs are sent as the JSON body.
 
 =cut
 
 sub create_org_for {
     my ($self, $username, %params) = @_;
-    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/orgs", \%params);
-}
-
-=method list_repos
-
-    my $repos = $self->list_repos($username);
-
-List all repositories for a user.
-
-=cut
-
-sub list_repos {
-    my ($self, $username) = @_;
-    return $self->{client}->get("/admin/users/" . uri_escape($username) . "/repos");
+    return $self->client->post('/admin/users/' . uri_escape($username) . '/orgs', \%params);
 }
 
 =method create_repo_for
 
-    my $repo = $self->create_repo_for($username, name => 'myrepo');
+    my $repo = $forgejo->admin->users->create_repo_for($username, name => 'myrepo');
 
-Create a repository for a user.
+Create a repository for a user. The key/value pairs are sent as the JSON
+body.
 
 =cut
 
 sub create_repo_for {
     my ($self, $username, %params) = @_;
-    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/repos", \%params);
+    return $self->client->post('/admin/users/' . uri_escape($username) . '/repos', \%params);
 }
 
 =method quota
 
-    my $quota = $self->quota($username);
+    my $quota = $forgejo->admin->users->quota($username);
 
 Get quota information for a user.
 
@@ -233,142 +201,49 @@ Get quota information for a user.
 
 sub quota {
     my ($self, $username) = @_;
-    return $self->{client}->get("/admin/users/" . uri_escape($username) . "/quota");
+    return $self->client->get('/admin/users/' . uri_escape($username) . '/quota');
 }
 
-=method add_to_quota_group
+=method set_quota_groups
 
-    $self->add_to_quota_group($username, $group);
+    $forgejo->admin->users->set_quota_groups($username, 'premium', 'staff');
 
-Add a user to a quota group.
+Set the quota groups of a user to the given list (C<POST
+/admin/users/{username}/quota/groups>).
 
 =cut
 
-sub add_to_quota_group {
-    my ($self, $username, $group) = @_;
-    return $self->{client}->post("/admin/users/" . uri_escape($username) . "/quota/group", { group_name => $group });
+sub set_quota_groups {
+    my ($self, $username, @groups) = @_;
+    return $self->client->post('/admin/users/' . uri_escape($username) . '/quota/groups', { groups => \@groups });
 }
 
 1;
 
 __END__
 
-=head1 METHODS
+=head1 SYNOPSIS
 
-=head2 list
+    my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
 
-  my $users = $self->list;
+    my $users = $forgejo->admin->users->list;
+    my $user  = $forgejo->admin->users->create(username => 'testuser', email => 'user@example.com');
 
-List all users.
+    $forgejo->admin->users->rename('testuser', 'tester');
 
-=head2 get
+=head1 DESCRIPTION
 
-  my $user = $self->get($username);
+The C</admin/users> site administration endpoints: create, edit, rename and
+delete users and manage their emails, keys, organizations, repositories and
+quota. It is obtained through L<WWW::Forgejo::API::Admin/users>.
 
-Get a specific user by username.
+To read a user's keys, organizations or repositories use
+L<WWW::Forgejo::API::Users>; the admin API only has the write side.
 
-=head2 create
-
-  my $user = $self->create(
-      email => 'user@example.com',
-      username => 'testuser',
-      password => 'secret',
-  );
-
-Create a new user.
-
-=head2 edit
-
-  my $user = $self->edit($username, %params);
-
-Edit an existing user.
-
-=head2 delete
-
-  $self->delete($username);
-
-Delete a user.
-
-=head2 rename
-
-  my $user = $self->rename($username, $new_name);
-
-Rename a user.
-
-=head2 add_email
-
-  my $email = $self->add_email($username, $email);
-
-Add an email address to a user.
-
-=head2 delete_email
-
-  $self->delete_email($username, $email);
-
-Delete an email address from a user.
-
-=head2 search_emails
-
-  my $results = $self->search_emails(email => 'user@example.com');
-
-Search for email addresses.
-
-=head2 list_keys
-
-  my $keys = $self->list_keys($username);
-
-List all public keys for a user.
-
-=head2 add_key
-
-  my $key = $self->add_key($username, title => 'My Key', key => $public_key);
-
-Add a public key to a user.
-
-=head2 delete_key
-
-  $self->delete_key($username, $key_id);
-
-Delete a public key from a user.
-
-=head2 list_orgs
-
-  my $orgs = $self->list_orgs($username);
-
-List all organizations for a user.
-
-=head2 create_org_for
-
-  my $org = $self->create_org_for($username, name => 'myorg');
-
-Create an organization for a user.
-
-=head2 list_repos
-
-  my $repos = $self->list_repos($username);
-
-List all repositories for a user.
-
-=head2 create_repo_for
-
-  my $repo = $self->create_repo_for($username, name => 'myrepo');
-
-Create a repository for a user.
-
-=head2 quota
-
-  my $quota = $self->quota($username);
-
-Get quota information for a user.
-
-=head2 add_to_quota_group
-
-  $self->add_to_quota_group($username, $group);
-
-Add a user to a quota group.
+Methods return the decoded JSON response as plain Perl data.
 
 =head1 SEE ALSO
 
-L<WWW::Forgejo>
+L<WWW::Forgejo::API::Admin>, L<WWW::Forgejo>
 
 =cut

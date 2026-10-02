@@ -1,234 +1,162 @@
+#!/usr/bin/env perl
 use strict;
 use warnings;
 use Test::More;
-use lib 'lib';
-use HTTP::Response;
-use WWW::Forgejo;
-use WWW::Forgejo::HTTPResponse;
-use WWW::Forgejo::Role::IO;
+use JSON::MaybeXS qw(decode_json);
+use lib 't/lib';
+use MockForgejo qw(mock_client);
 
-# In-memory mock IO backend (mirrors t/02-http-mock.t).
-{
-    package Test::MockIO;
-    use Moo;
-    with 'WWW::Forgejo::Role::IO';
+# Admin::Users against the Swagger document: verb, path, query string and
+# JSON body of every operation. (t/02 covers list and create.)
 
-    our @responses;
-    our @requests;
-
-    sub call {
-        my ($self, $req) = @_;
-        push @requests, $req;
-        my $res = shift @responses // HTTP::Response->new(500, 'No mock response');
-        return WWW::Forgejo::HTTPResponse->new(
-            status  => $res->code,
-            content => $res->decoded_content // '',
-            headers => { $res->headers->flatten },
-        );
-    }
-}
-
-my $mock_io = Test::MockIO->new;
-my $client = WWW::Forgejo->new(
-    url   => 'https://test.example',
-    token => 'test-token',
-    io    => $mock_io,
-);
-
-sub add_response {
-    my ($code, $content, %headers) = @_;
-    push @Test::MockIO::responses, HTTP::Response->new(
-        $code, 'OK', ['Content-Type' => 'application/json', %headers],
-        $content
-    );
-}
-
-sub clear_responses {
-    @Test::MockIO::responses = ();
-    @Test::MockIO::requests  = ();
-}
-
-sub last_req { $Test::MockIO::requests[-1] }
-
+my ($client, $io) = mock_client();
+my $base  = 'https://forgejo.test/api/v1';
 my $users = $client->admin->users;
 
-# ===========================================================================
-# Admin::Users operations that t/02 omits.
-# (t/02 already covers list, create, list_keys, list_orgs, list_repos.)
-# ===========================================================================
+sub request { $io->last->method . ' ' . $io->last->url }
+sub body    { decode_json($io->last->content) }
 
-subtest 'admin users get' => sub {
-    clear_responses;
-    add_response(200, '{"id":1,"login":"someuser","email":"s@e.com"}');
+# The admin API has no GET /admin/users/{username}; a single user is read
+# through the users controller.
+subtest 'a single user is read through users->get' => sub {
+    ok(!WWW::Forgejo::API::Admin::Users->can('get'), 'no admin users->get');
 
-    my $u = $users->get('someuser');
-    is($u->{login}, 'someuser', 'get returns user data');
-
-    my $req = last_req;
-    is($req->method, 'GET', 'get => GET');
-    # NOTE: admin->users->get hits the public /users/:name endpoint,
-    # not /admin/users/:name (Forgejo has no admin GET-one endpoint).
-    like($req->url, qr{/users/someuser$}, 'get path is /users/:name');
-    unlike($req->url, qr{/admin/users/someuser}, 'get does NOT use /admin/users path');
+    $io->reset->add(200, '{"id":1,"login":"someuser","email":"s@e.com"}');
+    my $u = $client->users->get('someuser');
+    is($u->{login}, 'someuser', 'users->get returns user data');
+    is(request(), "GET $base/users/someuser", 'GET /users/{username}');
 };
 
+subtest 'admin users list forwards its filters' => sub {
+    $io->reset->add(200, '[{"id":1,"login":"a"}]');
+    my $list = $users->list(login_name => 'a', limit => 5);
+    is($list->[0]{login}, 'a', 'list returns user data');
+    is(request(), "GET $base/admin/users?limit=5&login_name=a", 'GET /admin/users with query string');
+};
+
+# PATCH /admin/users/{username} with an EditUserOption body.
 subtest 'admin users edit' => sub {
-    clear_responses;
-    add_response(200, '{"id":1,"login":"someuser","admin":true}');
+    $io->reset->add(200, '{"id":1,"login":"someuser","admin":true}');
 
-    my $u = $users->edit('someuser', login_name => 'someuser', admin => 1);
+    my $u = $users->edit('someuser', login_name => 'someuser', admin => \1);
     is($u->{login}, 'someuser', 'edit returns user data');
-
-    my $req = last_req;
-    is($req->method, 'PUT', 'edit => PUT');
-    like($req->url, qr{/admin/users/someuser$}, 'edit path');
-    like($req->content, qr{"admin"}, 'body carries admin key');
+    is(request(), "PATCH $base/admin/users/someuser", 'PATCH /admin/users/{username}');
+    is_deeply(body(), { login_name => 'someuser', admin => JSON::MaybeXS::true }, 'body');
 };
 
 subtest 'admin users delete' => sub {
-    clear_responses;
-    add_response(204, '');
-
+    $io->reset->add(204, '');
     $users->delete('someuser');
-    my $req = last_req;
-    is($req->method, 'DELETE', 'delete => DELETE');
-    like($req->url, qr{/admin/users/someuser$}, 'delete path');
+    is(request(), "DELETE $base/admin/users/someuser", 'DELETE /admin/users/{username}');
+    ok(!$io->last->has_content, 'no body');
+
+    $io->reset->add(204, '');
+    $users->delete('someuser', purge => 'true');
+    is(request(), "DELETE $base/admin/users/someuser?purge=true", 'purge goes into the query string');
+    ok(!$io->last->has_content, 'still no body');
 };
 
 subtest 'admin users delete method matches its POD' => sub {
-    # The bare `delete` verb matches its POD and the single-resource
-    # convention (get/edit/create/rename are bare too).
     ok( WWW::Forgejo::API::Admin::Users->can('delete'),
         'delete method exists' );
     ok( !WWW::Forgejo::API::Admin::Users->can('delete_user'),
         'no stray delete_user method' );
 };
 
+# POST /admin/users/{username}/rename with RenameUserOption { new_username }.
 subtest 'admin users rename' => sub {
-    clear_responses;
-    add_response(200, '{"id":1,"login":"newname"}');
+    $io->reset->add(204, '');
 
-    my $u = $users->rename('oldname', 'newname');
-    is($u->{login}, 'newname', 'rename returns renamed user');
-
-    my $req = last_req;
-    is($req->method, 'POST', 'rename => POST');
-    like($req->url, qr{/admin/users/oldname/rename$}, 'rename path');
-    like($req->content, qr{"new_name"}, 'body carries new_name key');
-    like($req->content, qr{newname}, 'body carries new name value');
+    $users->rename('oldname', 'newname');
+    is(request(), "POST $base/admin/users/oldname/rename", 'POST /admin/users/{username}/rename');
+    is_deeply(body(), { new_username => 'newname' }, 'body carries new_username');
 };
 
-subtest 'admin users add_email' => sub {
-    clear_responses;
-    add_response(201, '[{"email":"new@e.com","primary":false}]');
+# Emails of a user can be listed and deleted, not added: the API has no
+# POST /admin/users/{username}/emails.
+subtest 'admin users list_emails' => sub {
+    ok(!WWW::Forgejo::API::Admin::Users->can('add_email'), 'no add_email');
 
-    my $r = $users->add_email('someuser', 'new@e.com');
-    is(ref $r, 'ARRAY', 'add_email returns email list');
-
-    my $req = last_req;
-    is($req->method, 'POST', 'add_email => POST');
-    like($req->url, qr{/admin/users/someuser/emails$}, 'add_email path');
-    like($req->content, qr{"email"}, 'body carries email key');
-    like($req->content, qr{new\@e\.com}, 'body carries email value');
+    $io->reset->add(200, '[{"email":"s@e.com","primary":true}]');
+    my $emails = $users->list_emails('someuser');
+    is($emails->[0]{email}, 's@e.com', 'list_emails returns the emails');
+    is(request(), "GET $base/admin/users/someuser/emails", 'GET /admin/users/{username}/emails');
 };
 
-subtest 'admin users delete_email (URL-encoded segment)' => sub {
-    clear_responses;
-    add_response(204, '');
+# DELETE /admin/users/{username}/emails with DeleteEmailOption { emails }.
+subtest 'admin users delete_email sends the addresses as body' => sub {
+    $io->reset->add(204, '');
 
-    $users->delete_email('someuser', 'old@e.com');
-    my $req = last_req;
-    is($req->method, 'DELETE', 'delete_email => DELETE');
-    # @ is percent-encoded (%40) in the path segment (ticket #4).
-    like($req->url, qr{/admin/users/someuser/emails/old%40e\.com$},
-        'email path segment is URL-encoded');
+    $users->delete_email('someuser', 'old@e.com', 'older@e.com');
+    is(request(), "DELETE $base/admin/users/someuser/emails", 'DELETE /admin/users/{username}/emails');
+    is_deeply(body(), { emails => ['old@e.com', 'older@e.com'] }, 'body lists the emails');
 };
 
 subtest 'admin users search_emails' => sub {
-    clear_responses;
-    add_response(200, '[{"email":"s@e.com","username":"someuser"}]');
+    $io->reset->add(200, '[{"email":"s@e.com","username":"someuser"}]');
 
     my $r = $users->search_emails(q => 'example');
     is(ref $r, 'ARRAY', 'search_emails returns arrayref');
-
-    my $req = last_req;
-    is($req->method, 'GET', 'search_emails => GET');
-    like($req->url, qr{/admin/users/emails/search}, 'search_emails path');
-    like($req->url, qr{q=example}, 'query param present');
+    is(request(), "GET $base/admin/emails/search?q=example", 'GET /admin/emails/search');
 };
 
 subtest 'admin users add_key' => sub {
-    clear_responses;
-    add_response(201, '{"id":9,"key":"ssh-rsa AAA","title":"my key"}');
+    $io->reset->add(201, '{"id":9,"key":"ssh-rsa AAA","title":"my key"}');
 
     my $k = $users->add_key('someuser', title => 'my key', key => 'ssh-rsa AAA');
     is($k->{id}, 9, 'add_key returns key data');
-
-    my $req = last_req;
-    is($req->method, 'POST', 'add_key => POST');
-    like($req->url, qr{/admin/users/someuser/keys$}, 'add_key path');
-    like($req->content, qr{ssh-rsa}, 'body carries key');
+    is(request(), "POST $base/admin/users/someuser/keys", 'POST /admin/users/{username}/keys');
+    is_deeply(body(), { title => 'my key', key => 'ssh-rsa AAA' }, 'body');
 };
 
 subtest 'admin users delete_key' => sub {
-    clear_responses;
-    add_response(204, '');
+    $io->reset->add(204, '');
 
     $users->delete_key('someuser', 9);
-    my $req = last_req;
-    is($req->method, 'DELETE', 'delete_key => DELETE');
-    like($req->url, qr{/admin/users/someuser/keys/9$}, 'delete_key path');
+    is(request(), "DELETE $base/admin/users/someuser/keys/9", 'DELETE /admin/users/{username}/keys/{id}');
 };
 
 subtest 'admin users create_org_for' => sub {
-    clear_responses;
-    add_response(201, '{"id":3,"username":"neworg"}');
+    $io->reset->add(201, '{"id":3,"name":"neworg","username":"neworg"}');
 
     my $o = $users->create_org_for('someuser', username => 'neworg');
-    is($o->{username}, 'neworg', 'create_org_for returns org data');
-
-    my $req = last_req;
-    is($req->method, 'POST', 'create_org_for => POST');
-    like($req->url, qr{/admin/users/someuser/orgs$}, 'create_org_for path');
-    like($req->content, qr{neworg}, 'body carries org username');
+    is($o->{name}, 'neworg', 'create_org_for returns org data');
+    is(request(), "POST $base/admin/users/someuser/orgs", 'POST /admin/users/{username}/orgs');
+    is_deeply(body(), { username => 'neworg' }, 'body');
 };
 
 subtest 'admin users create_repo_for' => sub {
-    clear_responses;
-    add_response(201, '{"id":4,"name":"newrepo"}');
+    $io->reset->add(201, '{"id":4,"name":"newrepo"}');
 
     my $r = $users->create_repo_for('someuser', name => 'newrepo');
     is($r->{name}, 'newrepo', 'create_repo_for returns repo data');
-
-    my $req = last_req;
-    is($req->method, 'POST', 'create_repo_for => POST');
-    like($req->url, qr{/admin/users/someuser/repos$}, 'create_repo_for path');
-    like($req->content, qr{newrepo}, 'body carries repo name');
+    is(request(), "POST $base/admin/users/someuser/repos", 'POST /admin/users/{username}/repos');
+    is_deeply(body(), { name => 'newrepo' }, 'body');
 };
 
 subtest 'admin users quota' => sub {
-    clear_responses;
-    add_response(200, '{"used":{"size":100},"limit":1000}');
+    $io->reset->add(200, '{"used":{"size":{"all":100}},"groups":[]}');
 
     my $q = $users->quota('someuser');
-    ok($q, 'quota returns data');
-    is($q->{limit}, 1000, 'quota limit');
-
-    my $req = last_req;
-    is($req->method, 'GET', 'quota => GET');
-    like($req->url, qr{/admin/users/someuser/quota$}, 'quota path');
+    is($q->{used}{size}{all}, 100, 'quota returns data');
+    is(request(), "GET $base/admin/users/someuser/quota", 'GET /admin/users/{username}/quota');
 };
 
-subtest 'admin users add_to_quota_group' => sub {
-    clear_responses;
-    add_response(204, '');
+# POST /admin/users/{username}/quota/groups with
+# SetUserQuotaGroupsOptions { groups }.
+subtest 'admin users set_quota_groups' => sub {
+    ok(!WWW::Forgejo::API::Admin::Users->can('add_to_quota_group'), 'no add_to_quota_group');
 
-    $users->add_to_quota_group('someuser', 'premium');
-    my $req = last_req;
-    is($req->method, 'POST', 'add_to_quota_group => POST');
-    like($req->url, qr{/admin/users/someuser/quota/group$}, 'quota group path');
-    like($req->content, qr{"group_name"}, 'body carries group_name key');
-    like($req->content, qr{premium}, 'body carries group value');
+    $io->reset->add(204, '');
+    $users->set_quota_groups('someuser', 'premium', 'staff');
+    is(request(), "POST $base/admin/users/someuser/quota/groups", 'POST /admin/users/{username}/quota/groups');
+    is_deeply(body(), { groups => ['premium', 'staff'] }, 'body lists the groups');
+};
+
+subtest 'path segments are escaped' => sub {
+    $io->reset->add(204, '');
+    $users->delete('some user/x');
+    is(request(), "DELETE $base/admin/users/some%20user%2Fx", 'username escaped');
 };
 
 done_testing;

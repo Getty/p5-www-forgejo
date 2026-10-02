@@ -1,33 +1,42 @@
-package WWW::Forgejo::API::Admin::Hooks;
-# ABSTRACT: Forgejo Admin API - Hooks
+# ABSTRACT: Forgejo Admin Hooks API
 # PODNAME: WWW::Forgejo::API::Admin::Hooks
 
-use Moo;
-use Log::Any qw($log);
-use URI::Escape;
-use Carp qw(croak);
+use strict;
+use warnings;
 
-has client => (
-    is       => 'ro',
-    init_arg => 'client',
-);
+package WWW::Forgejo::API::Admin::Hooks;
+
+use Moo;
+use URI::Escape qw(uri_escape);
+use namespace::clean;
+
+our $VERSION = '0.001';
+
+has client => (is => 'ro', required => 1);
+
+=attr client
+
+The L<WWW::Forgejo> client the requests are sent through. Required.
+
+=cut
 
 =method list
 
-    my $hooks = $self->list;
+    my $hooks = $forgejo->admin->hooks->list;
 
-List all system-wide hooks.
+List all system-wide hooks. Named arguments are sent as the query string of
+the request.
 
 =cut
 
 sub list {
-    my ($self) = @_;
-    return $self->{client}->get('/admin/hooks');
+    my ($self, %params) = @_;
+    return $self->client->get('/admin/hooks', params => \%params);
 }
 
 =method get
 
-    my $hook = $self->get($id);
+    my $hook = $forgejo->admin->hooks->get($id);
 
 Get a specific hook by ID.
 
@@ -35,41 +44,43 @@ Get a specific hook by ID.
 
 sub get {
     my ($self, $id) = @_;
-    return $self->{client}->get("/admin/hooks/" . uri_escape($id));
+    return $self->client->get('/admin/hooks/' . uri_escape($id));
 }
 
 =method create
 
-    my $hook = $self->create(
-        type => 'web',
-        url => 'https://example.com/hook',
+    my $hook = $forgejo->admin->hooks->create(
+        type   => 'forgejo',
+        config => { url => 'https://example.com/hook', content_type => 'json' },
     );
 
-Create a new system hook.
+Create a new system hook; the API requires C<type> and C<config>. The
+key/value pairs are sent as the JSON body.
 
 =cut
 
 sub create {
     my ($self, %params) = @_;
-    return $self->{client}->post('/admin/hooks', \%params);
+    return $self->client->post('/admin/hooks', \%params);
 }
 
 =method edit
 
-    my $hook = $self->edit($id, url => 'https://example.com/new-hook');
+    my $hook = $forgejo->admin->hooks->edit($id, active => \0);
 
-Edit an existing hook.
+Edit an existing hook (C<PATCH /admin/hooks/{id}>). The key/value pairs are
+sent as the JSON body.
 
 =cut
 
 sub edit {
     my ($self, $id, %params) = @_;
-    return $self->{client}->put("/admin/hooks/" . uri_escape($id), \%params);
+    return $self->client->patch('/admin/hooks/' . uri_escape($id), \%params);
 }
 
 =method delete
 
-    $self->delete($id);
+    $forgejo->admin->hooks->delete($id);
 
 Delete a hook.
 
@@ -77,33 +88,29 @@ Delete a hook.
 
 sub delete {
     my ($self, $id) = @_;
-    return $self->{client}->delete("/admin/hooks/" . uri_escape($id));
-}
-
-=method list_repos
-
-    my $repos = $self->list_repos($id);
-
-List repositories attached to a hook.
-
-=cut
-
-sub list_repos {
-    my ($self, $id) = @_;
-    return $self->{client}->get("/admin/hooks/" . uri_escape($id) . "/repos");
-}
-
-=method list_orgs
-
-    my $orgs = $self->list_orgs($id);
-
-List organizations attached to a hook.
-
-=cut
-
-sub list_orgs {
-    my ($self, $id) = @_;
-    return $self->{client}->get("/admin/hooks/" . uri_escape($id) . "/orgs");
+    return $self->client->delete('/admin/hooks/' . uri_escape($id));
 }
 
 1;
+
+__END__
+
+=head1 SYNOPSIS
+
+    my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
+
+    my $hooks = $forgejo->admin->hooks->list;
+    my $hook  = $forgejo->admin->hooks->get($id);
+
+=head1 DESCRIPTION
+
+The C</admin/hooks> site administration endpoints for system-wide webhooks.
+It is obtained through L<WWW::Forgejo::API::Admin/hooks>.
+
+Methods return the decoded JSON response as plain Perl data.
+
+=head1 SEE ALSO
+
+L<WWW::Forgejo::API::Admin>, L<WWW::Forgejo>
+
+=cut

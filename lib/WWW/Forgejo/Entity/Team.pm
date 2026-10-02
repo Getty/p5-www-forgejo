@@ -10,6 +10,9 @@ use Moo;
 extends 'WWW::Forgejo::Entity';
 use Log::Any qw($log);
 use Carp qw(croak);
+use namespace::clean;
+
+our $VERSION = '0.001';
 
 =method id
 
@@ -160,3 +163,29 @@ sub remove_repo {
 }
 
 1;
+
+__END__
+
+=head1 SYNOPSIS
+
+    my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
+    my $team    = $forgejo->teams->get($team_id);
+
+    print $team->name, "\n";
+
+    $team->add_member('username');
+    my $members = $team->list_members;
+
+=head1 DESCRIPTION
+
+A team as returned by L<WWW::Forgejo::API::Teams>. The methods below delegate
+to that controller (C<< $forgejo->teams >>) using this team's L</id>; the
+decoded team data is available through L<data|WWW::Forgejo::Entity/data>.
+
+Inherits from L<WWW::Forgejo::Entity>.
+
+=head1 SEE ALSO
+
+L<WWW::Forgejo::API::Teams>, L<WWW::Forgejo::Entity>
+
+=cut

@@ -7,53 +7,46 @@ use warnings;
 package WWW::Forgejo::API::Repo::PullRequests;
 
 use Moo;
-use Log::Any qw($log);
-use URI::Escape;
-use Carp qw(croak);
-use WWW::Forgejo::Entity::PullRequestReview;
-use WWW::Forgejo::Entity::IssueComment;
+use URI::Escape qw(uri_escape);
 use WWW::Forgejo::Entity::PullRequest;
+use WWW::Forgejo::Entity::PullRequestReview;
+use namespace::clean;
 
+our $VERSION = '0.001';
+
+has client => (is => 'ro', required => 1);
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
-has client => (is => 'ro', init_arg => 'client');
+
+=attr client
+
+The L<WWW::Forgejo> client the requests are sent through. Required.
+
+=attr owner
+
+Owner (user or organization name) of the repository this controller works on.
+Required.
+
+=attr repo
+
+Name of the repository this controller works on. Required.
+
+=cut
+
+# /repos/{owner}/{repo}/... of the repository this controller is bound to.
+sub _repo_path {
+    my ($self, @path) = @_;
+    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+}
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/pulls/" . join('/', @path);
-}
-
-=method list
-
-    my @pulls = $self->list;
-
-List all pull requests.
-
-=cut
-
-sub list {
-    my ($self, %params) = @_;
-    my $data = $self->{client}->get($self->_path_for, params => \%params);
-    return map { $self->_to_pr($_) } @$data;
-}
-
-=method get
-
-    my $pr = $self->get(1);
-
-Get a pull request by ID.
-
-=cut
-
-sub get {
-    my ($self, $id) = @_;
-    my $data = $self->{client}->get($self->_path_for(uri_escape($id)));
-    return $self->_to_pr($data);
+    return $self->_repo_path('pulls', @path);
 }
 
 sub _to_pr {
     my ($self, $data) = @_;
-    WWW::Forgejo::Entity::PullRequest->new(
+    return WWW::Forgejo::Entity::PullRequest->new(
         client => $self->client,
         owner  => $self->owner,
         repo   => $self->repo,
@@ -61,14 +54,39 @@ sub _to_pr {
     );
 }
 
+=method list
+
+    my @pulls = $repo->pulls->list;
+    my @open  = $repo->pulls->list(state => 'open');
+
+List the pull requests as L<WWW::Forgejo::Entity::PullRequest> objects. Named
+arguments are sent as the query string (C<state>, C<sort>, C<milestone>,
+C<labels>, C<poster>, C<base>, C<head>, C<page>, C<limit>).
+
+=cut
+
+sub list {
+    my ($self, %params) = @_;
+    my $data = $self->client->get($self->_path_for, params => \%params);
+    return map { $self->_to_pr($_) } @$data;
+}
+
+=method get
+
+    my $pr = $repo->pulls->get($index);
+
+Get a pull request by its index.
+
+=cut
+
+sub get {
+    my ($self, $index) = @_;
+    return $self->_to_pr($self->client->get($self->_path_for(uri_escape($index))));
+}
+
 =method create
 
-    my $pr = $self->create({
-        title     => 'Feature PR',
-        body      => 'Description',
-        head      => 'feature-branch',
-        base      => 'main',
-    });
+    my $pr = $repo->pulls->create({ title => 'Feature PR', head => 'feature', base => 'main' });
 
 Create a pull request.
 
@@ -76,88 +94,73 @@ Create a pull request.
 
 sub create {
     my ($self, $data) = @_;
-    my $result = $self->{client}->post($self->_path_for, $data);
-    return $self->_to_pr($result);
+    return $self->_to_pr($self->client->post($self->_path_for, $data));
 }
 
 =method edit
 
-    my $pr = $self->edit(1, { title => 'Updated title' });
+    my $pr = $repo->pulls->edit($index, { title => 'New title' });
+    my $pr = $repo->pulls->edit($index, { state => 'closed' });
 
-Edit a pull request.
+Edit a pull request. The API cannot delete a pull request; closing it with
+C<< state => 'closed' >> is the way to retire one.
 
 =cut
 
 sub edit {
     my ($self, $index, $data) = @_;
-    my $result = $self->{client}->patch($self->_path_for(uri_escape($index)), $data);
-    return $self->_to_pr($result);
+    return $self->_to_pr($self->client->patch($self->_path_for(uri_escape($index)), $data));
 }
 
 =method update
 
-    my $pr = $self->update(1, { title => 'Updated title' });
-
-Update a pull request (alias for edit).
+Alias for L</edit>.
 
 =cut
 
-*update = \&edit;
-
-=method delete
-
-    $self->delete(1);
-
-Delete a pull request.
-
-=cut
-
-sub delete {
-    my ($self, $index) = @_;
-    $self->{client}->delete($self->_path_for(uri_escape($index)));
-    return 1;
-}
+sub update { shift->edit(@_) }
 
 =method merge
 
-    my $result = $self->merge(1);
+    $repo->pulls->merge($index, { Do => 'merge' });
 
-Merge a pull request.
+Merge a pull request. The API requires C<Do>, the merge style: C<merge>,
+C<rebase>, C<rebase-merge>, C<squash>, C<fast-forward-only> or
+C<manually-merged>.
 
 =cut
 
 sub merge {
     my ($self, $index, $data) = @_;
-    $data //= {};
-    my $result = $self->{client}->post($self->_path_for(uri_escape($index), 'merge'), $data);
-    return $result;
+    return $self->client->post($self->_path_for(uri_escape($index), 'merge'), $data);
 }
 
 =method is_merged
 
-    my $merged = $self->is_merged(1);
+    my $bool = $repo->pulls->is_merged($index);
 
-Check if a pull request is merged.
+Check whether a pull request has been merged. Returns true or false; the API
+answers this with its status code only.
 
 =cut
 
 sub is_merged {
     my ($self, $index) = @_;
-    my $result = $self->{client}->get($self->_path_for(uri_escape($index), 'merged'));
-    return $result;
+    return $self->client->check($self->_path_for(uri_escape($index), 'merge'));
 }
 
 =method reviews
 
-    my @reviews = $self->reviews(1);
+    my @reviews = $repo->pulls->reviews($index);
 
-List reviews for a pull request.
+List the reviews of a pull request as L<WWW::Forgejo::Entity::PullRequestReview>
+objects. Named arguments are sent as the query string.
 
 =cut
 
 sub reviews {
-    my ($self, $index) = @_;
-    my $data = $self->{client}->get($self->_path_for(uri_escape($index), 'reviews'));
+    my ($self, $index, %params) = @_;
+    my $data = $self->client->get($self->_path_for(uri_escape($index), 'reviews'), params => \%params);
     return map {
         WWW::Forgejo::Entity::PullRequestReview->new(
             client => $self->client,
@@ -168,26 +171,54 @@ sub reviews {
     } @$data;
 }
 
+=method create_review
+
+    my $review = $repo->pulls->create_review($index, { event => 'APPROVED', body => 'LGTM' });
+
+Create a review on a pull request. Returns the plain review structure.
+
+=cut
+
 sub create_review {
     my ($self, $index, $data) = @_;
-    my $result = $self->{client}->post($self->_path_for(uri_escape($index), 'reviews'), $data);
-    return $result;
-}
-
-sub comments {
-    my ($self, $index) = @_;
-    my $data = $self->{client}->get($self->_path_for(uri_escape($index), 'comments'));
-    return map {
-        WWW::Forgejo::Entity::IssueComment->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-            data   => $_,
-        )
-    } @$data;
+    return $self->client->post($self->_path_for(uri_escape($index), 'reviews'), $data);
 }
 
 1;
+
 __END__
+
+=head1 SYNOPSIS
+
+    my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
+    my $repo    = $forgejo->repos->get('owner', 'repo-name');
+
+    my @pulls = $repo->pulls->list;
+    my @open  = $repo->pulls->list(state => 'open');
+    my @page2 = $repo->pulls->list(page => 2, limit => 50);
+
+    my $pr = $repo->pulls->get(1);
+
+    $pr = $repo->pulls->create({
+        title => 'Feature PR',
+        body  => 'Description',
+        head  => 'feature-branch',
+        base  => 'main',
+    });
+
+    $repo->pulls->merge(1, { Do => 'squash' }) unless $repo->pulls->is_merged(1);
+
+=head1 DESCRIPTION
+
+Controller for the C</repos/{owner}/{repo}/pulls> endpoints of one repository.
+It is obtained through L<WWW::Forgejo::Entity::Repo/pulls>, which binds it to
+that repository; every method then addresses that repository.
+
+Depending on the method, results are L<WWW::Forgejo::Entity::PullRequest> and L<WWW::Forgejo::Entity::PullRequestReview>
+objects or the decoded JSON response as plain Perl data.
+
+=head1 SEE ALSO
+
+L<WWW::Forgejo::Entity::Repo>, L<WWW::Forgejo::Entity::PullRequest>, L<WWW::Forgejo::Entity::PullRequestReview>, L<WWW::Forgejo>
 
 =cut

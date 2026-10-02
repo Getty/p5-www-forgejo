@@ -5,42 +5,51 @@ package WWW::Forgejo::Entity::CronTask;
 use Moo;
 extends 'WWW::Forgejo::Entity';
 use Log::Any qw($log);
+use namespace::clean;
+
+our $VERSION = '0.001';
 
 sub name     { shift->data->{name} }
 sub schedule { shift->data->{schedule} }
-sub next_run { shift->data->{next_run} }
-sub last_run { shift->data->{last_run} }
-sub disabled { shift->data->{disabled} }
+sub next_run { shift->data->{next} }
+sub last_run { shift->data->{prev} }
 
 1;
 
 __END__
 
+=head1 SYNOPSIS
+
+    my $task = WWW::Forgejo::Entity::CronTask->new(
+        client => $forgejo,
+        data   => \%task,      # one decoded cron task object
+    );
+    print $task->name, ' ', $task->schedule, "\n";
+
 =head1 DESCRIPTION
 
-Represents a Forgejo cron task entity.
+Wraps the decoded JSON object of a cron task. None of the controllers returns this class
+yet; they hand out the plain decoded data, which can be wrapped as shown in the
+L</SYNOPSIS>. The accessors read single fields from
+L<data|WWW::Forgejo::Entity/data>, which always holds the complete structure.
 
-=head1 ATTRIBUTES
+Inherits from L<WWW::Forgejo::Entity>.
 
-=head2 name
+=method name
 
 The cron task name.
 
-=head2 schedule
+=method schedule
 
 The cron schedule.
 
-=head2 next_run
+=method next_run
 
 Timestamp of the next run.
 
-=head2 last_run
+=method last_run
 
 Timestamp of the last run.
-
-=head2 disabled
-
-Whether the cron task is disabled.
 
 =head1 SEE ALSO
 

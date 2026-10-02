@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 use strict;
 use warnings;
 use Test::More;
@@ -188,10 +189,31 @@ subtest 'users search' => sub {
     clear_responses;
     add_response(200, '{"data":[{"id":1,"login":"testuser"},{"id":2,"login":"another"}]}');
 
-    my $result = $client->users->search(query => 'test');
+    my $result = $client->users->search(q => 'test');
     ok($result, 'search returns result');
     is(ref $result->{data}, 'ARRAY');
-    cmp_ok(scalar(@{$result->{data}}), '>=', 1);
+    is(scalar(@{$result->{data}}), 2, 'both users');
+    is($Test::MockIO::requests[-1]->url, 'https://test.example/api/v1/users/search?q=test',
+        'q is the search term of GET /users/search');
+};
+
+subtest 'users search: single argument is the search term' => sub {
+    clear_responses;
+    add_response(200, '{"data":[]}');
+
+    $client->users->search('test');
+    is($Test::MockIO::requests[-1]->url, 'https://test.example/api/v1/users/search?q=test',
+        'positional term becomes q');
+};
+
+subtest 'users search: q is optional, like in the API' => sub {
+    clear_responses;
+    add_response(200, '{"data":[]}');
+
+    my $result = eval { $client->users->search(uid => 7) };
+    is($@, '', 'search without q does not croak');
+    is($Test::MockIO::requests[-1]->url, 'https://test.example/api/v1/users/search?uid=7',
+        'only the given parameters are sent');
 };
 
 subtest 'users get' => sub {
@@ -230,14 +252,20 @@ subtest 'orgs get' => sub {
 # Teams API Tests
 # =============================================================================
 
-subtest 'teams list' => sub {
+# The API has no "list all teams" operation (no GET /teams); teams are listed
+# per organization.
+subtest 'teams are listed per organization' => sub {
+    ok(!WWW::Forgejo::API::Teams->can('list'), 'no teams->list');
+
     clear_responses;
     add_response(200, '[{"id":1,"name":"Owners"},{"id":2,"name":"Developers"}]');
 
-    my $teams = $client->teams->list;
-    ok($teams, 'list returns result');
+    my $teams = WWW::Forgejo::API::Org::Teams->new(client => $client)->list('testorg');
     is(ref $teams, 'ARRAY');
-    cmp_ok(scalar(@$teams), '>=', 1);
+    is(scalar(@$teams), 2, 'both teams');
+    my $req = $Test::MockIO::requests[-1];
+    is($req->method . ' ' . $req->url, 'GET https://test.example/api/v1/orgs/testorg/teams',
+        'GET /orgs/{org}/teams');
 };
 
 subtest 'teams get' => sub {
@@ -262,13 +290,16 @@ subtest 'notifications list' => sub {
     is(ref $notifs, 'ARRAY');
 };
 
-subtest 'notifications count' => sub {
+# GET /notifications/new answers with a NotificationCount: { "new": N }.
+subtest 'notifications check' => sub {
     clear_responses;
-    add_response(200, '{"count":5}');
+    add_response(200, '{"new":5}');
 
-    my $count = $client->notifications->count;
-    ok($count, 'count returned');
-    is($count->{count}, 5);
+    my $count = $client->notifications->check;
+    is($count->{new}, 5, 'number of new notifications');
+    my $req = $Test::MockIO::requests[-1];
+    is($req->method . ' ' . $req->url, 'GET https://test.example/api/v1/notifications/new',
+        'GET /notifications/new');
 };
 
 # =============================================================================
@@ -279,9 +310,17 @@ subtest 'packages list' => sub {
     clear_responses;
     add_response(200, '[{"id":1,"name":"my-package","type":"maven"}]');
 
-    my $packages = $client->packages->list;
-    ok($packages, 'list returns result');
+    my $packages = $client->packages->list('testowner', type => 'maven');
     is(ref $packages, 'ARRAY');
+    is($packages->[0]{name}, 'my-package', 'package data');
+    is($Test::MockIO::requests[-1]->url, 'https://test.example/api/v1/packages/testowner?type=maven',
+        'GET /packages/{owner} with the filter as query string');
+
+    # packages are always listed for an owner
+    clear_responses;
+    eval { $client->packages->list };
+    like($@, qr/Package owner required/, 'list without owner croaks');
+    is(scalar @Test::MockIO::requests, 0, 'and sends nothing');
 };
 
 subtest 'packages get' => sub {
@@ -350,31 +389,24 @@ subtest 'admin users create' => sub {
     is($new_user->{login}, 'newuser');
 };
 
-subtest 'admin users list_keys' => sub {
-    clear_responses;
-    add_response(200, '[{"id":1,"key":"ssh-rsa..."}]');
+# The admin API only creates keys, organizations and repositories for a user
+# (POST /admin/users/{username}/keys|orgs|repos, see t/10-admin-users.t); it
+# has no GET for them. Listing goes through the users controller.
+subtest 'keys, orgs and repos of a user are listed by the users controller' => sub {
+    ok(!WWW::Forgejo::API::Admin::Users->can($_), "no admin users->$_")
+        for qw(list_keys list_orgs list_repos);
 
-    my $keys = $client->admin->users->list_keys('testuser');
-    ok($keys, 'list_keys works');
-    is(ref $keys, 'ARRAY');
-};
+    my %path = (keys => 'keys', orgs => 'orgs', repos => 'repos');
+    for my $method (sort keys %path) {
+        clear_responses;
+        add_response(200, '[{"id":1}]');
 
-subtest 'admin users list_orgs' => sub {
-    clear_responses;
-    add_response(200, '[{"id":1,"username":"testorg"}]');
-
-    my $orgs = $client->admin->users->list_orgs('testuser');
-    ok($orgs, 'list_orgs works');
-    is(ref $orgs, 'ARRAY');
-};
-
-subtest 'admin users list_repos' => sub {
-    clear_responses;
-    add_response(200, '[{"id":1,"name":"test-repo"}]');
-
-    my $repos = $client->admin->users->list_repos('testuser');
-    ok($repos, 'list_repos works');
-    is(ref $repos, 'ARRAY');
+        my $list = $client->users->$method('testuser');
+        is(ref $list, 'ARRAY', "users->$method returns a list");
+        my $req = $Test::MockIO::requests[-1];
+        is($req->method . ' ' . $req->url,
+            "GET https://test.example/api/v1/users/testuser/$path{$method}", "users->$method request");
+    }
 };
 
 # =============================================================================
@@ -403,13 +435,19 @@ subtest 'admin cron list' => sub {
     is(ref $tasks, 'ARRAY');
 };
 
-subtest 'admin cron get' => sub {
-    clear_responses;
-    add_response(200, '{"id":"update_mirrors","name":"Update Mirrors","next":"2024-01-01T00:00:00Z","enabled":true}');
+# The API lists cron tasks and runs one (POST /admin/cron/{task}); it has no
+# operation to read a single task.
+subtest 'admin cron run' => sub {
+    ok(!WWW::Forgejo::API::Admin::Cron->can('get'), 'no cron->get');
 
-    my $task = $client->admin->cron->get('update_mirrors');
-    ok($task, 'cron get works');
-    is($task->{id}, 'update_mirrors');
+    clear_responses;
+    add_response(204, '');
+
+    $client->admin->cron->run('update_mirrors');
+    my $req = $Test::MockIO::requests[-1];
+    is($req->method . ' ' . $req->url, 'POST https://test.example/api/v1/admin/cron/update_mirrors',
+        'POST /admin/cron/{task}');
+    ok(!$req->has_content, 'no body');
 };
 
 # =============================================================================
@@ -448,17 +486,39 @@ subtest 'repos get' => sub {
     is($repo->data->{name}, 'test-repo');
 };
 
-subtest 'repos create_for_user' => sub {
+# Creating a repository for another user is an admin operation
+# (POST /admin/users/{username}/repos, admin->users->create_repo_for); the
+# repos controller creates for the authenticated user or an organization.
+subtest 'repos create' => sub {
+    ok(!WWW::Forgejo::API::Repos->can('create_for_user'), 'no repos->create_for_user');
+
     clear_responses;
     add_response(201, '{"id":99,"name":"new-repo","full_name":"testuser/new-repo","owner":{"login":"testuser"}}');
 
-    my $repo = $client->repos->create_for_user('testuser',
+    my $repo = $client->repos->create(
         name => 'new-repo',
         description => 'A new repository',
         private => 0,
     );
-    ok($repo, 'create_for_user works');
+    isa_ok($repo, 'WWW::Forgejo::Entity::Repo');
     is($repo->data->{name}, 'new-repo');
+    is($repo->owner, 'testuser', 'owner taken from the response');
+    my $req = $Test::MockIO::requests[-1];
+    is($req->method . ' ' . $req->url, 'POST https://test.example/api/v1/user/repos', 'POST /user/repos');
+    is(decode_json($req->content)->{name}, 'new-repo', 'body carries the name');
+};
+
+subtest 'repos create_for_org' => sub {
+    clear_responses;
+    add_response(201, '{"id":100,"name":"org-repo","owner":{"login":"testorg"}}');
+
+    my $repo = $client->repos->create_for_org('testorg', name => 'org-repo');
+    isa_ok($repo, 'WWW::Forgejo::Entity::Repo');
+    is($repo->owner, 'testorg', 'owner taken from the response');
+    my $req = $Test::MockIO::requests[-1];
+    is($req->method . ' ' . $req->url, 'POST https://test.example/api/v1/orgs/testorg/repos',
+        'POST /orgs/{org}/repos');
+    is_deeply(decode_json($req->content), { name => 'org-repo' }, 'body');
 };
 
 # =============================================================================
@@ -554,8 +614,9 @@ subtest 'org entity teams' => sub {
     add_response(200, '[{"id":1,"name":"Owners"},{"id":2,"name":"Developers"}]');
 
     my $org = $client->orgs->get('testorg');
-    my @teams = $org->teams->list;
-    cmp_ok(scalar(@teams), '>=', 1);
+    my $teams = $org->teams->list;
+    is(scalar(@$teams), 2, q{both teams});
+    like($Test::MockIO::requests[-1]->url, qr{/orgs/testorg/teams$}, q{teams path});
 };
 
 subtest 'org entity hooks' => sub {
@@ -564,8 +625,9 @@ subtest 'org entity hooks' => sub {
     add_response(200, '[{"id":1,"type":"web","url":"https://example.com/hook"}]');
 
     my $org = $client->orgs->get('testorg');
-    my @hooks = $org->hooks->list;
-    cmp_ok(scalar(@hooks), '>=', 1);
+    my $hooks = $org->hooks->list;
+    is(scalar(@$hooks), 1, q{one hook});
+    like($Test::MockIO::requests[-1]->url, qr{/orgs/testorg/hooks$}, q{hooks path});
 };
 
 # =============================================================================
@@ -586,10 +648,10 @@ subtest 'query params for GET requests' => sub {
     clear_responses;
     add_response(200, '{"data":[{"id":1}]}');
 
-    $client->users->search(query => 'test', limit => 10);
+    $client->users->search(q => 'test', limit => 10);
     my $req = $Test::MockIO::requests[-1];
     like($req->url, qr{limit=10});
-    like($req->url, qr{query=test});
+    like($req->url, qr{[?&]q=test});
 };
 
 # =============================================================================

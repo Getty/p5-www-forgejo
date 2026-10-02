@@ -5,37 +5,46 @@ package WWW::Forgejo::Entity::QuotaRule;
 use Moo;
 extends 'WWW::Forgejo::Entity';
 use Log::Any qw($log);
+use namespace::clean;
 
-sub id        { shift->data->{id} }
-sub name      { shift->data->{name} }
-sub rule_type { shift->data->{rule_type} }
-sub value     { shift->data->{value} }
+our $VERSION = '0.001';
+
+sub name     { shift->data->{name} }
+sub limit    { shift->data->{limit} }
+sub subjects { shift->data->{subjects} }
 
 1;
 
 __END__
 
+=head1 SYNOPSIS
+
+    my $rule = WWW::Forgejo::Entity::QuotaRule->new(
+        client => $forgejo,
+        data   => \%rule,      # one decoded quota rule object
+    );
+    print $rule->name, "\n";
+
 =head1 DESCRIPTION
 
-Represents a Forgejo quota rule entity.
+Wraps the decoded JSON object of a quota rule. None of the controllers returns this class
+yet; they hand out the plain decoded data, which can be wrapped as shown in the
+L</SYNOPSIS>. The accessors read single fields from
+L<data|WWW::Forgejo::Entity/data>, which always holds the complete structure.
 
-=head1 ATTRIBUTES
+Inherits from L<WWW::Forgejo::Entity>.
 
-=head2 id
-
-The rule's ID.
-
-=head2 name
+=method name
 
 The rule's name.
 
-=head2 rule_type
+=method limit
 
-The rule type (e.g., size, count).
+The limit the rule sets.
 
-=head2 value
+=method subjects
 
-The rule's value.
+Arrayref of the subjects the limit applies to.
 
 =head1 SEE ALSO
 

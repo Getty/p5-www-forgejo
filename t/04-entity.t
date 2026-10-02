@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 use strict;
 use warnings;
 use Test::More;
@@ -39,7 +40,12 @@ subtest 'concrete entities extend the base WWW::Forgejo::Entity' => sub {
     isa_ok($repo, 'WWW::Forgejo::Entity', 'Entity::Repo (repo-scoped)');
 };
 
-subtest 'inherited client attribute is a weak reference' => sub {
+# An entity holds its client strongly: the client never points back at the
+# entities or controllers it hands out, so there is no cycle to break, and
+#   WWW::Forgejo->new(...)->repos->get(...)
+# must leave an entity that still works. (t/09-client-lifetime.t proves the
+# absence of a cycle with the real client.)
+subtest 'inherited client attribute keeps the client alive' => sub {
     my $client = mock_client();
 
     my $user = WWW::Forgejo::Entity::User->new(
@@ -53,11 +59,11 @@ subtest 'inherited client attribute is a weak reference' => sub {
         data   => { id => 7 },
     );
 
-    ok(isweak($user->{client}), 'Entity::User stored client is weak');
-    ok(isweak($rel->{client}),  'Entity::Release stored client is weak');
+    ok(!isweak($user->{client}), 'Entity::User stored client is a strong reference');
+    ok(!isweak($rel->{client}),  'Entity::Release stored client is a strong reference');
 
-    # Behavioural proof: drop the only strong external ref and the weak
-    # slot clears itself. On the old non-weak attribute it would persist.
+    # Behavioural proof: the entity is the only holder left and still has
+    # its client. With a weak attribute the slot would be cleared here.
     my $obj;
     {
         my $scoped_client = mock_client();
@@ -65,10 +71,9 @@ subtest 'inherited client attribute is a weak reference' => sub {
             client => $scoped_client,
             data   => { id => 2, login => 'bob' },
         );
-        ok(defined $obj->client, 'client present while a strong ref is in scope');
     }
-    is($obj->client, undef,
-        'client cleared once the last strong ref leaves scope (weak_ref)');
+    isa_ok($obj->client, 'MockClient',
+        'client still there after the last outside reference left scope');
 };
 
 subtest 'inherited update/delete croak stubs' => sub {

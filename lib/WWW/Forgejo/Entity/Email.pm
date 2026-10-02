@@ -5,37 +5,46 @@ package WWW::Forgejo::Entity::Email;
 use Moo;
 extends 'WWW::Forgejo::Entity';
 use Log::Any qw($log);
+use namespace::clean;
+
+our $VERSION = '0.001';
 
 sub email { shift->data->{email} }
 sub primary { shift->data->{primary} }
 sub verified { shift->data->{verified} }
-sub visibility { shift->data->{visibility} }
 
 1;
 
 __END__
 
+=head1 SYNOPSIS
+
+    my $email = WWW::Forgejo::Entity::Email->new(
+        client => $forgejo,
+        data   => \%email,     # one decoded email object
+    );
+    print $email->email, "\n" if $email->verified;
+
 =head1 DESCRIPTION
 
-Represents a Forgejo email entity.
+Wraps the decoded JSON object of an email address. None of the controllers returns this class
+yet; they hand out the plain decoded data, which can be wrapped as shown in the
+L</SYNOPSIS>. The accessors read single fields from
+L<data|WWW::Forgejo::Entity/data>, which always holds the complete structure.
 
-=head1 ATTRIBUTES
+Inherits from L<WWW::Forgejo::Entity>.
 
-=head2 email
+=method email
 
 The email address.
 
-=head2 primary
+=method primary
 
 Whether this is the primary email address.
 
-=head2 verified
+=method verified
 
 Whether the email is verified.
-
-=head2 visibility
-
-The email's visibility (e.g., public, private).
 
 =head1 SEE ALSO
 

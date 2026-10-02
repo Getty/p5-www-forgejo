@@ -8,358 +8,244 @@ package WWW::Forgejo::Entity::Repo;
 
 use Moo;
 extends 'WWW::Forgejo::Entity';
-use Log::Any qw($log);
-use JSON::MaybeXS qw(encode_json decode_json);
+use JSON::MaybeXS qw(encode_json);
+use URI::Escape qw(uri_escape);
+use WWW::Forgejo::API::Repo::Branches;
+use WWW::Forgejo::API::Repo::BranchProtections;
+use WWW::Forgejo::API::Repo::Tags;
+use WWW::Forgejo::API::Repo::TagProtections;
+use WWW::Forgejo::API::Repo::Releases;
+use WWW::Forgejo::API::Repo::Issues;
+use WWW::Forgejo::API::Repo::PullRequests;
+use WWW::Forgejo::API::Repo::Hooks;
+use WWW::Forgejo::API::Repo::Collaborators;
+use WWW::Forgejo::API::Repo::Contents;
+use WWW::Forgejo::API::Repo::Git;
+use WWW::Forgejo::API::Repo::Wiki;
+use WWW::Forgejo::API::Repo::Actions;
+use WWW::Forgejo::API::Repo::Labels;
+use WWW::Forgejo::API::Repo::Milestones;
+use WWW::Forgejo::API::Repo::Topics;
+use WWW::Forgejo::API::Repo::Keys;
+use WWW::Forgejo::API::Repo::Forks;
+use WWW::Forgejo::API::Repo::Stargazers;
+use WWW::Forgejo::API::Repo::Subscribers;
+use WWW::Forgejo::API::Repo::Subscription;
+use WWW::Forgejo::API::Repo::Assignees;
+use WWW::Forgejo::API::Repo::Reviewers;
+use WWW::Forgejo::API::Repo::Flags;
+use WWW::Forgejo::API::Repo::Statuses;
+use namespace::clean;
+
+our $VERSION = '0.001';
 
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
 
-# Sub-resource accessors - lazy loaded
-has branches => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Branches;
-        return WWW::Forgejo::API::Repo::Branches->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
+=attr owner
+
+Owner (user or organization name) of the repository this object belongs to.
+Required.
+
+=attr repo
+
+Name of the repository this object belongs to. Required.
+
+=cut
+
+# Sub-resource accessors and the controller class each one hands out.
+my %CONTROLLER = (
+    branches           => 'WWW::Forgejo::API::Repo::Branches',
+    branch_protections => 'WWW::Forgejo::API::Repo::BranchProtections',
+    tags               => 'WWW::Forgejo::API::Repo::Tags',
+    tag_protections    => 'WWW::Forgejo::API::Repo::TagProtections',
+    releases           => 'WWW::Forgejo::API::Repo::Releases',
+    issues             => 'WWW::Forgejo::API::Repo::Issues',
+    pulls              => 'WWW::Forgejo::API::Repo::PullRequests',
+    hooks              => 'WWW::Forgejo::API::Repo::Hooks',
+    collaborators      => 'WWW::Forgejo::API::Repo::Collaborators',
+    contents           => 'WWW::Forgejo::API::Repo::Contents',
+    git                => 'WWW::Forgejo::API::Repo::Git',
+    wiki               => 'WWW::Forgejo::API::Repo::Wiki',
+    actions            => 'WWW::Forgejo::API::Repo::Actions',
+    labels             => 'WWW::Forgejo::API::Repo::Labels',
+    milestones         => 'WWW::Forgejo::API::Repo::Milestones',
+    topics             => 'WWW::Forgejo::API::Repo::Topics',
+    keys               => 'WWW::Forgejo::API::Repo::Keys',
+    forks              => 'WWW::Forgejo::API::Repo::Forks',
+    stargazers         => 'WWW::Forgejo::API::Repo::Stargazers',
+    subscribers        => 'WWW::Forgejo::API::Repo::Subscribers',
+    subscription       => 'WWW::Forgejo::API::Repo::Subscription',
+    assignees          => 'WWW::Forgejo::API::Repo::Assignees',
+    reviewers          => 'WWW::Forgejo::API::Repo::Reviewers',
+    flags              => 'WWW::Forgejo::API::Repo::Flags',
+    statuses           => 'WWW::Forgejo::API::Repo::Statuses'
 );
 
-has branch_protections => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::BranchProtections;
-        return WWW::Forgejo::API::Repo::BranchProtections->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+for my $name (sort keys %CONTROLLER) {
+    has $name => (
+        is       => 'lazy',
+        init_arg => undef,
+        builder  => sub { $_[0]->_controller($CONTROLLER{$name}) },
+    );
+}
 
-has tags => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Tags;
-        return WWW::Forgejo::API::Repo::Tags->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+sub _controller {
+    my ($self, $class) = @_;
+    return $class->new(
+        client => $self->client,
+        owner  => $self->owner,
+        repo   => $self->repo,
+    );
+}
 
-has tag_protections => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::TagProtections;
-        return WWW::Forgejo::API::Repo::TagProtections->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+=attr branches
 
-has releases => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Releases;
-        return WWW::Forgejo::API::Repo::Releases->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+The L<WWW::Forgejo::API::Repo::Branches> controller for this repository. Built lazily.
 
-has issues => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Issues;
-        return WWW::Forgejo::API::Repo::Issues->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+=attr branch_protections
 
-has pulls => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::PullRequests;
-        return WWW::Forgejo::API::Repo::PullRequests->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+The L<WWW::Forgejo::API::Repo::BranchProtections> controller for this repository. Built lazily.
 
-has hooks => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Hooks;
-        return WWW::Forgejo::API::Repo::Hooks->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+=attr tags
 
-has collaborators => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Collaborators;
-        return WWW::Forgejo::API::Repo::Collaborators->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+The L<WWW::Forgejo::API::Repo::Tags> controller for this repository. Built lazily.
 
-has contents => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Contents;
-        return WWW::Forgejo::API::Repo::Contents->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+=attr tag_protections
 
-has git => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Git;
-        return WWW::Forgejo::API::Repo::Git->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+The L<WWW::Forgejo::API::Repo::TagProtections> controller for this repository. Built lazily.
 
-has wiki => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Wiki;
-        return WWW::Forgejo::API::Repo::Wiki->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+=attr releases
 
-has actions => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Actions;
-        return WWW::Forgejo::API::Repo::Actions->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+The L<WWW::Forgejo::API::Repo::Releases> controller for this repository. Built lazily.
 
-has labels => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Labels;
-        return WWW::Forgejo::API::Repo::Labels->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+=attr issues
 
-has milestones => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Milestones;
-        return WWW::Forgejo::API::Repo::Milestones->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+The L<WWW::Forgejo::API::Repo::Issues> controller for this repository. Built lazily.
 
-has topics => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Topics;
-        return WWW::Forgejo::API::Repo::Topics->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+=attr pulls
 
-has keys => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Keys;
-        return WWW::Forgejo::API::Repo::Keys->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+The L<WWW::Forgejo::API::Repo::PullRequests> controller for this repository. Built lazily.
 
-has forks => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Forks;
-        return WWW::Forgejo::API::Repo::Forks->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+=attr hooks
 
-has stargazers => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Stargazers;
-        return WWW::Forgejo::API::Repo::Stargazers->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+The L<WWW::Forgejo::API::Repo::Hooks> controller for this repository. Built lazily.
 
-has subscribers => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Subscribers;
-        return WWW::Forgejo::API::Repo::Subscribers->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+=attr collaborators
 
-has subscription => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Subscription;
-        return WWW::Forgejo::API::Repo::Subscription->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+The L<WWW::Forgejo::API::Repo::Collaborators> controller for this repository. Built lazily.
 
-has assignees => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Assignees;
-        return WWW::Forgejo::API::Repo::Assignees->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+=attr contents
 
-has reviewers => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Reviewers;
-        return WWW::Forgejo::API::Repo::Reviewers->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+The L<WWW::Forgejo::API::Repo::Contents> controller for this repository. Built lazily.
 
-has flags => (
-    is      => 'lazy',
-    builder => sub {
-        my $self = shift;
-        require WWW::Forgejo::API::Repo::Flags;
-        return WWW::Forgejo::API::Repo::Flags->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-        );
-    },
-);
+=attr git
+
+The L<WWW::Forgejo::API::Repo::Git> controller for this repository. Built lazily.
+
+=attr wiki
+
+The L<WWW::Forgejo::API::Repo::Wiki> controller for this repository. Built lazily.
+
+=attr actions
+
+The L<WWW::Forgejo::API::Repo::Actions> controller for this repository. Built lazily.
+
+=attr labels
+
+The L<WWW::Forgejo::API::Repo::Labels> controller for this repository. Built lazily.
+
+=attr milestones
+
+The L<WWW::Forgejo::API::Repo::Milestones> controller for this repository. Built lazily.
+
+=attr topics
+
+The L<WWW::Forgejo::API::Repo::Topics> controller for this repository. Built lazily.
+
+=attr keys
+
+The L<WWW::Forgejo::API::Repo::Keys> controller for this repository. Built lazily.
+
+=attr forks
+
+The L<WWW::Forgejo::API::Repo::Forks> controller for this repository. Built lazily.
+
+=attr stargazers
+
+The L<WWW::Forgejo::API::Repo::Stargazers> controller for this repository. Built lazily.
+
+=attr subscribers
+
+The L<WWW::Forgejo::API::Repo::Subscribers> controller for this repository. Built lazily.
+
+=attr subscription
+
+The L<WWW::Forgejo::API::Repo::Subscription> controller for this repository. Built lazily.
+
+=attr assignees
+
+The L<WWW::Forgejo::API::Repo::Assignees> controller for this repository. Built lazily.
+
+=attr reviewers
+
+The L<WWW::Forgejo::API::Repo::Reviewers> controller for this repository. Built lazily.
+
+=attr flags
+
+The L<WWW::Forgejo::API::Repo::Flags> controller for this repository. Built lazily.
+
+=attr statuses
+
+The L<WWW::Forgejo::API::Repo::Statuses> controller for this repository. Built lazily.
+
+=cut
+
+sub _path {
+    my ($self) = @_;
+    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo);
+}
 
 =method update
 
-    $self->update({ description => 'Updated description' });
+    my $updated = $repo->update({ description => 'Updated description' });
 
-Update repository settings.
+Update repository settings (C<PATCH /repos/{owner}/{repo}>). Returns a new
+L<WWW::Forgejo::Entity::Repo> carrying the data from the response; the
+object it was called on keeps its old data.
 
 =cut
 
 sub update {
     my ($self, $data) = @_;
-    my $result = $self->client->patch("/repos/${\$self->owner}/${\$self->repo}", $data);
-    return $self->new(%$self, data => $result);
+    my $result = $self->client->patch($self->_path, $data);
+    return (ref $self)->new(
+        client => $self->client,
+        owner  => $self->owner,
+        repo   => $self->repo,
+        data   => $result,
+    );
 }
 
 =method delete
 
-    $self->delete;
+    $repo->delete;
 
-Delete this repository.
+Delete this repository. Returns true.
 
 =cut
 
 sub delete {
     my ($self) = @_;
-    $self->client->delete("/repos/${\$self->owner}/${\$self->repo}");
+    $self->client->delete($self->_path);
     return 1;
 }
 
-=method data
+=method data_json
 
-    my $json = $self->data;
+    my $json = $repo->data_json;
 
-Returns the repository data serialized as JSON.
+Returns the repository data (L<WWW::Forgejo::Entity/data>) encoded as a JSON string.
 
 =cut
 
@@ -369,10 +255,32 @@ sub data_json {
 }
 
 1;
+
 __END__
+
+=head1 SYNOPSIS
+
+    my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
+    my $repo    = $forgejo->repos->get('owner', 'repo-name');
+
+    print $repo->data->{full_name}, "\n";
+
+    my @issues   = $repo->issues->list(state => 'open');
+    my @branches = $repo->branches->list;
+    my $release  = $repo->releases->get_by_tag('v1.0.0');
+
+=head1 DESCRIPTION
+
+A repository as returned by L<WWW::Forgejo::API::Repos>. Besides the decoded
+repository data (L<data|WWW::Forgejo::Entity/data>) it is the entry point to
+everything inside the repository: each of the controller attributes below
+returns a C<WWW::Forgejo::API::Repo::*> object bound to this repository's
+L</owner> and L</repo>.
+
+Inherits from L<WWW::Forgejo::Entity>.
 
 =head1 SEE ALSO
 
-L<WWW::Forgejo::API::Repos>
+L<WWW::Forgejo::API::Repos>, L<WWW::Forgejo::Entity>, L<WWW::Forgejo>
 
 =cut

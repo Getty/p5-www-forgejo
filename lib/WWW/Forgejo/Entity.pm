@@ -5,22 +5,25 @@ package WWW::Forgejo::Entity;
 use Moo;
 use Log::Any qw($log);
 use Carp qw(croak);
+use namespace::clean;
+
+our $VERSION = '0.001';
 
 =attr client
 
-Weak reference to the API client.
+The L<WWW::Forgejo> client this object came from. Required.
 
 =cut
 
 has client => (
     is       => 'ro',
-    weak_ref => 1,
     required => 1,
 );
 
 =attr data
 
-Hashref of raw entity data from the API.
+Hashref with the decoded JSON object as returned by the API. Defaults to an
+empty hashref.
 
 =cut
 
@@ -31,7 +34,12 @@ has data => (
 
 =method update
 
-Update the entity via API (PUT). Returns updated data.
+    $entity->update(%params);
+
+Update the object on the server. The base class only croaks with
+C<update not implemented for ...>; entity classes that support it (for example
+L<WWW::Forgejo::Entity::Repo>, L<WWW::Forgejo::Entity::Org> and
+L<WWW::Forgejo::Entity::Team>) override it.
 
 =cut
 
@@ -42,7 +50,10 @@ sub update {
 
 =method delete
 
-Delete the entity via API (DELETE).
+    $entity->delete;
+
+Delete the object on the server. As with L</update>, the base class only croaks
+and the entity classes that support it override it.
 
 =cut
 
@@ -58,6 +69,9 @@ sub delete {
         data   => { id => 1, login => 'test' },
     );
 
+    print $user->login, "\n";            # an accessor of the subclass
+    print $user->data->{id}, "\n";       # the complete decoded structure
+
 =cut
 
 1;
@@ -66,31 +80,14 @@ __END__
 
 =head1 DESCRIPTION
 
-Base entity class for Forgejo objects. Provides common attributes and
-methods for interacting with API data.
+Base class of the C<WWW::Forgejo::Entity::*> classes. An entity is a thin
+object around one decoded JSON object of the API: L</data> holds the complete
+structure, the subclasses add accessors for commonly used fields and, where it
+makes sense, methods that act on the object.
 
-=head1 ATTRIBUTES
+=head1 SEE ALSO
 
-=head2 client
-
-Weak reference to the API client.
-
-=head2 data
-
-Hashref of raw entity data from the API.
-
-=head1 METHODS
-
-=head2 update
-
-    $item->update(%params);
-
-Update the entity via API (PUT). Returns updated data.
-
-=head2 delete
-
-    $item->delete;
-
-Delete the entity via API (DELETE).
+L<WWW::Forgejo>, L<WWW::Forgejo::Entity::Repo>, L<WWW::Forgejo::Entity::Org>,
+L<WWW::Forgejo::Entity::Team>
 
 =cut

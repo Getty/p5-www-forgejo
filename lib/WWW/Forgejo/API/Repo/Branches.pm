@@ -7,52 +7,44 @@ use warnings;
 package WWW::Forgejo::API::Repo::Branches;
 
 use Moo;
-use Log::Any qw($log);
-use URI::Escape;
+use URI::Escape qw(uri_escape);
 use WWW::Forgejo::Entity::Branch;
-use WWW::Forgejo::Entity::BranchProtection;
+use namespace::clean;
 
+our $VERSION = '0.001';
+
+has client => (is => 'ro', required => 1);
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
-has client => (is => 'ro', init_arg => 'client');
+
+=attr client
+
+The L<WWW::Forgejo> client the requests are sent through. Required.
+
+=attr owner
+
+Owner (user or organization name) of the repository this controller works on.
+Required.
+
+=attr repo
+
+Name of the repository this controller works on. Required.
+
+=cut
+
+# /repos/{owner}/{repo}/... of the repository this controller is bound to.
+sub _repo_path {
+    my ($self, @path) = @_;
+    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+}
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/branches/" . join('/', @path);
+    return $self->_repo_path('branches', @path);
 }
 
-=method list
-
-    my @branches = $self->list;
-
-List all branches.
-
-=cut
-
-sub list {
-    my ($self, %params) = @_;
-    my $data = $self->{client}->get($self->_path_for, %params);
-    return map {
-        WWW::Forgejo::Entity::Branch->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-            data   => $_,
-        )
-    } @$data;
-}
-
-=method get
-
-    my $branch = $self->get('main');
-
-Get a single branch.
-
-=cut
-
-sub get {
-    my ($self, $branch) = @_;
-    my $data = $self->{client}->get($self->_path_for(uri_escape($branch)));
+sub _branch {
+    my ($self, $data) = @_;
     return WWW::Forgejo::Entity::Branch->new(
         client => $self->client,
         owner  => $self->owner,
@@ -61,104 +53,116 @@ sub get {
     );
 }
 
+=method list
+
+    my @branches = $repo->branches->list;
+    my @branches = $repo->branches->list(page => 2, limit => 50);
+
+List all branches as L<WWW::Forgejo::Entity::Branch> objects. Named arguments
+are sent as the query string.
+
+=cut
+
+sub list {
+    my ($self, %params) = @_;
+    my $data = $self->client->get($self->_path_for, params => \%params);
+    return map { $self->_branch($_) } @$data;
+}
+
+=method get
+
+    my $branch = $repo->branches->get($branch_name);
+
+Get a specific branch as a L<WWW::Forgejo::Entity::Branch>.
+
+=cut
+
+sub get {
+    my ($self, $branch) = @_;
+    return $self->_branch($self->client->get($self->_path_for(uri_escape($branch))));
+}
+
 =method create
 
-    my $branch = $self->create({
-        branch_name => 'new-branch',
-        from        => 'main',
+    my $branch = $repo->branches->create({
+        new_branch_name => 'new-branch',
+        old_ref_name    => 'main',
     });
 
-Create a new branch.
+Create a new branch; the API requires C<new_branch_name>. Returns the
+L<WWW::Forgejo::Entity::Branch>.
 
 =cut
 
 sub create {
     my ($self, $data) = @_;
-    my $path = $self->_path_for;
-    my $result = $self->{client}->post($path, $data);
-    return WWW::Forgejo::Entity::Branch->new(
-        client => $self->client,
-        owner  => $self->owner,
-        repo   => $self->repo,
-        data   => $result,
-    );
+    return $self->_branch($self->client->post($self->_path_for, $data));
 }
 
 =method delete
 
-    $self->delete('feature-branch');
+    $repo->branches->delete($branch_name);
 
 Delete a branch.
+
+Branch protection rules are managed through
+L<WWW::Forgejo::API::Repo::BranchProtections>; the branches endpoints
+themselves have no operations for them.
 
 =cut
 
 sub delete {
     my ($self, $branch) = @_;
-    my $path = $self->_path_for(uri_escape($branch));
-    return $self->{client}->delete($path);
+    return $self->client->delete($self->_path_for(uri_escape($branch)));
 }
 
-=method protect
+=method rename
 
-    $self->protect('main');
+    $repo->branches->rename($branch_name, $new_name);
 
-Protect a branch.
+Rename a branch (C<PATCH /repos/{owner}/{repo}/branches/{branch}>). Returns
+true.
 
 =cut
 
-sub protect {
-    my ($self, $branch) = @_;
-    my $path = $self->_path_for(uri_escape($branch), 'protection');
-    my $result = $self->{client}->get($path);
-    return WWW::Forgejo::Entity::BranchProtection->new(
-        client => $self->client,
-        owner  => $self->owner,
-        repo   => $self->repo,
-        data   => $result,
-    );
-}
-
-=method unprotect
-
-    $self->unprotect('main');
-
-Unprotect a branch.
-
-=cut
-
-sub unprotect {
-    my ($self, $branch) = @_;
-    my $path = $self->_path_for(uri_escape($branch), 'protection');
-    return $self->{client}->delete($path);
-}
-
-=method list_protected
-
-    my @protected = $self->list_protected;
-
-List all protected branches.
-
-=cut
-
-sub list_protected {
-    my ($self, %params) = @_;
-    my $path = $self->_path_for('protected');
-    my $data = $self->{client}->get($path, %params);
-    return map {
-        WWW::Forgejo::Entity::Branch->new(
-            client => $self->client,
-            owner  => $self->owner,
-            repo   => $self->repo,
-            data   => $_,
-        )
-    } @$data;
+sub rename {
+    my ($self, $branch, $new_name) = @_;
+    $self->client->patch($self->_path_for(uri_escape($branch)), { name => $new_name });
+    return 1;
 }
 
 1;
+
 __END__
+
+=head1 SYNOPSIS
+
+    my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
+    my $repo    = $forgejo->repos->get('owner', 'repo-name');
+
+    my @branches = $repo->branches->list;
+
+    my $branch = $repo->branches->get('main');
+
+    my $new = $repo->branches->create({
+        new_branch_name => 'new-branch',
+        old_ref_name    => 'main',
+    });
+
+    $repo->branches->rename('new-branch', 'feature');
+    $repo->branches->delete('feature');
+
+=head1 DESCRIPTION
+
+Controller for the C</repos/{owner}/{repo}/branches> endpoints of one repository.
+It is obtained through L<WWW::Forgejo::Entity::Repo/branches>, which binds it to
+that repository; every method then addresses that repository.
+
+Depending on the method, results are L<WWW::Forgejo::Entity::Branch>
+objects or the decoded JSON response as plain Perl data.
 
 =head1 SEE ALSO
 
-L<WWW::Forgejo::Entity::Branch>
+L<WWW::Forgejo::Entity::Repo>, L<WWW::Forgejo::Entity::Branch>, L<WWW::Forgejo>
 
 =cut

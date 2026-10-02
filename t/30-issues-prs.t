@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 use strict;
 use warnings;
 use Test::More;
@@ -111,7 +112,7 @@ subtest 'pulls get + entity accessors' => sub {
         '{"id":10,"number":5,"title":"Fix bug","body":"the description",'
       . '"state":"open","merged":false,"merged_at":null,'
       . '"head":{"ref":"feature"},"base":{"ref":"main"},'
-      . '"user":{"login":"dev"},"comments":3,"commits":2,'
+      . '"user":{"login":"dev"},"comments":3,'
       . '"additions":10,"deletions":4,"changed_files":2}');
 
     my $pr = $pulls->get(5);
@@ -126,7 +127,6 @@ subtest 'pulls get + entity accessors' => sub {
     is($pr->base->{ref}, 'main', 'base ref');
     is($pr->user->{login}, 'dev', 'user login');
     is($pr->comments, 3, 'comments count');
-    is($pr->commits, 2, 'commits count');
     is($pr->additions, 10, 'additions');
     is($pr->deletions, 4, 'deletions');
     is($pr->changed_files, 2, 'changed_files');
@@ -199,26 +199,44 @@ subtest 'pulls merge' => sub {
     like($req->content, qr{merge}, 'merge body forwarded');
 };
 
+# GET /repos/{owner}/{repo}/pulls/{index}/merge answers with the status code
+# alone: 204 merged, 404 not merged.
 subtest 'pulls is_merged' => sub {
     clear_responses;
     add_response(204, '');
 
-    $pulls->is_merged(7);
+    ok($pulls->is_merged(7), '204 => merged');
     my $req = last_req;
     is($req->method, 'GET', 'is_merged => GET');
-    like($req->url, qr{/repos/testorg/test-repo/pulls/7/merged$}, 'merged path');
+    like($req->url, qr{/repos/testorg/test-repo/pulls/7/merge$}, 'merge path');
+
+    clear_responses;
+    add_response(404, '{"message":"not merged"}');
+    my $merged = eval { $pulls->is_merged(7) };
+    is($@, '', '404 does not croak');
+    ok(!$merged, '404 => not merged');
+
+    clear_responses;
+    add_response(500, '{"message":"boom"}');
+    eval { $pulls->is_merged(7) };
+    like($@, qr/Forgejo API error: boom/, 'any other error still croaks');
 };
 
-subtest 'pulls delete' => sub {
-    clear_responses;
-    add_response(204, '');
+# The API has no DELETE /repos/{owner}/{repo}/pulls/{index}; a pull request
+# is retired by closing it.
+subtest 'pulls are closed, not deleted' => sub {
+    ok(!WWW::Forgejo::API::Repo::PullRequests->can('delete'), 'no pulls->delete');
 
-    my $ok = $pulls->delete(7);
-    is($ok, 1, 'delete returns 1');
+    clear_responses;
+    add_response(201, '{"number":7,"state":"closed"}');
+
+    my $pr = $pulls->edit(7, { state => 'closed' });
+    is($pr->state, 'closed', 'closed pull request returned');
 
     my $req = last_req;
-    is($req->method, 'DELETE', 'delete => DELETE');
-    like($req->url, qr{/repos/testorg/test-repo/pulls/7$}, 'delete path');
+    is($req->method, 'PATCH', 'close => PATCH');
+    like($req->url, qr{/repos/testorg/test-repo/pulls/7$}, 'close path');
+    is($req->content, '{"state":"closed"}', 'close body');
 };
 
 subtest 'pulls reviews => Entity::PullRequestReview' => sub {
@@ -255,22 +273,9 @@ subtest 'pulls create_review' => sub {
     like($req->content, qr{nice}, 'body forwarded');
 };
 
-subtest 'pulls comments => Entity::IssueComment' => sub {
-    clear_responses;
-    add_response(200,
-        '[{"id":200,"body":"a PR comment","user":{"login":"u"},'
-      . '"created_at":"2024-01-02T00:00:00Z"}]');
-
-    my @comments = $pulls->comments(7);
-    is(scalar @comments, 1, 'one comment');
-    isa_ok($comments[0], 'WWW::Forgejo::Entity::IssueComment');
-    is($comments[0]->id, 200, 'comment id');
-    is($comments[0]->body, 'a PR comment', 'comment body');
-    is($comments[0]->user->{login}, 'u', 'comment user');
-
-    my $req = last_req;
-    is($req->method, 'GET', 'comments => GET');
-    like($req->url, qr{/repos/testorg/test-repo/pulls/7/comments$}, 'comments path');
+# The API has no GET /repos/{owner}/{repo}/pulls/{index}/comments.
+subtest 'pulls have no comments endpoint of their own' => sub {
+    ok(!WWW::Forgejo::API::Repo::PullRequests->can('comments'), 'no pulls->comments');
 };
 
 subtest 'Entity::PullRequest round-trip (direct construction)' => sub {

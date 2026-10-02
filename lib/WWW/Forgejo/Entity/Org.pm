@@ -8,7 +8,6 @@ package WWW::Forgejo::Entity::Org;
 
 use Moo;
 extends 'WWW::Forgejo::Entity';
-use Log::Any qw($log);
 use Carp qw(croak);
 use WWW::Forgejo::API::Org::Members;
 use WWW::Forgejo::API::Org::Teams;
@@ -17,16 +16,22 @@ use WWW::Forgejo::API::Org::Labels;
 use WWW::Forgejo::API::Org::Actions;
 use WWW::Forgejo::API::Org::Quota;
 use WWW::Forgejo::API::Org::BlockedUsers;
+use namespace::clean;
+
+our $VERSION = '0.001';
 
 =method name
 
     my $name = $org->name;
 
-Get the organization name.
+The name of the organization: the C<name> field of the organization data, or
+its deprecated twin C<username> when C<name> is missing. L</update>,
+L</delete>, L</repos> and the per-organization controllers address the
+organization by this name.
 
 =cut
 
-sub name { shift->data->{name} }
+sub name { $_[0]->data->{name} // $_[0]->data->{username} }
 
 =method update
 
@@ -72,21 +77,8 @@ sub members {
     my ($self) = @_;
     return WWW::Forgejo::API::Org::Members->new(
         client => $self->client,
-        owner  => $self->data->{username},
+        owner  => $self->name,
     );
-}
-
-=method public_members
-
-    my $public_members_api = $org->public_members;
-
-Get the public members API for this organization.
-
-=cut
-
-sub public_members {
-    my ($self) = @_;
-    return $self->members;  # Uses same endpoint, username determines public vs all
 }
 
 =method teams
@@ -101,7 +93,7 @@ sub teams {
     my ($self) = @_;
     return WWW::Forgejo::API::Org::Teams->new(
         client => $self->client,
-        owner  => $self->data->{username},
+        owner  => $self->name,
     );
 }
 
@@ -109,8 +101,10 @@ sub teams {
 
     my $repos = $org->repos;
 
-Get repositories in this organization.
-Note: This returns the raw API response. Repos entity may be added later.
+List the repositories of this organization. Returns an arrayref of
+L<WWW::Forgejo::Entity::Repo> objects, see
+L<WWW::Forgejo::API::Repos/list_for_org>. Croaks if the organization data
+has no C<name>.
 
 =cut
 
@@ -118,8 +112,7 @@ sub repos {
     my ($self) = @_;
     my $name = $self->name;
     croak "Organization name required" unless $name;
-    require WWW::Forgejo::API::Repos;
-    return WWW::Forgejo::API::Repos->new(client => $self->client)->list_for_org($name);
+    return $self->client->repos->list_for_org($name);
 }
 
 =method hooks
@@ -134,7 +127,7 @@ sub hooks {
     my ($self) = @_;
     return WWW::Forgejo::API::Org::Hooks->new(
         client => $self->client,
-        owner  => $self->data->{username},
+        owner  => $self->name,
     );
 }
 
@@ -150,7 +143,7 @@ sub labels {
     my ($self) = @_;
     return WWW::Forgejo::API::Org::Labels->new(
         client => $self->client,
-        owner  => $self->data->{username},
+        owner  => $self->name,
     );
 }
 
@@ -166,7 +159,7 @@ sub quota {
     my ($self) = @_;
     return WWW::Forgejo::API::Org::Quota->new(
         client => $self->client,
-        owner  => $self->data->{username},
+        owner  => $self->name,
     );
 }
 
@@ -182,7 +175,7 @@ sub actions {
     my ($self) = @_;
     return WWW::Forgejo::API::Org::Actions->new(
         client => $self->client,
-        owner  => $self->data->{username},
+        owner  => $self->name,
     );
 }
 
@@ -198,8 +191,39 @@ sub blocked_users {
     my ($self) = @_;
     return WWW::Forgejo::API::Org::BlockedUsers->new(
         client => $self->client,
-        owner  => $self->data->{username},
+        owner  => $self->name,
     );
 }
 
 1;
+
+__END__
+
+=head1 SYNOPSIS
+
+    my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
+    my $org     = $forgejo->orgs->get('my-org');
+
+    print $org->name, "\n";
+
+    my $teams = $org->teams->list;
+    my $repos = $org->repos;
+
+    $org->update(description => 'New description');
+
+=head1 DESCRIPTION
+
+An organization as returned by L<WWW::Forgejo::API::Orgs>. Besides the decoded
+organization data (L<data|WWW::Forgejo::Entity/data>) it gives access to the
+per-organization controllers (C<WWW::Forgejo::API::Org::*>).
+
+Those controllers are created with the L</name> of the organization as their
+C<owner>.
+
+Inherits from L<WWW::Forgejo::Entity>.
+
+=head1 SEE ALSO
+
+L<WWW::Forgejo::API::Orgs>, L<WWW::Forgejo::API::Org::Actions>, L<WWW::Forgejo::API::Org::BlockedUsers>, L<WWW::Forgejo::API::Org::Hooks>, L<WWW::Forgejo::API::Org::Labels>, L<WWW::Forgejo::API::Org::Members>, L<WWW::Forgejo::API::Org::Quota>, L<WWW::Forgejo::API::Org::Teams>, L<WWW::Forgejo::Entity>
+
+=cut

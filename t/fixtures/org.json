@@ -1,10 +1,14 @@
 {
    "id" : 1,
-   "login" : "test-org",
+   "name" : "test-org",
+   "username" : "test-org",
    "full_name" : "Test Organization",
    "description" : "Test organization",
-   "avatar_url" : "https://src.ci/org/test-org/avatar",
+   "email" : "",
+   "location" : "",
+   "website" : "",
+   "avatar_url" : "https://src.ci/avatars/test-org",
    "visibility" : "public",
-   "created" : "2026-01-01T00:00:00Z",
-   "updated" : "2026-01-01T00:00:00Z"
+   "repo_admin_change_team_access" : true,
+   "created" : "2026-01-01T00:00:00Z"
 }

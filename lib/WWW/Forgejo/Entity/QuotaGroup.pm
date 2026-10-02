@@ -5,32 +5,41 @@ package WWW::Forgejo::Entity::QuotaGroup;
 use Moo;
 extends 'WWW::Forgejo::Entity';
 use Log::Any qw($log);
+use namespace::clean;
 
-sub name        { shift->data->{name} }
-sub description { shift->data->{description} }
-sub counters    { shift->data->{counters} }
+our $VERSION = '0.001';
+
+sub name  { shift->data->{name} }
+sub rules { shift->data->{rules} }
 
 1;
 
 __END__
 
+=head1 SYNOPSIS
+
+    my $group = WWW::Forgejo::Entity::QuotaGroup->new(
+        client => $forgejo,
+        data   => $forgejo->admin->quota->get_group($name),
+    );
+    print $group->name, "\n";
+
 =head1 DESCRIPTION
 
-Represents a Forgejo quota group entity.
+Wraps the decoded JSON object of a quota group. None of the controllers returns this class
+yet; they hand out the plain decoded data, which can be wrapped as shown in the
+L</SYNOPSIS>. The accessors read single fields from
+L<data|WWW::Forgejo::Entity/data>, which always holds the complete structure.
 
-=head1 ATTRIBUTES
+Inherits from L<WWW::Forgejo::Entity>.
 
-=head2 name
+=method name
 
 The quota group's name.
 
-=head2 description
+=method rules
 
-The quota group's description.
-
-=head2 counters
-
-The group's counters.
+Arrayref of the quota rules of the group, as plain structures.
 
 =head1 SEE ALSO
 

@@ -7,41 +7,47 @@ use warnings;
 package WWW::Forgejo::API::Users;
 
 use Moo;
-use Log::Any qw($log);
-use URI::Escape;
 use Carp qw(croak);
+use URI::Escape qw(uri_escape);
+use namespace::clean;
 
-has _client => (
-    is       => 'ro',
-    init_arg => 'client',
-    weak_ref => 1,
-);
+our $VERSION = '0.001';
 
-sub client { shift->_client }
+has client => (is => 'ro', required => 1);
 
-sub _get        { shift->_client->get(@_)        }
-sub _post       { shift->_client->post(@_)       }
-sub _put        { shift->_client->put(@_)        }
-sub _delete     { shift->_client->delete(@_)     }
-sub _patch      { shift->_client->patch(@_)      }
+=attr client
+
+The L<WWW::Forgejo> client the requests are sent through. Required.
+
+=cut
+
+sub _user_path {
+    my ($self, $username, @path) = @_;
+    croak "Username required" unless defined $username && length $username;
+    return join '/', '/users', uri_escape($username), @path;
+}
 
 =method search
 
-    my $users = $self->search(limit => 10);
+    my $result = $forgejo->users->search(q => 'getty', limit => 10);
+    my $result = $forgejo->users->search('getty');   # same as q => 'getty'
 
-Search for users.
+Search for users (C<GET /users/search>). Named arguments are sent as the query
+string of the request (C<q>, C<uid>, C<sort>, C<page>, C<limit>); a single
+argument is shorthand for the search term C<q>. Returns the decoded response,
+an object whose C<data> member holds the users.
 
 =cut
 
 sub search {
-    my ($self, %params) = @_;
-    croak "query parameter required" unless exists $params{query};
-    return $self->_client->get('/users/search', params => \%params);
+    my ($self, @args) = @_;
+    my %params = @args % 2 ? (q => $args[0]) : @args;
+    return $self->client->get('/users/search', params => \%params);
 }
 
 =method get
 
-    my $user = $self->get($username);
+    my $user = $forgejo->users->get($username);
 
 Get a user by username.
 
@@ -49,116 +55,138 @@ Get a user by username.
 
 sub get {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/" . uri_escape($username));
+    return $self->client->get($self->_user_path($username));
 }
 
 =method keys
 
-    my $keys = $self->keys($username);
+    my $keys = $forgejo->users->keys($username);
 
-List public keys for a user.
+List public keys for a user. Further named arguments are sent as the query
+string of the request.
 
 =cut
 
 sub keys {
-    my ($self, $username) = @_;
-    return $self->_client->get("/users/" . uri_escape($username) . "/keys");
+    my ($self, $username, %params) = @_;
+    return $self->client->get($self->_user_path($username, 'keys'), params => \%params);
 }
 
 =method gpg_keys
 
-    my $keys = $self->gpg_keys($username);
+    my $keys = $forgejo->users->gpg_keys($username);
 
-List GPG keys for a user.
+List GPG keys for a user. Further named arguments are sent as the query string
+of the request.
 
 =cut
 
 sub gpg_keys {
-    my ($self, $username) = @_;
-    return $self->_client->get("/users/" . uri_escape($username) . "/gpg_keys");
+    my ($self, $username, %params) = @_;
+    return $self->client->get($self->_user_path($username, 'gpg_keys'), params => \%params);
 }
 
 =method followers
 
-    my $followers = $self->followers($username);
+    my $followers = $forgejo->users->followers($username);
 
-List followers for a user.
+List followers for a user. Further named arguments are sent as the query string
+of the request.
 
 =cut
 
 sub followers {
-    my ($self, $username) = @_;
-    return $self->_client->get("/users/" . uri_escape($username) . "/followers");
+    my ($self, $username, %params) = @_;
+    return $self->client->get($self->_user_path($username, 'followers'), params => \%params);
 }
 
 =method following
 
-    my $following = $self->following($username);
+    my $following = $forgejo->users->following($username);
 
-List following for a user.
+List the users a user follows. Further named arguments are sent as the query
+string of the request.
 
 =cut
 
 sub following {
-    my ($self, $username) = @_;
-    return $self->_client->get("/users/" . uri_escape($username) . "/following");
+    my ($self, $username, %params) = @_;
+    return $self->client->get($self->_user_path($username, 'following'), params => \%params);
 }
 
 =method starred
 
-    my $starred = $self->starred($username);
+    my $starred = $forgejo->users->starred($username);
 
-List starred repositories for a user.
+List starred repositories for a user. Further named arguments are sent as the
+query string of the request.
 
 =cut
 
 sub starred {
-    my ($self, $username) = @_;
-    return $self->_client->get("/users/" . uri_escape($username) . "/starred");
+    my ($self, $username, %params) = @_;
+    return $self->client->get($self->_user_path($username, 'starred'), params => \%params);
 }
 
 =method subscriptions
 
-    my $subs = $self->subscriptions($username);
+    my $subs = $forgejo->users->subscriptions($username);
 
-List watched repositories for a user.
+List watched repositories for a user. Further named arguments are sent as the
+query string of the request.
 
 =cut
 
 sub subscriptions {
-    my ($self, $username) = @_;
-    return $self->_client->get("/users/" . uri_escape($username) . "/subscriptions");
+    my ($self, $username, %params) = @_;
+    return $self->client->get($self->_user_path($username, 'subscriptions'), params => \%params);
 }
 
 =method repos
 
-    my $repos = $self->repos($username);
+    my $repos = $forgejo->users->repos($username);
 
-List repositories for a user.
+List repositories for a user. Further named arguments are sent as the query
+string of the request.
 
 =cut
 
 sub repos {
-    my ($self, $username) = @_;
-    return $self->_client->get("/users/" . uri_escape($username) . "/repos");
+    my ($self, $username, %params) = @_;
+    return $self->client->get($self->_user_path($username, 'repos'), params => \%params);
+}
+
+=method orgs
+
+    my $orgs = $forgejo->users->orgs($username);
+
+List the organizations of a user. Further named arguments are sent as the query
+string of the request.
+
+=cut
+
+sub orgs {
+    my ($self, $username, %params) = @_;
+    return $self->client->get($self->_user_path($username, 'orgs'), params => \%params);
 }
 
 =method tokens
 
-    my $tokens = $self->tokens($username);
+    my $tokens = $forgejo->users->tokens($username);
 
-List access tokens for a user. Requires admin permissions.
+List access tokens for a user (C<GET /users/{username}/tokens>). Further named
+arguments are sent as the query string of the request.
 
 =cut
 
 sub tokens {
-    my ($self, $username) = @_;
-    return $self->_client->get("/users/" . uri_escape($username) . "/tokens");
+    my ($self, $username, %params) = @_;
+    return $self->client->get($self->_user_path($username, 'tokens'), params => \%params);
 }
 
 =method heatmap
 
-    my $heatmap = $self->heatmap($username);
+    my $heatmap = $forgejo->users->heatmap($username);
 
 Get contribution heatmap for a user.
 
@@ -166,20 +194,46 @@ Get contribution heatmap for a user.
 
 sub heatmap {
     my ($self, $username) = @_;
-    return $self->_client->get("/users/" . uri_escape($username) . "/heatmap");
+    return $self->client->get($self->_user_path($username, 'heatmap'));
 }
 
 =method activities
 
-    my $activities = $self->activities($username);
+    my $activities = $forgejo->users->activities($username);
 
-Get activities for a user.
+Get the activity feed of a user (C<GET /users/{username}/activities/feeds>).
+Further named arguments are sent as the query string of the request.
 
 =cut
 
 sub activities {
-    my ($self, $username) = @_;
-    return $self->_client->get("/users/" . uri_escape($username) . "/activities");
+    my ($self, $username, %params) = @_;
+    return $self->client->get($self->_user_path($username, 'activities', 'feeds'), params => \%params);
 }
 
 1;
+
+__END__
+
+=head1 SYNOPSIS
+
+    my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
+
+    my $user   = $forgejo->users->get('getty');
+    my $result = $forgejo->users->search(q => 'getty', limit => 10);
+    my $repos  = $forgejo->users->repos('getty');
+
+=head1 DESCRIPTION
+
+The C</users/...> endpoints: look up and search users and read their public
+keys, followers, repositories and activity. Available as
+C<< $forgejo->users >>. For the user the token belongs to see
+L<WWW::Forgejo::API::CurrentUser>.
+
+All methods return the decoded JSON response as plain Perl data.
+
+=head1 SEE ALSO
+
+L<WWW::Forgejo::API::CurrentUser>, L<WWW::Forgejo>
+
+=cut

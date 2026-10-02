@@ -7,75 +7,84 @@ use warnings;
 package WWW::Forgejo::API::Repo::Assignees;
 
 use Moo;
-use Log::Any qw($log);
-use URI::Escape;
+use URI::Escape qw(uri_escape);
+use namespace::clean;
 
+our $VERSION = '0.001';
+
+has client => (is => 'ro', required => 1);
 has owner  => (is => 'ro', required => 1);
 has repo   => (is => 'ro', required => 1);
-has client => (is => 'ro', init_arg => 'client');
+
+=attr client
+
+The L<WWW::Forgejo> client the requests are sent through. Required.
+
+=attr owner
+
+Owner (user or organization name) of the repository this controller works on.
+Required.
+
+=attr repo
+
+Name of the repository this controller works on. Required.
+
+=cut
+
+# /repos/{owner}/{repo}/... of the repository this controller is bound to.
+sub _repo_path {
+    my ($self, @path) = @_;
+    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+}
 
 sub _path_for {
     my ($self, @path) = @_;
-    return "/repos/${\uri_escape($self->owner)}/${\uri_escape($self->repo)}/assignees/" . join('/', @path);
+    return $self->_repo_path('assignees', @path);
 }
 
 =method list
 
-    my @assignees = $self->list;
+    my @assignees = $repo->assignees->list;
 
-List all available assignees.
+List the users an issue of this repository can be assigned to, as plain user
+structures. Named arguments are sent as the query string.
+
+The API has no endpoints to add or remove a single assignee: the assignees of
+an issue are set as a whole through L<WWW::Forgejo::API::Repo::Issues/edit>
+(C<< { assignees => [...] } >>).
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
-    my $data = $self->{client}->get($self->_path_for, %params);
+    my $data = $self->client->get($self->_path_for, params => \%params);
     return @$data;
 }
 
-=method check
-
-    my $is_assignee = $self->check('username');
-
-Check if user is an assignee.
-
-=cut
-
-sub check {
-    my ($self, $username) = @_;
-    my $data = $self->{client}->get($self->_path_for(uri_escape($username)));
-    return $data;
-}
-
-=method add
-
-    $self->add(1, 'username');
-
-Add an assignee to an issue.
-
-=cut
-
-sub add {
-    my ($self, $index, $username) = @_;
-    my $data = $self->{client}->post($self->_path_for("../issues/" . uri_escape($index) . "/assignees"), { assignee => $username });
-    return $data;
-}
-
-=method remove
-
-    $self->remove(1, 'username');
-
-Remove an assignee from an issue.
-
-=cut
-
-sub remove {
-    my ($self, $index, $username) = @_;
-    $self->{client}->delete($self->_path_for("../issues/" . uri_escape($index) . "/assignees/" . uri_escape($username)));
-    return;
-}
-
 1;
+
 __END__
+
+=head1 SYNOPSIS
+
+    my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
+    my $repo    = $forgejo->repos->get('owner', 'repo-name');
+
+    my @assignees = $repo->assignees->list;
+
+    # assigning happens on the issue itself
+    $repo->issues->edit(1, { assignees => ['username'] });
+
+=head1 DESCRIPTION
+
+Controller for the C</repos/{owner}/{repo}/assignees> endpoints of one repository.
+It is obtained through L<WWW::Forgejo::Entity::Repo/assignees>, which binds it to
+that repository; every method then addresses that repository.
+
+Methods return the decoded JSON response as plain Perl data.
+
+=head1 SEE ALSO
+
+L<WWW::Forgejo::Entity::Repo>, L<WWW::Forgejo>
 
 =cut

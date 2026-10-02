@@ -7,195 +7,122 @@ use warnings;
 package WWW::Forgejo::API::Org::Teams;
 
 use Moo;
-use Log::Any qw($log);
-use URI::Escape;
 use Carp qw(croak);
+use URI::Escape qw(uri_escape);
+use namespace::clean;
 
-has client => (is => 'ro', init_arg => 'client');
-has owner  => (is => 'ro', init_arg => 'owner', predicate => 'has_owner');
+our $VERSION = '0.001';
+
+has client => (is => 'ro', required => 1);
+has owner  => (is => 'ro', predicate => 'has_owner');
+
+=attr client
+
+The L<WWW::Forgejo> client the requests are sent through. Required.
+
+=attr owner
+
+Name of the organization this controller was created for. Optional; when the
+controller comes from a L<WWW::Forgejo::Entity::Org> it is the
+L<name|WWW::Forgejo::Entity::Org/name> of that organization. It is used whenever a method is called without an
+organization name (C<undef> as first argument, or no arguments at all).
+L</has_owner> tells whether it was passed to the constructor.
+
+=method has_owner
+
+    my $bool = $controller->has_owner;
+
+True when an L</owner> was passed to the constructor.
+
+=cut
+
+# /orgs/{org}/... for the given organization, falling back to the owner.
+sub _org_path {
+    my ($self, $org, @path) = @_;
+    $org = $self->owner unless defined $org && length $org;
+    croak "Organization name required" unless defined $org && length $org;
+    return join '/', '/orgs', uri_escape($org), @path;
+}
 
 =method list
 
-    my $teams = $api->list($org);
-    my $teams = $org->teams->list;  # when called from org entity
+    my $teams = $org->teams->list($org_name);
+    my $teams = $org->teams->list;    # organization taken from $org
 
-List all teams for an organization.
+List all teams of an organization. Further named arguments are sent as the
+query string of the request.
 
 =cut
 
 sub list {
-    my ($self, $org) = @_;
-    $org ||= $self->owner if $self->has_owner;
-    croak "Organization name required" unless $org;
-    return $self->{client}->get("/orgs/" . uri_escape($org) . "/teams");
-}
-
-=method get
-
-    my $team = $api->get($org, $team_id);
-
-Get a specific team by ID.
-
-=cut
-
-sub get {
-    my ($self, $org, $team_id) = @_;
-    croak "Organization name required" unless $org;
-    croak "Team ID required" unless $team_id;
-    return $self->{client}->get("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id));
+    my ($self, $org, %params) = @_;
+    return $self->client->get($self->_org_path($org, 'teams'), params => \%params);
 }
 
 =method search
 
-    my $teams = $api->search($query);
+    my $result = $org->teams->search($org_name, q => 'dev');
 
-Search teams across the Forgejo instance.
+Search the teams of an organization (C<GET /orgs/{org}/teams/search>); C<q>
+is the search term. Returns the decoded response. Further named arguments
+are sent as the query string of the request.
 
 =cut
 
 sub search {
-    my ($self, %params) = @_;
-    croak "Organization name required" unless $params{org};
-    return $self->{client}->get("/orgs/" . uri_escape($params{org}) . "/teams/search", params => \%params);
+    my ($self, $org, %params) = @_;
+    return $self->client->get($self->_org_path($org, 'teams', 'search'), params => \%params);
 }
 
 =method create
 
-    my $team = $api->create($org, name => 'Developers', permission => 'push');
+    my $team = $org->teams->create($org_name, name => 'Developers');
 
-Create a new team.
+Create a new team in the organization; the API requires C<name>. The
+key/value pairs are sent as the JSON body.
 
 =cut
 
 sub create {
     my ($self, $org, %params) = @_;
-    croak "Organization name required" unless $org;
-    croak "Team name required" unless $params{name};
-    return $self->{client}->post("/orgs/" . uri_escape($org) . "/teams", \%params);
-}
-
-=method edit
-
-    my $team = $api->edit($org, $team_id, permission => 'admin');
-
-Edit a team.
-
-=cut
-
-sub edit {
-    my ($self, $org, $team_id, %params) = @_;
-    croak "Organization name required" unless $org;
-    croak "Team ID required" unless $team_id;
-    return $self->{client}->patch("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id), \%params);
-}
-
-=method delete
-
-    $api->delete($org, $team_id);
-
-Delete a team.
-
-=cut
-
-sub delete {
-    my ($self, $org, $team_id) = @_;
-    croak "Organization name required" unless $org;
-    croak "Team ID required" unless $team_id;
-    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id));
-}
-
-=method list_members
-
-    my $members = $api->list_members($org, $team_id);
-
-List all members of a team.
-
-=cut
-
-sub list_members {
-    my ($self, $org, $team_id) = @_;
-    croak "Organization name required" unless $org;
-    croak "Team ID required" unless $team_id;
-    return $self->{client}->get("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/members");
-}
-
-=method add_member
-
-    $api->add_member($org, $team_id, $username);
-
-Add a member to a team.
-
-=cut
-
-sub add_member {
-    my ($self, $org, $team_id, $username) = @_;
-    croak "Organization name required" unless $org;
-    croak "Team ID required" unless $team_id;
-    croak "Username required" unless $username;
-    return $self->{client}->put("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/members/" . uri_escape($username), {});
-}
-
-=method remove_member
-
-    $api->remove_member($org, $team_id, $username);
-
-Remove a member from a team.
-
-=cut
-
-sub remove_member {
-    my ($self, $org, $team_id, $username) = @_;
-    croak "Organization name required" unless $org;
-    croak "Team ID required" unless $team_id;
-    croak "Username required" unless $username;
-    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/members/" . uri_escape($username));
-}
-
-=method list_repos
-
-    my $repos = $api->list_repos($org, $team_id);
-
-List all repositories a team has access to.
-
-=cut
-
-sub list_repos {
-    my ($self, $org, $team_id) = @_;
-    croak "Organization name required" unless $org;
-    croak "Team ID required" unless $team_id;
-    return $self->{client}->get("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/repos");
-}
-
-=method add_repo
-
-    $api->add_repo($org, $team_id, $repo);
-
-Add a repository to a team.
-
-=cut
-
-sub add_repo {
-    my ($self, $org, $team_id, $repo) = @_;
-    croak "Organization name required" unless $org;
-    croak "Team ID required" unless $team_id;
-    croak "Repository name required" unless $repo;
-    return $self->{client}->put("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/repos/" . uri_escape($repo), {});
-}
-
-=method remove_repo
-
-    $api->remove_repo($org, $team_id, $repo);
-
-Remove a repository from a team.
-
-=cut
-
-sub remove_repo {
-    my ($self, $org, $team_id, $repo) = @_;
-    croak "Organization name required" unless $org;
-    croak "Team ID required" unless $team_id;
-    croak "Repository name required" unless $repo;
-    return $self->{client}->delete("/orgs/" . uri_escape($org) . "/teams/" . uri_escape($team_id) . "/repos/" . uri_escape($repo));
+    return $self->client->post($self->_org_path($org, 'teams'), \%params);
 }
 
 1;
+
+__END__
+
+=head1 SYNOPSIS
+
+    my $forgejo  = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
+    my $org_name = 'my-org';
+    my $org      = $forgejo->orgs->get($org_name);
+
+    my $teams = $org->teams->list($org_name);
+    $teams = $org->teams->list;    # organization taken from $org
+
+    my $result = $org->teams->search($org_name, q => 'dev');
+
+    my $team = $org->teams->create($org_name, name => 'Developers');
+
+=head1 DESCRIPTION
+
+Controller for the C</orgs/{org}/teams> endpoints. It is obtained
+through L<WWW::Forgejo::Entity::Org/teams>.
+
+The methods take the organization name as their first argument. When it is
+left out or undefined, the organization the controller was obtained from
+(L</owner>) is used.
+
+A single team is addressed by its numeric ID, independent of the organization:
+see L<WWW::Forgejo::API::Teams> for reading, editing and deleting a team and for
+its members and repositories.
+
+Methods return the decoded JSON response as plain Perl data.
+
+=head1 SEE ALSO
+
+L<WWW::Forgejo::Entity::Org>, L<WWW::Forgejo::API::Orgs>,
+L<WWW::Forgejo::API::Teams>, L<WWW::Forgejo>
+
+=cut
