@@ -1,0 +1,11 @@
+---
+class: standard
+created: 2026-10-02T19:00:20Z
+id: 21
+priority: medium
+status: backlog
+title: About 200 swagger operations not covered
+updated: 2026-10-02T19:00:20Z
+---
+
+Missing: Issues 47, Pulls 16, Repo-Actions 14, admin quota 10, user actions 9, orgs 9, ActivityPub 8. See t/40-spec-conformance.t and t/fixtures/forgejo-api-paths.txt.
