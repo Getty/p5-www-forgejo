@@ -1,0 +1,20 @@
+---
+claimed_at: 2026-09-18T02:54:27Z
+claimed_by: opus-orchestrator
+class: standard
+created: 2026-09-10T07:54:58Z
+id: 10
+priority: high
+started: 2026-09-18T02:54:27Z
+status: review
+tags:
+- coordination
+- release
+- bridge
+title: Lockstep-land phase2-forgejo + clear 3 baseline blockers for the async sibling
+updated: 2026-10-02T18:59:29Z
+---
+
+Bündelt den koordinierten Lockstep-Landing-Schritt (Maintainer-Entscheidung, aktuell zurückgestellt) plus die 3 Baseline-Blocker, die die async-Schwester Net::Async::Forgejo rot halten. Net::Async::Forgejo #2 (headers-Bridge) + #3 (async Pagination) sind code-fertig (Commit 727953f dort) und OFFLINE GRÜN gegen den phase2-forgejo-Sibling (Commits 1083fa8 headers, 48c14fa pagination) verifiziert, bewusst in-progress belassen. ABER: Ein Merge phase2-forgejo->main allein macht die async-Baseline NICHT auf — t/01-client und t/03-integration bleiben gegen BEIDE Siblings (main UND phase2) rot, aus 3 separaten, von Headers/Pagination UNABHÄNGIGEN Mismatches: (1) fehlender WWW::Forgejo->url-Accessor (phase2 hat nur base_url mit init_arg=>'url'); (2) Pfad-Double-Encoding-Assertion (t/03 Zeile 38); (3) /api/v1-Normalisierung. Diese drei plus die koordinierte phase2->main/Release-Landung muessen zusammen erledigt werden, damit die async-Schwester grün baut. Angelegt von Fleet Worker C nach Entscheidung des Koordinators perl-developer-3f, 2026-09-10.
+
+2026-10-02 18:59 Status: phase2 merged 3e4e592, url accessor exists, api/v1 normalisation works. Point 3 path double-encoding NOT resolved: WWW::Forgejo _build_request keeps pre-encoded paths as is, so /repos/my%20org stays /repos/my%20org, and controllers encode segments once per t/05. Sibling t/03-integration.t line 38 asserts %2520 double encoding and must be adjusted on the sibling board. Left open.
