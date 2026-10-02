@@ -235,5 +235,5 @@ Torsten Raudssus <getty@cpan.org>
 
 This software is Copyright (c) 2026 by Torsten Raudssus.
 
-This is free software, licensed under The Artistic License 2.0 (GPL Compatible).
-See the `LICENSE` file.
+This is free software; you can redistribute it and/or modify it under the same
+terms as the Perl 5 programming language system itself. See the `LICENSE` file.
