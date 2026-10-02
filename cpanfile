@@ -1,14 +1,22 @@
-requires 'Moo';
-requires 'LWP::UserAgent';
-requires 'JSON::MaybeXS';
+requires 'perl', '5.020';
+
+requires 'Carp';
 requires 'HTTP::Request';
-requires 'URI';
+requires 'HTTP::Request::Common';
+requires 'JSON::MaybeXS';
+requires 'LWP::UserAgent';
+requires 'Log::Any';
+requires 'Moo';
 requires 'URI::Escape';
 requires 'namespace::clean';
-requires 'Log::Any';
-requires 'Carp';
+
+# https:// instance URLs need it; plain-http instances do not, and Forgejo
+# often runs without TLS inside a private network.
+recommends 'LWP::Protocol::https';
 
 on test => sub {
-    requires 'Test::More';
-    requires 'Path::Tiny';
+    requires 'File::Find';
+    requires 'HTTP::Response';
+    requires 'Scalar::Util';
+    requires 'Test::More', '0.96';
 };

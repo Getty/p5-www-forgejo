@@ -1,3 +1,42 @@
+Revision history for WWW-Forgejo
+
 {{$NEXT}}
 
-  - Initial release
+    - Initial release: synchronous Moo client for the Forgejo REST API (api/v1).
+    - WWW::Forgejo: url/token from constructor options or FORGEJO_URL /
+      FORGEJO_TOKEN; url is normalised to the /api/v1 base (base_url).
+    - Controllers on the client: misc, users, current_user, repos, orgs, teams,
+      notifications, packages, activitypub and admin (users, hooks, cron,
+      quota, runners). Paths, parameters and request bodies are checked
+      against the official Forgejo swagger spec by the test suite.
+    - Per-repository controllers on WWW::Forgejo::Entity::Repo: actions,
+      assignees, branches, branch_protections, collaborators, contents, flags,
+      forks, git, hooks, issues, keys, labels, milestones, pulls, releases,
+      reviewers, stargazers, subscribers, subscription, tags, tag_protections,
+      topics and wiki; WWW::Forgejo::API::Repo::Statuses for commit statuses.
+      Includes Branches::rename, Flags::check/replace/remove_all,
+      Releases::latest/delete_by_tag/get_asset/edit_asset/delete_asset and
+      TagProtections::edit.
+    - Per-organization controllers on WWW::Forgejo::Entity::Org: actions,
+      blocked_users, hooks, labels, members, quota and teams.
+    - Yes/no endpoints (204/404) are answered as booleans via check();
+      release assets are uploaded as multipart/form-data.
+    - Entity classes (WWW::Forgejo::Entity::*) wrapping the decoded JSON, with
+      accessors following the swagger response schemas and the full structure
+      on ->data. Client chains such as $forgejo->repos->get(...)->issues hold
+      no reference cycle.
+    - WWW::Forgejo::Role::HTTP: get/post/put/patch/delete with token auth, JSON
+      encoding/decoding, query parameters on every verb, DELETE with a body,
+      URL-escaped path segments, and a croak carrying status and message on
+      non-2xx and undecodable responses. get follows X-Total-Count based
+      auto-pagination (page_size, max_pages) for plain arrays and the search
+      envelope, with the default LWP backend as well.
+    - Pluggable transport via WWW::Forgejo::Role::IO; default backend
+      WWW::Forgejo::LWPIO (LWP::UserAgent). Transport-independent
+      WWW::Forgejo::HTTPRequest / WWW::Forgejo::HTTPResponse value objects,
+      shared with Net::Async::Forgejo.
+    - LWP::Protocol::https is recommended, not required: https instance URLs
+      need it, plain-http instances do not.
+    - Offline test suite against a mock transport, with POD coverage and
+      spec-conformance checks; live tests (t/9*-live-*.t) run only with
+      TEST_FORGEJO_URL and TEST_FORGEJO_TOKEN set.
