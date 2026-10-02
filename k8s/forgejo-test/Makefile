@@ -43,9 +43,9 @@ check-forgejo:
 check: check-db check-forgejo
 
 test:
-	FORGEJO_URL=http://localhost:30080 FORGEJO_TOKEN=test-token \
-		perl -Ilib t/90-live-admin.t
+	TEST_FORGEJO_URL=http://localhost:30080 TEST_FORGEJO_TOKEN=test-token \
+		prove -l t/9*-live-*.t
 
 test-verbose:
-	FORGEJO_URL=http://localhost:30080 FORGEJO_TOKEN=test-token \
-		prove -vl t/90-live-admin.t
+	TEST_FORGEJO_URL=http://localhost:30080 TEST_FORGEJO_TOKEN=test-token \
+		prove -vl t/9*-live-*.t

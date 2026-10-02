@@ -1,9 +1,14 @@
+#!/usr/bin/env perl
 use strict;
 use warnings;
 use Test::More;
 use lib 'lib';
 use WWW::Forgejo;
-use Data::Dumper;
+
+# Live walk through the controllers and entities. Needs the token of an admin
+# user and CHANGES the instance: it creates the organization and repository
+# named below when they are missing (and leaves them there), and creates and
+# deletes a user, an issue, a label and a milestone.
 
 plan skip_all => 'TEST_FORGEJO_URL and TEST_FORGEJO_TOKEN required'
     unless $ENV{TEST_FORGEJO_URL} && $ENV{TEST_FORGEJO_TOKEN};
@@ -13,502 +18,287 @@ my $client = WWW::Forgejo->new(
     token => $ENV{TEST_FORGEJO_TOKEN},
 );
 
-my $TEST_ORG = $ENV{TEST_FORGEJO_ORG} // 'testorg';
+my $TEST_ORG  = $ENV{TEST_FORGEJO_ORG}  // 'testorg';
 my $TEST_REPO = $ENV{TEST_FORGEJO_REPO} // 'testrepo';
-my $TEST_USER = $ENV{TEST_FORGEJO_USER} // 'testadmin';
 
-# Helper to create test org if needed
+# The user the token belongs to, unless another one is named.
+my $me        = $client->current_user->get;
+my $TEST_USER = $ENV{TEST_FORGEJO_USER} // $me->{login};
+
+# Run a call an instance may legitimately not offer (feature switched off,
+# older version). Returns its result, or nothing after skipping the subtest.
+sub optional {
+    my ($what, $code) = @_;
+    my $result = eval { $code->() };
+    return $result if defined $result;
+    plan skip_all => $what . ' not available: ' . $@;
+    return;
+}
+
+# Create the test organization unless it exists.
 sub ensure_org {
     my ($org_name) = @_;
     my $orgs = $client->orgs->list;
-    my @names = map { $_->{username} // $_->{name} } @$orgs;
-    unless (grep { $_ eq $org_name } @names) {
-        eval { $client->orgs->create(name => $org_name, visibility => 'public') };
+    for my $org (@$orgs) {
+        return $org if $org->name eq $org_name;
     }
-    return 1;
+    return $client->orgs->create(username => $org_name, visibility => 'public');
 }
 
-# Helper to create test repo if needed
+# Create the test repository (with an initial commit) unless it exists.
 sub ensure_repo {
-    my ($org, $repo_name) = @_;
-    my $repos = $client->repos->list_for_org($org);
-    my @names = map { $_->{name} } @$repos;
-    unless (grep { $_ eq $repo_name } @names) {
-        eval { $client->repos->create_for_org($org, name => $repo_name, description => 'Test repo', private => 0) };
+    my ($org_name, $repo_name) = @_;
+    ensure_org($org_name);
+    my $repos = $client->repos->list_for_org($org_name);
+    for my $repo (@$repos) {
+        return $repo if $repo->repo eq $repo_name;
     }
-    return 1;
+    return $client->repos->create_for_org(
+        $org_name,
+        name        => $repo_name,
+        description => 'Test repo',
+        private     => \0,
+        auto_init   => \1,
+    );
 }
 
 # =============================================================================
-# Misc API - always available
+# Misc
 # =============================================================================
 
 subtest 'misc version' => sub {
     my $v = $client->misc->version;
     ok($v->{version}, 'has version');
-    diag explain $v;
+    note explain $v;
 };
 
 subtest 'misc nodeinfo' => sub {
-    my $info = eval { $client->misc->nodeinfo };
-    if ($@) {
-        pass("nodeinfo not available: $@");
-        return;
-    }
-    ok($info);
-    diag explain $info;
+    my $info = optional(nodeinfo => sub { $client->misc->nodeinfo }) or return;
+    ok($info->{software}, 'nodeinfo names the software');
 };
 
-subtest 'misc gitignore_templates' => sub {
-    my $templates = eval { $client->misc->gitignore_templates };
-    if ($@) {
-        pass("gitignore_templates not available: $@");
-        return;
-    }
-    ok(ref $templates eq 'ARRAY', 'returns array');
-    diag explain $templates if $templates && @$templates;
+subtest 'misc templates' => sub {
+    is(ref $client->misc->gitignore_templates, 'ARRAY', 'gitignore_templates returns an arrayref');
+    is(ref $client->misc->license_templates,   'ARRAY', 'license_templates returns an arrayref');
+    is(ref $client->misc->label_templates,     'ARRAY', 'label_templates returns an arrayref');
 };
 
-subtest 'misc license_templates' => sub {
-    my $templates = eval { $client->misc->license_templates };
-    if ($@) {
-        pass("license_templates not available: $@");
-        return;
-    }
-    ok(ref $templates eq 'ARRAY', 'returns array');
-    diag explain $templates if $templates && @$templates;
+subtest 'misc settings' => sub {
+    my $api = $client->misc->settings('api');
+    ok($api->{max_response_items}, 'api settings carry max_response_items');
 };
 
 # =============================================================================
-# Users API
+# Users
 # =============================================================================
 
 subtest 'users search' => sub {
-    my $result = $client->users->search('test');
-    ok($result, 'search returns result');
-    is(ref $result->{data}, 'ARRAY', 'data is array');
-    diag explain $result;
+    my $result = $client->users->search($TEST_USER);
+    is(ref $result->{data}, 'ARRAY', 'data is an array');
+    ok((grep { $_->{login} eq $TEST_USER } @{ $result->{data} }), 'finds the test user');
 };
 
 subtest 'users get' => sub {
     my $user = $client->users->get($TEST_USER);
-    ok($user, 'get user works');
-    diag explain $user;
+    is($user->{login}, $TEST_USER, 'get returns the user');
+    note explain $user;
+};
+
+subtest 'users lists' => sub {
+    is(ref $client->users->keys($TEST_USER),      'ARRAY', 'keys returns an arrayref');
+    is(ref $client->users->orgs($TEST_USER),      'ARRAY', 'orgs returns an arrayref');
+    is(ref $client->users->repos($TEST_USER),     'ARRAY', 'repos returns an arrayref');
+    is(ref $client->users->followers($TEST_USER), 'ARRAY', 'followers returns an arrayref');
 };
 
 # =============================================================================
-# Orgs API
+# Current user
 # =============================================================================
 
-subtest 'orgs list' => sub {
+subtest 'current_user' => sub {
+    ok($me->{login}, 'get returns the user of the token');
+    ok(ref $client->current_user->settings, 'settings returns a structure');
+    is(ref $client->current_user->list_emails, 'ARRAY', 'list_emails returns an arrayref');
+    is(ref $client->current_user->list_keys,   'ARRAY', 'list_keys returns an arrayref');
+    is(ref $client->current_user->list_hooks,  'ARRAY', 'list_hooks returns an arrayref');
+    is(ref $client->current_user->orgs,        'ARRAY', 'orgs returns an arrayref');
+    is(ref $client->current_user->repos,       'ARRAY', 'repos returns an arrayref');
+    is(ref $client->current_user->teams,       'ARRAY', 'teams returns an arrayref');
+};
+
+# =============================================================================
+# Organizations
+# =============================================================================
+
+subtest 'orgs' => sub {
+    ensure_org($TEST_ORG);
     my $orgs = $client->orgs->list;
-    ok(ref $orgs eq 'ARRAY', 'list returns array');
-    diag explain $orgs;
+    is(ref $orgs, 'ARRAY', 'list returns an arrayref');
+    my $listed = 0;
+    for my $listed_org (@$orgs) {
+        $listed++ if $listed_org->name eq $TEST_ORG;
+    }
+    is($listed, 1, "the test organization is listed once");
+
+    my $org = $client->orgs->get($TEST_ORG);
+    isa_ok($org, 'WWW::Forgejo::Entity::Org');
+    is($org->name, $TEST_ORG, 'get returns the organization');
+
+    is(ref $org->members->list, 'ARRAY', 'members list');
+    is(ref $org->teams->list,   'ARRAY', 'teams list');
+    is(ref $org->hooks->list,   'ARRAY', 'hooks list');
+    is(ref $org->labels->list,  'ARRAY', 'labels list');
+    is(ref $org->repos,         'ARRAY', 'repos');
+    ok(defined $org->members->check(undef, $TEST_USER), "members check answers yes or no");
 };
 
-subtest 'orgs get' => sub {
-    my $org = $client->orgs->get($TEST_ORG);
-    ok($org, 'get org works');
-    is($org->data->{username}, $TEST_ORG);
-    diag explain $org;
+subtest 'teams' => sub {
+    ensure_org($TEST_ORG);
+    my $org   = $client->orgs->get($TEST_ORG);
+    my $teams = $org->teams->list;
+    ok(scalar @$teams, 'an organization has at least its owners team');
+
+    my $team = $client->teams->get($teams->[0]{id});
+    isa_ok($team, 'WWW::Forgejo::Entity::Team');
+    is($team->id, $teams->[0]{id}, 'get returns the team');
+    is(ref $team->list_members, 'ARRAY', 'list_members');
+    is(ref $team->list_repos,   'ARRAY', 'list_repos');
 };
 
 # =============================================================================
-# Repos API
+# Repositories
 # =============================================================================
 
 subtest 'repos search' => sub {
-    my $result = eval { $client->repos->search(query => 'test') };
-    if ($@) {
-        pass("repos search not available: $@");
-        return;
-    }
-    ok($result, 'search returns result');
-    diag explain $result;
-};
-
-subtest 'repos list_for_org' => sub {
-    ensure_org($TEST_ORG);
-    my $repos = $client->repos->list_for_org($TEST_ORG);
-    ok(ref $repos eq 'ARRAY', 'list_for_org returns array');
-    diag explain $repos;
-};
-
-subtest 'repos get' => sub {
-    ensure_org($TEST_ORG);
     ensure_repo($TEST_ORG, $TEST_REPO);
-    my $repo = eval { $client->repos->get($TEST_ORG, $TEST_REPO) };
-    if ($@) {
-        pass("repos get not available: $@");
-        return;
+    my $result = $client->repos->search(q => $TEST_REPO);
+    is(ref $result->{data}, 'ARRAY', 'data is an array');
+};
+
+subtest 'repos get and list_for_org' => sub {
+    ensure_repo($TEST_ORG, $TEST_REPO);
+    my $repos = $client->repos->list_for_org($TEST_ORG);
+    is(ref $repos, 'ARRAY', 'list_for_org returns an arrayref');
+
+    my $repo = $client->repos->get($TEST_ORG, $TEST_REPO);
+    isa_ok($repo, 'WWW::Forgejo::Entity::Repo');
+    is($repo->data->{name}, $TEST_REPO, 'get returns the repository');
+    is($repo->owner, $TEST_ORG, 'bound to its owner');
+};
+
+subtest 'repository controllers: lists' => sub {
+    ensure_repo($TEST_ORG, $TEST_REPO);
+    my $repo = $client->repos->get($TEST_ORG, $TEST_REPO);
+
+    my @branches = $repo->branches->list;
+    ok(scalar @branches, 'an initialised repository has a branch');
+    for my $branch (@branches) {
+        isa_ok($branch, 'WWW::Forgejo::Entity::Branch');
+        ok($branch->name, 'branch has a name');
     }
-    ok($repo, 'get repo works');
-    is($repo->data->{name}, $TEST_REPO);
-    diag explain $repo;
+
+    is(eval { my @list = $repo->collaborators->list; 1 }, 1, 'collaborators list') or diag $@;
+    is(eval { my @list = $repo->hooks->list;         1 }, 1, 'hooks list')         or diag $@;
+    is(eval { my @list = $repo->labels->list;        1 }, 1, 'labels list')        or diag $@;
+    is(eval { my @list = $repo->milestones->list;    1 }, 1, 'milestones list')    or diag $@;
+    is(eval { my @list = $repo->issues->list;        1 }, 1, 'issues list')        or diag $@;
+    is(eval { my @list = $repo->pulls->list;         1 }, 1, 'pulls list')         or diag $@;
+    is(eval { my @list = $repo->releases->list;      1 }, 1, 'releases list')      or diag $@;
+    is(eval { my @list = $repo->tags->list;          1 }, 1, 'tags list')          or diag $@;
+    is(eval { my @list = $repo->keys->list;          1 }, 1, 'keys list')          or diag $@;
+    is(ref $repo->topics->list, 'ARRAY', 'topics list');
+};
+
+subtest 'repository controllers: issue, label and milestone round trip' => sub {
+    ensure_repo($TEST_ORG, $TEST_REPO);
+    my $repo = $client->repos->get($TEST_ORG, $TEST_REPO);
+
+    my $label = $repo->labels->create({ name => 'live-test', color => '#00aabb' });
+    ok($label->{id}, 'label created');
+
+    my $milestone = $repo->milestones->create({ title => 'live test milestone' });
+    isa_ok($milestone, 'WWW::Forgejo::Entity::Milestone');
+    is($milestone->title, 'live test milestone', 'milestone created');
+
+    my $issue = $repo->issues->create({ title => 'live test issue', body => 'created by t/92' });
+    isa_ok($issue, 'WWW::Forgejo::Entity::Issue');
+    ok($issue->number, 'issue has a number');
+
+    my $edited = $repo->issues->edit($issue->number, { title => 'live test issue (edited)' });
+    is($edited->title, 'live test issue (edited)', 'issue edited');
+
+    $repo->issues->add_comment($issue->number, { body => 'a comment' });
+    my @comments = $repo->issues->list_comments($issue->number);
+    is(scalar @comments, 1, 'one comment');
+    for my $comment (@comments) {
+        is($comment->body, 'a comment', 'comment body');
+    }
+
+    my $fetched = $repo->issues->get($issue->number);
+    is($fetched->state, 'open', 'issue is open');
+
+    ok($repo->issues->delete($issue->number),  'issue deleted');
+    ok($repo->milestones->delete($milestone->id), 'milestone deleted');
+    $repo->labels->delete($label->{id});
+    pass('label deleted');
 };
 
 # =============================================================================
-# Teams API
-# =============================================================================
-
-subtest 'teams list' => sub {
-    my $teams = eval { $client->teams->list };
-    if ($@) {
-        pass("teams list not available: $@");
-        return;
-    }
-    ok(ref $teams eq 'ARRAY', 'list returns array');
-    diag explain $teams;
-};
-
-subtest 'teams get' => sub {
-    my $teams = eval { $client->teams->list };
-    if ($@) {
-        pass("teams not available: $@");
-        return;
-    }
-    if (@$teams) {
-        my $team = eval { $client->teams->get($teams->[0]{id}) };
-        if ($@) {
-            pass("team get not available: $@");
-            return;
-        }
-        ok($team, 'get team works');
-        diag explain $team;
-    } else {
-        pass('No teams to test');
-    }
-};
-
-# =============================================================================
-# Packages API
+# Packages and notifications
 # =============================================================================
 
 subtest 'packages list' => sub {
-    my $packages = eval { $client->packages->list };
-    if ($@) {
-        pass("packages list not available: $@");
-        return;
-    }
-    ok(ref $packages eq 'ARRAY', 'list returns array');
-    diag explain $packages;
+    my $packages = optional(packages => sub { $client->packages->list($TEST_USER) }) or return;
+    is(ref $packages, 'ARRAY', 'list returns an arrayref');
 };
-
-# =============================================================================
-# Notifications API
-# =============================================================================
 
 subtest 'notifications list' => sub {
-    my $notifs = eval { $client->notifications->list };
-    if ($@) {
-        pass("notifications list not available: $@");
-        return;
-    }
-    ok(ref $notifs eq 'ARRAY', 'list returns array');
-    diag explain $notifs;
+    is(ref $client->notifications->list, 'ARRAY', 'list returns an arrayref');
 };
 
 # =============================================================================
-# CurrentUser API
+# Admin
 # =============================================================================
 
-subtest 'current_user get' => sub {
-    my $user = eval { $client->current_user->get };
-    if ($@) {
-        pass("current_user get not available: $@");
-        return;
-    }
-    ok($user, 'get current user works');
-    diag explain $user;
+subtest 'admin users' => sub {
+    my $users = $client->admin->users->list;
+    is(ref $users, 'ARRAY', 'list returns an arrayref');
+    ok((grep { $_->{login} eq $me->{login} } @$users), 'the admin is listed');
 };
 
-subtest 'current_user settings' => sub {
-    my $settings = eval { $client->current_user->settings };
-    if ($@) {
-        pass("current_user settings not available: $@");
-        return;
-    }
-    ok($settings, 'settings works');
-    diag explain $settings;
+subtest 'admin users create and delete' => sub {
+    my $name = 'livetest' . $$;
+    my $user = $client->admin->users->create(
+        email                => $name . '@example.com',
+        username             => $name,
+        password             => 'NewTest123!' . $$,
+        must_change_password => \0,
+    );
+    is($user->{login}, $name, 'user created');
+    is($client->users->get($name)->{login}, $name, 'and can be read');
+    $client->admin->users->delete($name);
+    ok(!eval { $client->users->get($name); 1 }, 'gone after delete');
+    like($@, qr/^Forgejo API error: /, 'reading it croaks with an API error');
 };
-
-subtest 'current_user list_emails' => sub {
-    my $emails = eval { $client->current_user->list_emails };
-    if ($@) {
-        pass("current_user list_emails not available: $@");
-        return;
-    }
-    ok(ref $emails eq 'ARRAY', 'list_emails returns array');
-    diag explain $emails;
-};
-
-subtest 'current_user list_keys' => sub {
-    my $keys = eval { $client->current_user->list_keys };
-    if ($@) {
-        pass("current_user list_keys not available: $@");
-        return;
-    }
-    ok(ref $keys eq 'ARRAY', 'list_keys returns array');
-    diag explain $keys;
-};
-
-subtest 'current_user list_hooks' => sub {
-    my $hooks = eval { $client->current_user->list_hooks };
-    if ($@) {
-        pass("current_user list_hooks not available: $@");
-        return;
-    }
-    ok(ref $hooks eq 'ARRAY', 'list_hooks returns array');
-    diag explain $hooks;
-};
-
-subtest 'current_user list_orgs' => sub {
-    my $orgs = eval { $client->current_user->list_orgs };
-    if ($@) {
-        pass("current_user list_orgs not available: $@");
-        return;
-    }
-    ok(ref $orgs eq 'ARRAY', 'list_orgs returns array');
-    diag explain $orgs;
-};
-
-subtest 'current_user list_repos' => sub {
-    my $repos = eval { $client->current_user->list_repos };
-    if ($@) {
-        pass("current_user list_repos not available: $@");
-        return;
-    }
-    ok(ref $repos eq 'ARRAY', 'list_repos returns array');
-    diag explain $repos;
-};
-
-# =============================================================================
-# Admin::Users API
-# =============================================================================
-
-subtest 'admin users list' => sub {
-    my $users = eval { $client->admin->users->list };
-    if ($@) {
-        pass("admin users list not available: $@");
-        return;
-    }
-    ok($users, 'admin users list works');
-    is(ref $users, 'ARRAY');
-    diag explain $users;
-};
-
-subtest 'admin users get' => sub {
-    my $users = eval { $client->admin->users->list };
-    if ($@) {
-        pass("admin users not available: $@");
-        return;
-    }
-    if (@$users) {
-        my $user = eval { $client->admin->users->get($users->[0]{login}) };
-        if ($@) {
-            pass("admin users get not available: $@");
-            return;
-        }
-        ok($user, 'admin get user works');
-        diag explain $user;
-    } else {
-        pass('No users to test');
-    }
-};
-
-subtest 'admin users create' => sub {
-    my $new_user = eval {
-        $client->admin->users->create(
-            email => 'newuser@example.com',
-            username => 'newtestuser',
-            password => 'NewTest123!',
-        )
-    };
-    if ($@) {
-        pass('User creation failed (may already exist or no permission): ' . substr($@, 0, 100));
-    } else {
-        ok($new_user, 'create user works');
-        # Cleanup
-        eval { $client->admin->users->delete('newtestuser') };
-        diag explain $new_user;
-    }
-};
-
-subtest 'admin users list_keys' => sub {
-    my $keys = $client->admin->users->list_keys($TEST_USER);
-    ok(ref $keys eq 'ARRAY', 'list_keys works');
-    diag explain $keys;
-};
-
-subtest 'admin users list_orgs' => sub {
-    my $orgs = $client->admin->users->list_orgs($TEST_USER);
-    ok(ref $orgs eq 'ARRAY', 'list_orgs works');
-    diag explain $orgs;
-};
-
-subtest 'admin users list_repos' => sub {
-    my $repos = $client->admin->users->list_repos($TEST_USER);
-    ok(ref $repos eq 'ARRAY', 'list_repos works');
-    diag explain $repos;
-};
-
-# =============================================================================
-# Admin::Hooks API
-# =============================================================================
 
 subtest 'admin hooks list' => sub {
-    my $hooks = $client->admin->hooks->list;
-    ok($hooks, 'admin hooks list works');
-    is(ref $hooks, 'ARRAY');
-    diag explain $hooks;
+    is(ref $client->admin->hooks->list, 'ARRAY', 'list returns an arrayref');
 };
-
-# =============================================================================
-# Admin::Cron API
-# =============================================================================
 
 subtest 'admin cron list' => sub {
     my $tasks = $client->admin->cron->list;
-    ok($tasks, 'cron list works');
-    is(ref $tasks, 'ARRAY');
-    diag explain $tasks;
+    is(ref $tasks, 'ARRAY', 'list returns an arrayref');
+    ok($tasks->[0]{name}, 'tasks carry a name');
 };
-
-subtest 'admin cron get' => sub {
-    my $task = $client->admin->cron->get('update_mirrors');
-    ok($task, 'cron get works');
-    diag explain $task;
-};
-
-# =============================================================================
-# Admin::Runners API
-# =============================================================================
 
 subtest 'admin runners list' => sub {
-    my $runners = eval { $client->admin->runners->list };
-    if ($@) {
-        pass("runners not available: $@");
-        return;
-    }
-    ok($runners, 'runners list works');
-    is(ref $runners, 'ARRAY');
-    diag explain $runners;
+    my $runners = optional(runners => sub { $client->admin->runners->list }) or return;
+    ok(ref $runners, 'list returns a structure');
 };
-
-# =============================================================================
-# Admin::Quota API
-# =============================================================================
 
 subtest 'admin quota list_groups' => sub {
-    my $groups = eval { $client->admin->quota->list_groups };
-    if ($@) {
-        pass("quota list_groups not available: $@");
-        return;
-    }
-    ok($groups, 'list_groups works');
-    diag explain $groups;
-};
-
-# =============================================================================
-# Repo::Branches API (if we have a repo)
-# =============================================================================
-
-subtest 'repo branches list' => sub {
-    ensure_org($TEST_ORG);
-    ensure_repo($TEST_ORG, $TEST_REPO);
-    my $branches = $client->repos->get($TEST_ORG, $TEST_REPO)->branches;
-    ok(ref $branches eq 'ARRAY', 'branches list works');
-    diag explain $branches;
-};
-
-# =============================================================================
-# Repo::Collaborators API
-# =============================================================================
-
-subtest 'repo collaborators list' => sub {
-    ensure_org($TEST_ORG);
-    ensure_repo($TEST_ORG, $TEST_REPO);
-    my $collabs = $client->repos->get($TEST_ORG, $TEST_REPO)->collaborators;
-    ok(ref $collabs eq 'ARRAY', 'collaborators list works');
-    diag explain $collabs;
-};
-
-# =============================================================================
-# Repo::Hooks API
-# =============================================================================
-
-subtest 'repo hooks list' => sub {
-    ensure_org($TEST_ORG);
-    ensure_repo($TEST_ORG, $TEST_REPO);
-    my $hooks = $client->repos->get($TEST_ORG, $TEST_REPO)->hooks;
-    ok(ref $hooks eq 'ARRAY', 'hooks list works');
-    diag explain $hooks;
-};
-
-# =============================================================================
-# Repo::Labels API
-# =============================================================================
-
-subtest 'repo labels list' => sub {
-    ensure_org($TEST_ORG);
-    ensure_repo($TEST_ORG, $TEST_REPO);
-    my $labels = $client->repos->get($TEST_ORG, $TEST_REPO)->labels;
-    ok(ref $labels eq 'ARRAY', 'labels list works');
-    diag explain $labels;
-};
-
-# =============================================================================
-# Repo::Milestones API
-# =============================================================================
-
-subtest 'repo milestones list' => sub {
-    ensure_org($TEST_ORG);
-    ensure_repo($TEST_ORG, $TEST_REPO);
-    my $milestones = $client->repos->get($TEST_ORG, $TEST_REPO)->milestones;
-    ok(ref $milestones eq 'ARRAY', 'milestones list works');
-    diag explain $milestones;
-};
-
-# =============================================================================
-# Repo::Issues API
-# =============================================================================
-
-subtest 'repo issues list' => sub {
-    ensure_org($TEST_ORG);
-    ensure_repo($TEST_ORG, $TEST_REPO);
-    my $issues = $client->repos->get($TEST_ORG, $TEST_REPO)->issues;
-    ok(ref $issues eq 'ARRAY', 'issues list works');
-    diag explain $issues;
-};
-
-# =============================================================================
-# Org::Members API
-# =============================================================================
-
-subtest 'org members list' => sub {
-    my $members = $client->orgs->get($TEST_ORG)->members;
-    ok(ref $members eq 'ARRAY', 'members list works');
-    diag explain $members;
-};
-
-# =============================================================================
-# Org::Teams API
-# =============================================================================
-
-subtest 'org teams list' => sub {
-    my $teams = $client->orgs->get($TEST_ORG)->teams;
-    ok(ref $teams eq 'ARRAY', 'teams list works');
-    diag explain $teams;
-};
-
-# =============================================================================
-# Org::Hooks API
-# =============================================================================
-
-subtest 'org hooks list' => sub {
-    my $hooks = $client->orgs->get($TEST_ORG)->hooks;
-    ok(ref $hooks eq 'ARRAY', 'hooks list works');
-    diag explain $hooks;
+    my $groups = optional(quota => sub { $client->admin->quota->list_groups }) or return;
+    ok(ref $groups, 'list_groups returns a structure');
 };
 
 done_testing;

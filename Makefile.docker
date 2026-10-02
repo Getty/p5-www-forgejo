@@ -1,12 +1,12 @@
 .PHONY: up down logs test setup-admin
 
-FORGEJO_URL ?= http://localhost:30080
-FORGEJO_TOKEN ?= test-token
+TEST_FORGEJO_URL ?= http://localhost:30080
+TEST_FORGEJO_TOKEN ?= test-token
 
 up:
 	docker compose up -d
 	@echo "Waiting for Forgejo to be ready..."
-	@sleep 30 && docker compose exec forgejo wget -qO- http://localhost:3000/install > /dev/null 2>&1 && echo "Forgejo is ready at $(FORGEJO_URL)" || (echo "Forgejo not ready yet, check logs with: make logs")
+	@sleep 30 && docker compose exec forgejo wget -qO- http://localhost:3000/install > /dev/null 2>&1 && echo "Forgejo is ready at $(TEST_FORGEJO_URL)" || (echo "Forgejo not ready yet, check logs with: make logs")
 
 down:
 	docker compose down -v
@@ -18,17 +18,17 @@ restart:
 	docker compose restart
 
 test:
-	FORGEJO_URL=$(FORGEJO_URL) FORGEJO_TOKEN=$(FORGEJO_TOKEN) perl -Ilib t/90-live-admin.t
+	TEST_FORGEJO_URL=$(TEST_FORGEJO_URL) TEST_FORGEJO_TOKEN=$(TEST_FORGEJO_TOKEN) prove -l t/9*-live-*.t
 
 test-verbose:
-	FORGEJO_URL=$(FORGEJO_URL) FORGEJO_TOKEN=$(FORGEJO_TOKEN) prove -vl t/90-live-admin.t
+	TEST_FORGEJO_URL=$(TEST_FORGEJO_URL) TEST_FORGEJO_TOKEN=$(TEST_FORGEJO_TOKEN) prove -vl t/9*-live-*.t
 
 check:
 	@echo "==> Checking if Forgejo is up..."
-	@curl -sf $(FORGEJO_URL)/ > /dev/null && echo "Forgejo is responding" || echo "Forgejo not responding"
+	@curl -sf $(TEST_FORGEJO_URL)/ > /dev/null && echo "Forgejo is responding" || echo "Forgejo not responding"
 	@echo ""
 	@echo "==> Checking if /install is accessible..."
-	@curl -sf $(FORGEJO_URL)/install > /dev/null && echo "/install accessible" || echo "/install returns redirect (probably already installed)"
+	@curl -sf $(TEST_FORGEJO_URL)/install > /dev/null && echo "/install accessible" || echo "/install returns redirect (probably already installed)"
 
 setup-admin:
 	@echo "==> Getting CSRF token..."
@@ -58,5 +58,5 @@ setup-admin:
 	fi
 
 create-token:
-	@echo "Create a token at: $(FORGEJO_URL)/user/settings/applications"
-	@echo "Then run: FORGEJO_TOKEN=<your-token> make test"
+	@echo "Create a token at: $(TEST_FORGEJO_URL)/user/settings/applications"
+	@echo "Then run: TEST_FORGEJO_TOKEN=<your-token> make -f Makefile.docker test"

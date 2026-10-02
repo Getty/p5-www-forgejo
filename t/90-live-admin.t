@@ -1,8 +1,11 @@
+#!/usr/bin/env perl
 use strict;
 use warnings;
 use Test::More;
 use lib 'lib';
 use WWW::Forgejo;
+
+# Live test of the admin controllers. Needs the token of an admin user.
 
 plan skip_all => 'TEST_FORGEJO_URL and TEST_FORGEJO_TOKEN required'
     unless $ENV{TEST_FORGEJO_URL} && $ENV{TEST_FORGEJO_TOKEN};
@@ -14,36 +17,38 @@ my $client = WWW::Forgejo->new(
 
 subtest 'admin users list' => sub {
     my $users = $client->admin->users->list;
-    ok($users);
-    diag explain $users;
+    is(ref $users, 'ARRAY', 'list returns an arrayref');
+    ok(scalar @$users, 'at least the admin user itself');
+    ok($users->[0]{login}, 'users carry a login');
+    note explain $users;
 };
 
-subtest 'admin users get' => sub {
-    my $users = $client->admin->users->list;
-    return pass('No users to test') unless @$users;
-    my $user = $client->admin->users->get($users->[0]{login});
-    ok($user);
-    diag explain $user;
+subtest 'a user from the admin list can be read through users' => sub {
+    my $users = $client->admin->users->list(limit => 1);
+    return plan skip_all => 'no users' unless @$users;
+    my $user = $client->users->get($users->[0]{login});
+    is($user->{login}, $users->[0]{login}, 'same user');
 };
 
 subtest 'admin hooks list' => sub {
     my $hooks = $client->admin->hooks->list;
-    ok($hooks);
-    diag explain $hooks;
+    is(ref $hooks, 'ARRAY', 'list returns an arrayref');
+    note explain $hooks;
 };
 
 subtest 'admin runners list' => sub {
-    plan skip_all => 'Actions runners not available or not enabled'
-        unless eval { $client->admin->runners->list; 1 };
-    my $runners = $client->admin->runners->list;
-    ok($runners);
-    diag explain $runners;
+    my $runners = eval { $client->admin->runners->list };
+    return plan skip_all => 'Actions runners not available or not enabled: ' . $@ unless defined $runners;
+    ok(ref $runners, 'list returns a structure');
+    note explain $runners;
 };
 
 subtest 'admin cron list' => sub {
     my $tasks = $client->admin->cron->list;
-    ok($tasks);
-    diag explain $tasks;
+    is(ref $tasks, 'ARRAY', 'list returns an arrayref');
+    ok(scalar @$tasks, 'the instance has cron tasks');
+    ok($tasks->[0]{name}, 'tasks carry a name');
+    note explain $tasks;
 };
 
 done_testing;

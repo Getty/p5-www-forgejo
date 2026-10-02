@@ -1,8 +1,12 @@
+#!/usr/bin/env perl
 use strict;
 use warnings;
 use Test::More;
 use lib 'lib';
 use WWW::Forgejo;
+
+# Live smoke test: one read-only call per top-level controller. Changes
+# nothing on the instance.
 
 plan skip_all => 'TEST_FORGEJO_URL and TEST_FORGEJO_TOKEN required'
     unless $ENV{TEST_FORGEJO_URL} && $ENV{TEST_FORGEJO_TOKEN};
@@ -14,73 +18,79 @@ my $client = WWW::Forgejo->new(
 
 subtest 'version' => sub {
     my $v = $client->misc->version;
-    ok($v->{version});
-    diag explain $v;
+    ok($v->{version}, 'has a version');
+    note explain $v;
 };
 
-# current_user has issues with Moo role composition - skip for now
+subtest 'current user' => sub {
+    my $me = $client->current_user->get;
+    ok($me->{login}, 'the token belongs to a user');
+    my $user = $client->users->get($me->{login});
+    is($user->{id}, $me->{id}, 'users->get finds the same user');
+};
+
 subtest 'user search' => sub {
-    my $result = $client->users->search('test');
-    ok($result);
-    diag explain $result;
+    my $result = $client->users->search('a');
+    is(ref $result->{data}, 'ARRAY', 'search returns the envelope with a data array');
+    $result = $client->users->search(q => 'a', limit => 1);
+    cmp_ok(scalar @{ $result->{data} }, '<=', 1, 'named parameters reach the query string');
 };
 
 subtest 'orgs list' => sub {
     my $orgs = $client->orgs->list;
-    ok(ref $orgs eq 'ARRAY');
-    diag explain $orgs;
+    is(ref $orgs, 'ARRAY', 'list returns an arrayref');
+    for my $org (@$orgs) {
+        isa_ok($org, 'WWW::Forgejo::Entity::Org');
+        ok($org->name, 'organization has a name');
+    }
 };
 
 subtest 'repos list_for_org' => sub {
-    plan skip_all => 'Need an org to test repos'
+    plan skip_all => 'TEST_FORGEJO_ORG not set'
         unless $ENV{TEST_FORGEJO_ORG};
     my $repos = $client->repos->list_for_org($ENV{TEST_FORGEJO_ORG});
-    ok(ref $repos eq 'ARRAY');
-    diag explain $repos;
+    is(ref $repos, 'ARRAY', 'list_for_org returns an arrayref');
+    for my $repo (@$repos) {
+        isa_ok($repo, 'WWW::Forgejo::Entity::Repo');
+        is($repo->owner, $ENV{TEST_FORGEJO_ORG}, 'bound to the organization');
+    }
+};
+
+subtest 'notifications' => sub {
+    my $notifications = $client->notifications->list;
+    is(ref $notifications, 'ARRAY', 'list returns an arrayref');
+    my $new = $client->notifications->check;
+    ok(defined $new->{new}, 'check returns the number of new notifications');
 };
 
 subtest 'admin users list' => sub {
     my $users = $client->admin->users->list;
-    ok($users);
-    diag explain $users;
-};
-
-subtest 'admin users get' => sub {
-    my $users = $client->admin->users->list;
-    return pass('No users to test') unless @$users;
-    my $user = $client->admin->users->get($users->[0]{login});
-    ok($user);
-    diag explain $user;
+    is(ref $users, 'ARRAY', 'list returns an arrayref');
+    note explain $users;
 };
 
 subtest 'admin hooks list' => sub {
     my $hooks = $client->admin->hooks->list;
-    ok($hooks);
-    diag explain $hooks;
+    is(ref $hooks, 'ARRAY', 'list returns an arrayref');
 };
 
 subtest 'admin runners' => sub {
-    plan skip_all => 'Actions runners not available or not enabled'
-        unless eval { $client->admin->runners->list; 1 };
-    my $runners = $client->admin->runners->list;
-    ok($runners);
-    diag explain $runners;
+    my $runners = eval { $client->admin->runners->list };
+    return plan skip_all => 'Actions runners not available or not enabled: ' . $@ unless defined $runners;
+    ok(ref $runners, 'list returns a structure');
 };
 
 subtest 'admin cron list' => sub {
     my $tasks = $client->admin->cron->list;
-    ok($tasks);
-    diag explain $tasks;
+    is(ref $tasks, 'ARRAY', 'list returns an arrayref');
 };
 
 subtest 'admin quota' => sub {
-    plan skip_all => 'Quota API not available in this Forgejo version'
-        unless eval { $client->admin->users->quota('testadmin'); 1 };
-    my $users = $client->admin->users->list;
-    return pass('No users for quota test') unless @$users;
-    my $quota = $client->admin->users->quota($users->[0]{login});
-    ok($quota);
-    diag explain $quota;
+    my $me    = $client->current_user->get;
+    my $quota = eval { $client->admin->users->quota($me->{login}) };
+    return plan skip_all => 'Quota API not available on this instance: ' . $@ unless defined $quota;
+    ok(ref $quota, 'quota returns a structure');
+    note explain $quota;
 };
 
 done_testing;
