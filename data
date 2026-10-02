@@ -1,0 +1,17 @@
+---
+claimed_at: 2026-10-02T19:30:16Z
+claimed_by: release-ready
+class: standard
+completed: 2026-10-02T19:30:16Z
+created: 2026-10-02T19:00:39Z
+id: 24
+priority: medium
+started: 2026-10-02T19:30:16Z
+status: done
+title: 'License decision: Artistic_2_0 vs Perl_5'
+updated: 2026-10-02T19:30:23Z
+---
+
+dist.ini has Artistic_2_0, sibling dists use Perl_5. Decision by Getty, not changed.
+
+2026-10-02 19:30 Done in commit 93c9e88: license Perl_5, LICENSE regenerated, README updated
