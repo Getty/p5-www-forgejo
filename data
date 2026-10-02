@@ -1,0 +1,27 @@
+---
+claimed_at: 2026-10-02T18:58:39Z
+claimed_by: www-forgejo-worker
+class: standard
+completed: 2026-10-02T18:58:39Z
+created: 2026-10-02T18:20:55Z
+id: 18
+priority: high
+started: 2026-10-02T18:21:01Z
+status: done
+title: 'Release-Readiness: Review-Befunde 1-19 fixen (test-first), Offline-Suite gruen'
+updated: 2026-10-02T18:58:44Z
+---
+
+Halbfertigen Working Tree uebernehmen (Transport, Top-Level/Org/Admin-Controller bereits gegen Swagger umgebaut), Repo::*-Controller + Entities gegen Spec fertigstellen, veraltete Alt-Tests (02/04/10/20) nachziehen, Befundliste 1-19 abarbeiten. Arbeitsort: Worktree .claude/worktrees/release-ready (Branch worktree-release-ready). Kein Live-Lauf, kein Push.
+
+2026-10-02 18:30 Worker pass 1: all 25 Repo controllers rewritten against swagger (clean paths, params as query, client->check for 204/404 questions, multipart upload_asset); namespace::clean and VERSION in every module; new t/11-clean-namespaces.t. Next: Entity::Repo/Org, old tests 02/04/10/20/30, new repo controller tests.
+
+2026-10-02 18:40 Worker pass 1 finished, tree commit-ready, prove -l t/ green (22 files, 1082 tests, 3 live files skipped). Done: Repo::* controllers + Entity::Repo/Org against swagger; entity accessors aligned with response schemas (new guard t/33 + t/fixtures/forgejo-api-schemas.txt); namespace::clean and VERSION in every module; old tests 02/04/10/20/30 corrected against spec; new t/11, t/12, t/31, t/32, t/33. Open for pass 2 (not touched here): (a) t/9x live tests still call removed methods (admin->users->get, teams->list, packages->list without owner, admin users list_keys/list_orgs/list_repos, cron->get, repos->search(query=>)); (b) README/Changes/POD overview; (c) cpanfile check for namespace::clean and HTTP::Request::Common. Also found, for the sibling board (p5-net-async-forgejo): its verbs still use the old signatures - post/put/patch/delete need (path, data, %opts) with params and delete body, plus check() and the upload option, to match Role::HTTP.
+
+2026-10-02 18:45 Pass 2: added spec-backed methods test-first (t/31 request table + t/40): Branches::rename, Flags::check/replace/remove_all, Releases::latest/delete_by_tag/get_asset/edit_asset/delete_asset, TagProtections::edit(+update alias).
+
+2026-10-02 18:55 Pass 2 findings outside scope (not changed, for the dispatcher to decide): (1) Org::* controllers take the org name as first positional arg even when bound to an Entity::Org, so $org->teams->list(limit => 5) reads "limit" as org name - must be written list(undef, limit => 5); (2) call style differs: top-level/Org controllers take %params and return arrayrefs, Repo::* take a hashref body and return lists (Topics::list returns an arrayref); (3) Entity::User/Email/CronTask/QuotaGroup/QuotaRule are returned by no controller; (4) 7 Entity modules import Log::Any without using it; (5) lib uses 4-space indent, house rule says 2; (6) docker-compose pins forgejo 8.0.3 while the client follows the 16.0.0-dev spec, and scripts/setup-forgejo-test.sh asks for token scope "sudo" - neither verifiable offline; (7) skill www-forgejo-core is stale (claims no ENV fallback, no HTTPResponse headers, entities not extending the base). For the sibling board p5-net-async-forgejo: unchanged from pass 1 note (verb signatures, check(), upload); the methods added here need no seam change.
+
+2026-10-02 18:55 Done (pass 2, tree commit-ready, nothing committed): live tests t/90-92 rewritten against current lib and guarded offline by new t/42-live-tests-static.t (t/lib/MethodChains.pm resolves every method call in them against the real classes); Makefile.docker, k8s Makefile and setup script use TEST_FORGEJO_URL/TOKEN; t/00-load.t loads all modules via File::Find and checks our VERSION; shebang in every .t; t/09 extended (whole chains on temporary clients, no cycle); new t/41-pod-coverage.t (documented names equal public API per module, SYNOPSIS compiles, no double my, only existing methods, Pod::Checker clean, README examples); POD and README corrected; cpanfile (URI dropped, sorted, test deps) and dist.ini (TODO.md exclude); added Branches::rename, Flags::check/replace/remove_all, Releases::latest/delete_by_tag/get_asset/edit_asset/delete_asset, TagProtections::edit/update. Verified: prove -l t/ gives Files=24, Tests=1716, PASS (3 live files skipped); all 77 modules load under -w without output; podchecker reports only the method/attr directives. Not run: dzil, live tests, docker.
+
+2026-10-02 18:58 Committed 1df6f34, 75a77f6, 77376f8, 5996bd6, 55985b2 on worktree-release-ready; prove -l t/ Files=24 Tests=1716 PASS; dzil build clean, podchecker 77/77 OK.
