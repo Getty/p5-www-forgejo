@@ -1,0 +1,11 @@
+---
+class: standard
+created: 2026-10-02T19:00:33Z
+id: 23
+priority: low
+status: backlog
+title: 'Cleanup: unused entities, unused Log::Any imports, stale skill'
+updated: 2026-10-02T19:00:33Z
+---
+
+Entity User, Email, CronTask, QuotaGroup, QuotaRule are returned by no controller; 7 Entity modules import Log::Any without using it; skill www-forgejo-core is stale: claims no ENV fallback, no HTTPResponse headers, entities not extending the base.
