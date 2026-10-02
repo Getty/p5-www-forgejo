@@ -3,6 +3,7 @@ package WWW::Forgejo::HTTPRequest;
 # ABSTRACT: HTTP request object for Forgejo API
 
 use Moo;
+use namespace::clean;
 
 our $VERSION = '0.001';
 
@@ -28,7 +29,7 @@ has method => (is => 'ro', required => 1);
 
 =attr method
 
-The HTTP method (GET, POST, PUT, DELETE).
+The HTTP method (GET, POST, PUT, PATCH, DELETE).
 
 =cut
 
@@ -52,7 +53,14 @@ has content => (is => 'ro', predicate => 1);
 
 =attr content
 
-The request body content (JSON string). Use C<has_content> to check presence.
+The request body content: a JSON string, or the encoded form data of an
+upload. Optional; L</has_content> tells whether there is one.
+
+=method has_content
+
+    $http_request->content($req->content) if $req->has_content;
+
+True when the request carries a body.
 
 =cut
 

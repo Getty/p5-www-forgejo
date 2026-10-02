@@ -3,6 +3,7 @@ package WWW::Forgejo::Role::IO;
 # ABSTRACT: Interface role for pluggable HTTP backends
 
 use Moo::Role;
+use namespace::clean;
 
 our $VERSION = '0.001';
 
@@ -42,6 +43,9 @@ Execute an HTTP request. Receives a L<WWW::Forgejo::HTTPRequest> with
 C<method>, C<url>, C<headers>, and optionally C<content> already set.
 
 Must return a L<WWW::Forgejo::HTTPResponse> with C<status> and C<content>.
+The response C<headers> should be passed along as well:
+L<WWW::Forgejo::Role::HTTP/get> reads the C<X-Total-Count> header from them to
+decide whether further pages have to be fetched.
 
 =head1 SEE ALSO
 

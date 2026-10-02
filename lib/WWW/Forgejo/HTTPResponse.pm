@@ -3,6 +3,7 @@ package WWW::Forgejo::HTTPResponse;
 # ABSTRACT: HTTP response object for Forgejo API
 
 use Moo;
+use namespace::clean;
 
 our $VERSION = '0.001';
 

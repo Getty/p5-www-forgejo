@@ -6,6 +6,7 @@ use Moo;
 use LWP::UserAgent;
 use HTTP::Request;
 use WWW::Forgejo::HTTPResponse;
+use namespace::clean;
 
 with 'WWW::Forgejo::Role::IO';
 
@@ -21,6 +22,11 @@ our $VERSION = '0.001';
 
 Default synchronous HTTP backend using L<LWP::UserAgent>. Implements
 L<WWW::Forgejo::Role::IO>.
+
+For C<https> URLs L<LWP::UserAgent> needs L<LWP::Protocol::https>, which is
+only a recommended prerequisite of this distribution, because Forgejo often
+runs without TLS inside a private network: install it when your instance is
+served over TLS.
 
 =cut
 
@@ -63,16 +69,29 @@ sub call {
 
     my $response = $self->ua->request($http_req);
 
+    # Hand the response headers on (X-Total-Count drives the pagination in
+    # Role::HTTP). A header that occurs more than once is joined with ", ".
+    my %res_headers;
+    $response->headers->scan(sub {
+        my ($name, $value) = @_;
+        my $key = lc $name;
+        $res_headers{$key} = exists $res_headers{$key} ? "$res_headers{$key}, $value" : $value;
+    });
+
     return WWW::Forgejo::HTTPResponse->new(
         status  => $response->code,
         content => $response->decoded_content // '',
+        headers => \%res_headers,
     );
 }
 
-=method call($req)
+=method call
+
+    my $res = $io->call($req);
 
 Execute an L<WWW::Forgejo::HTTPRequest> via LWP and return a
-L<WWW::Forgejo::HTTPResponse>.
+L<WWW::Forgejo::HTTPResponse> built from the status code, the decoded content
+and the response headers.
 
 =cut
 

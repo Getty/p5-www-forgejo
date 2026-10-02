@@ -7,28 +7,50 @@ use WWW::Forgejo::HTTPRequest;
 use WWW::Forgejo::HTTPResponse;
 use WWW::Forgejo::LWPIO;
 use JSON::MaybeXS qw(decode_json encode_json);
+use HTTP::Request::Common ();
 use URI::Escape qw(uri_escape);
 use Carp qw(croak);
 use Log::Any qw($log);
+use constant DEFAULT_MAX_PAGES => 100;
+use namespace::clean;
 
 our $VERSION = '0.001';
 
-use constant DEFAULT_MAX_PAGES => 100;
-
 =head1 SYNOPSIS
 
-    package WWW::Forgejo::API;
+    package My::Forgejo::Client;
     use Moo;
 
-    has token => ( is => 'ro' );
+    has token    => ( is => 'ro' );
     has base_url => ( is => 'ro', default => 'https://forgejo.example/api/v1' );
 
     with 'WWW::Forgejo::Role::HTTP';
 
+    package main;
+
+    my $client = My::Forgejo::Client->new(token => $ENV{FORGEJO_TOKEN});
+    my $user   = $client->get('/user');
+    my $repo   = $client->post('/user/repos', { name => 'new-repo' });
+
 =head1 DESCRIPTION
 
-This role provides HTTP methods (GET, POST, PUT, DELETE) for Forgejo API
-clients. It handles JSON encoding/decoding, authentication, and error handling.
+This role provides the HTTP verb methods (GET, POST, PUT, PATCH, DELETE) for
+Forgejo API clients. It handles JSON encoding/decoding, authentication, and
+error handling. L<WWW::Forgejo> consumes it; the C<WWW::Forgejo::API::*>
+controllers send all their requests through these methods.
+
+Paths are relative to C<base_url>, e.g. C</user> or C</repos/owner/name>.
+Requests are authenticated with an C<Authorization: token ...> header and carry
+C<Content-Type: application/json>.
+
+A response body that is a JSON object or array is decoded and returned as Perl
+data. Any other non-empty body (rendered HTML, a raw file, an armored key) is
+returned as it is, and an empty body yields C<undef>.
+
+A response status outside the 2xx range makes the verb methods croak with
+C<Forgejo API error: ...>, followed by the C<message> of the JSON error body if
+there is one, else the status code. Calling a verb method without a token
+croaks with C<No API token configured>.
 
 HTTP transport is delegated to a pluggable L<WWW::Forgejo::Role::IO> backend
 (default: L<WWW::Forgejo::LWPIO>), making it possible to use async HTTP
@@ -64,9 +86,10 @@ Pluggable HTTP backend implementing L<WWW::Forgejo::Role::IO>.
 Defaults to L<WWW::Forgejo::LWPIO>.
 
     # Use a custom IO backend
-    my $api = WWW::Forgejo::API->new(
+    my $forgejo = WWW::Forgejo->new(
+        url   => $url,
         token => $token,
-        io    => My::AsyncIO->new,
+        io    => My::IO->new,
     );
 
 =cut
@@ -170,6 +193,10 @@ C<< params->{page} >>); plain objects (no C<data> arrayref), collections without
 an C<X-Total-Count> header, and explicitly-paged requests are returned as-is
 with no extra HTTP calls.
 
+The header is read from L<WWW::Forgejo::HTTPResponse/headers>, so an L</io>
+backend has to pass the response headers on for this to work;
+L<WWW::Forgejo::LWPIO> does.
+
 The per-page C<limit> is kept consistent across every fetched page so that
 Forgejo's C<(page - 1) * limit> offsets stay contiguous - no items are skipped
 or duplicated between pages.
@@ -190,62 +217,98 @@ against unbounded loops. Defaults to 100.
 =back
 
     # collect all repos, 100 per page, at most 20 pages
-    my $repos = $self->get('/repos', page_size => 100, max_pages => 20);
+    my $repos = $self->get('/user/repos', page_size => 100, max_pages => 20);
 
-List controllers that forward their C<%params> into C<get> expose these to
-callers, e.g. C<< $api->list(page_size => 100) >>.
+The C<list> methods of the controllers send their named arguments as query
+parameters, so there C<< limit => 100 >> has the effect of C<page_size> and
+C<< page => 2 >> pins a page.
+
+Query parameters with an undefined value are left out of the request.
 
 =cut
 
 sub post {
-    my ($self, $path, $data) = @_;
-    return $self->_request('POST', $path, body => $data);
+    my ($self, $path, $data, %opts) = @_;
+    return $self->_request('POST', $path, %opts, body => $data);
 }
 
 =method post
 
     my $data = $self->post('/path', { key => 'value' });
+    my $data = $self->post('/path', undef, params => { name => 'file.txt' },
+        upload => { file => '/path/to/file.txt' });
 
-Perform a POST request with JSON body.
+Perform a POST request with JSON body. C<params> adds a query string.
+
+With C<upload> the request is sent as C<multipart/form-data> instead: the
+hashref names the form C<field> (default C<attachment>) and either a C<file> on
+disk or the raw C<content>, plus an optional C<filename> (required with
+C<content>, defaulting to the base name of C<file> otherwise).
 
 =cut
 
 sub put {
-    my ($self, $path, $data) = @_;
-    return $self->_request('PUT', $path, body => $data);
+    my ($self, $path, $data, %opts) = @_;
+    return $self->_request('PUT', $path, %opts, body => $data);
 }
 
 =method put
 
     my $data = $self->put('/path', { key => 'value' });
+    my $data = $self->put('/path', undef, params => { key => 'value' });
 
-Perform a PUT request with JSON body.
+Perform a PUT request with JSON body. C<params> adds a query string.
 
 =cut
 
 sub delete {
-    my ($self, $path) = @_;
-    return $self->_request('DELETE', $path);
+    my ($self, $path, $data, %opts) = @_;
+    return $self->_request('DELETE', $path, %opts, body => $data);
 }
 
 =method delete
 
     my $data = $self->delete('/path');
+    my $data = $self->delete('/path', { key => 'value' });
 
-Perform a DELETE request.
+Perform a DELETE request. The optional data is sent as JSON body, for the
+endpoints that take one. C<params> adds a query string.
 
 =cut
 
 sub patch {
-    my ($self, $path, $data) = @_;
-    return $self->_request('PATCH', $path, body => $data);
+    my ($self, $path, $data, %opts) = @_;
+    return $self->_request('PATCH', $path, %opts, body => $data);
 }
 
 =method patch
 
     my $data = $self->patch('/path', { key => 'value' });
 
-Perform a PATCH request with JSON body.
+Perform a PATCH request with JSON body. C<params> adds a query string.
+
+=cut
+
+sub check {
+    my ($self, $path, %opts) = @_;
+
+    croak "No API token configured" unless $self->token;
+
+    my $req      = $self->_build_request('GET', $path, %opts);
+    my $response = $self->io->call($req);
+
+    return 0 if $response->status == 404;
+    $self->_parse_response($response, 'GET', $path);
+    return 1;
+}
+
+=method check
+
+    my $bool = $self->check('/repos/owner/name/collaborators/username');
+
+Perform a GET request against an endpoint that answers a yes/no question with
+its status code. Returns true for a 2xx response and false for C<404>; any other
+status croaks like the verb methods do.
 
 =cut
 
@@ -270,10 +333,10 @@ sub _build_request {
 
     my $url = $self->base_url . $path;
 
-    # Add query params for GET
-    if ($method eq 'GET' && $opts{params}) {
+    # Query string, in sorted key order so the URL is deterministic.
+    if ($opts{params}) {
         my @pairs;
-        for my $k (keys %{$opts{params}}) {
+        for my $k (sort keys %{$opts{params}}) {
             my $v = $opts{params}{$k};
             next unless defined $v;
             push @pairs, uri_escape($k) . '=' . uri_escape($v);
@@ -293,7 +356,13 @@ sub _build_request {
         headers => \%headers,
     );
 
-    if ($opts{body}) {
+    if (my $upload = $opts{upload}) {
+        my ($content_type, $content) = $self->_multipart($upload);
+        $headers{'Content-Type'} = $content_type;
+        $req_args{content} = $content;
+        $log->debugf("Body: multipart upload, %d bytes", length $content);
+    }
+    elsif ($opts{body}) {
         $req_args{content} = encode_json($opts{body});
         $log->debugf("Body: %s", $req_args{content});
     }
@@ -308,20 +377,62 @@ sub _build_request {
 Builds a L<WWW::Forgejo::HTTPRequest> without executing it. Useful for
 async workflows where request creation and execution are separate steps.
 
+C<params> (a hashref) becomes the query string; C<body> (a hashref or arrayref)
+is encoded as the JSON request content; C<upload> (see L</post>) produces a
+C<multipart/form-data> request instead.
+
 =cut
+
+# Encode one file as multipart/form-data. Returns the Content-Type header
+# (carrying the boundary) and the encoded body.
+sub _multipart {
+    my ($self, $upload) = @_;
+
+    my $field = $upload->{field} // 'attachment';
+    my $part;
+    if (defined $upload->{content}) {
+        croak "upload: filename required with content" unless defined $upload->{filename};
+        $part = [ undef, $upload->{filename}, Content => $upload->{content} ];
+    }
+    elsif (defined $upload->{file}) {
+        croak "upload: cannot read file $upload->{file}" unless -r $upload->{file};
+        $part = [ $upload->{file}, $upload->{filename} ];
+    }
+    else {
+        croak "upload: file or content required";
+    }
+
+    my $form = HTTP::Request::Common::POST(
+        'http://localhost/',
+        Content_Type => 'form-data',
+        Content      => [ $field => $part ],
+    );
+    return ($form->header('Content-Type'), $form->content);
+}
 
 sub _parse_response {
     my ($self, $response, $method, $path) = @_;
 
     $log->debugf("Response: %s", $response->status);
 
+    my $content = $response->content;
     my $data;
-    if ($response->content && $response->content =~ /^\s*[\{\[]/) {
-        $data = decode_json($response->content);
+    if (defined $content && length $content) {
+        if ($content =~ /^\s*[\{\[]/) {
+            # Looks like JSON. A raw file may start the same way without being
+            # JSON; then it is handed back as it is.
+            $data = eval { decode_json($content) };
+            $data = $content unless ref $data;
+        }
+        else {
+            $data = $content;
+        }
     }
 
     unless ($response->status >= 200 && $response->status < 300) {
-        my $error = $data->{message} // $response->status;
+        my $error = ref $data eq 'HASH' && defined $data->{message}
+            ? $data->{message}
+            : $response->status;
         $log->errorf("API error: %s", $error);
         croak "Forgejo API error: $error";
     }
@@ -364,14 +475,14 @@ Runs a request like the internal path used by the verb methods, but returns
 both the parsed data B<and> the L<WWW::Forgejo::HTTPResponse>, so callers (such
 as the auto-pagination logic in L</get>) can read response headers like
 C<X-Total-Count>. The public verb methods (C<post>/C<put>/C<patch>/C<delete>)
-still return only the parsed data via L</_request>.
+still return only the parsed data.
 
 =cut
 
 =head1 SEE ALSO
 
-L<WWW::Forgejo::API>, L<WWW::Forgejo::Role::IO>, L<WWW::Forgejo::LWPIO>,
-L<Log::Any>
+L<WWW::Forgejo>, L<WWW::Forgejo::Role::IO>, L<WWW::Forgejo::LWPIO>,
+L<WWW::Forgejo::HTTPRequest>, L<WWW::Forgejo::HTTPResponse>, L<Log::Any>
 
 =cut
 
