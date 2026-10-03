@@ -90,14 +90,17 @@ sub create {
 
 Get the combined status of a branch, tag or commit: a structure with the
 overall C<state>, the C<sha> and the single C<statuses> it is made of. Named
-arguments are sent as the query string.
+arguments are sent as the query string. A ref with a slash (C<feature/x>) is
+sent as one escaped path segment. For a commit without statuses Forgejo answers
+with an empty C<state> and C<sha>.
 
 =cut
 
 sub combined {
     my ($self, $ref, %params) = @_;
     return $self->client->get(
-        $self->_repo_path('commits', (map { uri_escape($_) } split m{/}, $ref), 'status'),
+        # {ref} is one path segment: a slash in a branch name goes as %2F.
+        $self->_repo_path('commits', uri_escape($ref), 'status'),
         params => \%params,
     );
 }

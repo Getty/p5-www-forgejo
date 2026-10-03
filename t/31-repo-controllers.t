@@ -232,7 +232,7 @@ my @table = (
     [ statuses => create => [ 'abc', { state => 'success', context => 'ci' } ], [ 201, '{}' ],
         "POST $R/statuses/abc", { state => 'success', context => 'ci' } ],
     [ statuses => combined => ['main'], undef, "GET $R/commits/main/status" ],
-    [ statuses => combined => [ 'feature/x', limit => 5 ], undef, "GET $R/commits/feature/x/status?limit=5" ],
+    [ statuses => combined => [ 'feature/x', limit => 5 ], undef, "GET $R/commits/feature%2Fx/status?limit=5" ],
 
     # Subscription
     [ subscription => get         => [], undef, "GET $R/subscription" ],
