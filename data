@@ -1,0 +1,11 @@
+---
+class: standard
+created: 2026-10-03T00:29:15Z
+id: 28
+priority: low
+status: backlog
+title: Basic auth for other users' tokens; package upload outside /api/v1
+updated: 2026-10-03T00:29:15Z
+---
+
+users->tokens / token creation for other users needs basic auth, client has none. Package upload lives outside /api/v1 (t/97 uses io->call).
