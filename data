@@ -1,0 +1,15 @@
+---
+class: standard
+created: 2026-10-03T00:47:47Z
+id: 29
+priority: low
+status: backlog
+tags:
+- bridge
+- coordination
+- escalated-from:Net-Async-Forgejo#2
+title: Expose check's response verdict as _check_response for the async sibling
+updated: 2026-10-03T00:47:47Z
+---
+
+Net::Async::Forgejo::API now has an async check() (commit 2fd1bbf on its branch worktree-lockstep-release). It cannot reuse Role::HTTP::check because check calls io->call synchronously, so it mirrors the verdict logic: 2xx -> 1, 404 -> 0, except the text/plain '404 page not found' of a missing route, which croaks via _parse_response. Wish: factor that verdict into a method like _check_response($response, $method, $path) returning 0/1 or croaking, used by check itself. The async side would then call it after its own transport and stop duplicating the rule. No behaviour change on the sync side.
