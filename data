@@ -1,0 +1,13 @@
+---
+class: standard
+created: 2026-10-02T18:59:50Z
+id: 19
+priority: medium
+status: backlog
+title: Org controllers on a bound Org entity still expect the org name as first argument
+updated: 2026-10-03T00:28:49Z
+---
+
+org->teams->list(limit => 5) reads limit as the org name, must be written list(undef, limit => 5). API decision needed.
+
+2026-10-03 00:28 Live (15.0.7): $org->teams->list(limit=>1) sends GET /orgs/limit/teams plus odd-hash warning; $org->members->check($user) fails with 'Username required'. Recorded as TODO tests in t/94.
