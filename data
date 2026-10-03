@@ -1,0 +1,11 @@
+---
+class: standard
+created: 2026-10-03T00:29:11Z
+id: 27
+priority: medium
+status: backlog
+title: Wiki edit_page without title renames the page to 'unnamed'
+updated: 2026-10-03T00:29:11Z
+---
+
+Observed on Forgejo 15. Decide whether the client fills title itself.
