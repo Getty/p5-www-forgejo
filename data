@@ -1,0 +1,29 @@
+---
+claimed_at: 2026-10-03T00:28:45Z
+claimed_by: www-forgejo-worker
+class: standard
+completed: 2026-10-03T00:28:45Z
+created: 2026-09-18T23:11:10Z
+id: 17
+priority: high
+started: 2026-10-02T23:52:13Z
+status: done
+title: Live-Suite manuell gegen echte/docker Forgejo-Instanz verifizieren vor Release
+updated: 2026-10-03T00:28:45Z
+---
+
+Aus TODO.md Phase 10 uebernommen (Datei wird geloescht, Plan ist sonst vollstaendig umgesetzt). Vor dem finalen Release-Schritt sollte die Live-Testsuite (t/90-live-admin.t, t/91-live-comprehensive.t, t/92-live-comprehensive.t) mit TEST_FORGEJO_URL/TEST_FORGEJO_TOKEN gegen eine echte Instanz laufen -- lokale Docker/k8s-Testinfra (docker-compose.yaml, Makefile.docker, k8s/forgejo-test/, scripts/setup-forgejo-test.sh) existiert dafuer bereits im Repo, wurde aber laut Audit noch nicht als Nachweis erwaehnt. Kein Release-Freigabe ohne diesen Nachweis.
+
+2026-10-02 18:59 t/90-92 adapted to the current API and guarded offline by t/42, but never executed. docker-compose.yaml pins Forgejo 8.0.3 while the client follows the 16.0.0-dev swagger spec; check on the first live run.
+
+2026-10-02 23:54 Worker started: reading controllers; fetched the 15.0.7 swagger from the live instance and diffed it against the 16-dev spec (16-only: actions artifacts, job logs, run cancel/delete/jobs/logs, admin user tokens, GET /actions/run, POST /user/activitypub/follow).
+
+2026-10-03 00:03 t/93-live-repo-write.t green (15 subtests). Client bugs found+fixed test-first: (1) contents raw/media returned UTF-8 text files as characters (LWPIO decoded_content charset-decodes text/*) and parsed JSON files into hashes -> LWPIO now hands body bytes (decoded_content charset=>none), Role::HTTP get(raw=>1) skips all decoding, _decode_text keeps text/* bodies (markdown) as characters; regressions t/07 'call hands on the body bytes...', t/08 'a text body is decoded...', 'raw: the body exactly as it came', t/31 contents raw subtest. (2) statuses->combined split ref on / but {ref} is one segment -> 404 for feature/x; now %2F (t/31 table row). (3) non-JSON text/plain error bodies ('404 page not found') now become the croak message (t/08). Paired change for sibling: Net::Async::Forgejo _do_request should use decoded_content(charset=>'none') too (works meanwhile via the is_utf8 guard).
+
+2026-10-03 00:11 t/94-live-org.t (13) and t/95-live-repo-collab.t (17) green. More client bugs fixed test-first: empty JSON message ({"message":""} on 405 double merge) now falls back to the status (t/08 'error with an empty message...'); check() no longer reads the plain-text '404 page not found' of a missing route as 'no' (found with repository flags switched off; t/08 check subtest). docker-compose: FORGEJO__repository__ENABLE_FLAGS=true (container recreated). #22 live: /actions/runs on 15.0.7 sends no X-Total-Count, total_count only in the body; limit alone is ignored (all runs come back), limit+page gives that page. #19 live: org->teams->list(limit=>1) -> GET /orgs/limit/teams + odd-hash warning + 'Forgejo API error: GetOrgByName'; recorded as TODO tests in t/94. 16-only: get_run_jobs/cancel_run -> '404 page not found', delete_run -> 405; gated SKIP in t/95.
+
+2026-10-03 00:25 Also found (for the dispatcher to file, not done here): [Net::Async::Forgejo board] paired change: _do_request should pass decoded_content(charset=>'none') (body bytes, matching LWPIO now; until then Role::HTTP tolerates characters via an is_utf8 guard), get/_get_page should forward raw=>1 to _parse_response (else async contents->raw still JSON-decodes), and its delete sends no body / post ignores params+upload. [this board] (a) admin quota rules + group rules/users have no controller (live test uses plain verbs) - part of k21; (b) star/follow PUT/DELETE/check (/user/starred, /user/following) not in client - k21; (c) ActivityPub endpoints need HTTP signatures on Forgejo 15 with federation on - client cannot use them, decide document vs. drop; (d) Wiki edit_page without title renames the page to 'unnamed' on 15 - API decision whether the client fills title; (e) users->tokens/ token creation for other users needs basic auth, client has none; (f) package upload lives outside /api/v1 (t/97 uses io->call). Live: t/91 list_for_org skips when the instance has no org at all (read-only file, by design).
+
+2026-10-03 00:25 Done: live suite extended to 8 files (t/90-97), all green twice in a row against throwaway Forgejo 15.0.7 (Files=8, Tests=111; 739 ok lines; skips: t/91 list_for_org without any org, 3x Forgejo-16-only actions run ops; 2 TODO for k19). Client bugs fixed test-first (offline regressions in t/07, t/08, t/31): raw/media/get_archive now return file bytes (LWPIO hands body bytes, Role::HTTP raw option + text/* charset decoding), statuses->combined escapes / in ref, empty JSON message and text/plain errors give useful croak messages, check() croaks on a missing route. Docs: version differences 15 vs 16 in POD (Repo::Actions, ActivityPub, Admin::Hooks, Wiki, BranchProtection) and README. Infra: Makefile.docker (setup/test/down, COMPOSE_PROJECT_NAME=wwwforgejo-live, URL 13080), setup script cd+project default, compose ENABLE_FLAGS, k8s on 15.0.7 with setup target (not deployed). Offline: prove -l t/ Files=29 Tests=1726 PASS. Nothing committed; stack left running.
+
+2026-10-03 00:28 Committed: 41e550d (bytes, error messages, check), 9a8c73d (statuses ref), df299ff (live tests t/90-97, POD, README, Changes), c2831cc (docker 15.0.7 infra). Forgejo 15.0.7+gitea-1.22.0 (SQLite, docker): live Files=8 Tests=111 PASS twice, self-cleaning; offline Files=29 Tests=1726 PASS. 5 client bugs fixed.
