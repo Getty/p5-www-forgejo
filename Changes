@@ -16,7 +16,8 @@ Revision history for WWW-Forgejo
       topics and wiki; WWW::Forgejo::API::Repo::Statuses for commit statuses.
       Includes Branches::rename, Flags::check/replace/remove_all,
       Releases::latest/delete_by_tag/get_asset/edit_asset/delete_asset and
-      TagProtections::edit.
+      TagProtections::edit. Contents raw, media and get_archive return the
+      file bytes unchanged; statuses->combined escapes a slash in the ref.
     - Per-organization controllers on WWW::Forgejo::Entity::Org: actions,
       blocked_users, hooks, labels, members, quota and teams.
     - Yes/no endpoints (204/404) are answered as booleans via check();
@@ -28,15 +29,21 @@ Revision history for WWW-Forgejo
     - WWW::Forgejo::Role::HTTP: get/post/put/patch/delete with token auth, JSON
       encoding/decoding, query parameters on every verb, DELETE with a body,
       URL-escaped path segments, and a croak carrying status and message on
-      non-2xx and undecodable responses. get follows X-Total-Count based
+      non-2xx and undecodable responses; an empty JSON message or a one-line
+      plain-text body (such as "404 page not found") becomes the message of
+      the croak, and check croaks on a missing route instead of answering
+      "no". Text bodies are decoded by their declared charset; get takes a
+      raw option that returns the body bytes unchanged. get follows X-Total-Count based
       auto-pagination (page_size, max_pages) for plain arrays and the search
       envelope, with the default LWP backend as well.
     - Pluggable transport via WWW::Forgejo::Role::IO; default backend
       WWW::Forgejo::LWPIO (LWP::UserAgent). Transport-independent
       WWW::Forgejo::HTTPRequest / WWW::Forgejo::HTTPResponse value objects,
-      shared with Net::Async::Forgejo.
+      shared with Net::Async::Forgejo. LWPIO hands on the body bytes.
     - LWP::Protocol::https is recommended, not required: https instance URLs
       need it, plain-http instances do not.
     - Offline test suite against a mock transport, with POD coverage and
-      spec-conformance checks; live tests (t/9*-live-*.t) run only with
-      TEST_FORGEJO_URL and TEST_FORGEJO_TOKEN set.
+      spec-conformance checks; live tests (t/90-97) run only with
+      TEST_FORGEJO_URL and TEST_FORGEJO_TOKEN set and are verified against
+      Forgejo 15.0.7; the docker test instance (make -f Makefile.docker)
+      runs 15.0.7.

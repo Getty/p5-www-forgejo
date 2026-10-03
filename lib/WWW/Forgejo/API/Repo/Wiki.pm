@@ -61,7 +61,8 @@ sub list_pages {
 
     my $page = $repo->wiki->get_page($page_name);
 
-Get a wiki page by name, including its base64 encoded content.
+Get a wiki page by name, including its base64 encoded content. The name is the
+C<sub_url> of the page (C<Page-Title> for the title C<Page Title>).
 
 =cut
 
@@ -89,9 +90,14 @@ sub create_page {
 
 =method edit_page
 
-    my $page = $repo->wiki->edit_page($page_name, { content_base64 => $base64_encoded_markdown });
+    my $page = $repo->wiki->edit_page($page_name, {
+        title          => 'Page Title',
+        content_base64 => $base64_encoded_markdown,
+    });
 
-Edit a wiki page; takes the same fields as L</create_page>.
+Edit a wiki page; takes the same fields as L</create_page>. Pass the C<title>
+even when it stays the same: without one Forgejo (15) renames the page to
+C<unnamed>.
 
 =cut
 

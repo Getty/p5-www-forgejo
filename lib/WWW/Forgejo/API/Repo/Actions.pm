@@ -58,7 +58,10 @@ arguments are sent as the query string (C<event>, C<status>, C<run_number>,
 C<head_sha>, C<ref>, C<workflow_id>, C<page>, C<limit>).
 
 The API answers with an object holding the runs under C<workflow_runs>; that
-shape is not auto-paginated, so only the requested page is returned.
+shape is not auto-paginated, so only the requested page is returned. Forgejo 15
+sends no C<X-Total-Count> here (the total is the C<total_count> of the body),
+and it honours C<limit> only together with C<page>: without a C<page> all runs
+come back.
 
 =cut
 
@@ -86,6 +89,8 @@ sub get_run {
     my @jobs = $repo->actions->get_run_jobs($run_id);
 
 Get the jobs of a workflow run as L<WWW::Forgejo::Entity::WorkflowJob> objects.
+An operation of Forgejo 16; Forgejo 15 has no such route and croaks with
+C<Forgejo API error: 404 page not found>.
 
 =cut
 
@@ -99,7 +104,8 @@ sub get_run_jobs {
 
     $repo->actions->cancel_run($run_id);
 
-Cancel a workflow run. Returns true.
+Cancel a workflow run. Returns true. An operation of Forgejo 16; Forgejo 15 has
+no such route and croaks with C<Forgejo API error: 404 page not found>.
 
 =cut
 
@@ -113,7 +119,8 @@ sub cancel_run {
 
     $repo->actions->delete_run($run_id);
 
-Delete a workflow run. Returns true.
+Delete a workflow run. Returns true. An operation of Forgejo 16; Forgejo 15
+croaks with C<Forgejo API error: 405> (the path exists there for C<GET> only).
 
 =cut
 

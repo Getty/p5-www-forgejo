@@ -6,9 +6,11 @@ use lib 'lib';
 use WWW::Forgejo;
 
 # Live walk through the controllers and entities. Needs the token of an admin
-# user and CHANGES the instance: it creates the organization and repository
-# named below when they are missing (and leaves them there), and creates and
-# deletes a user, an issue, a label and a milestone.
+# user and CHANGES the instance: it creates and deletes a user, an issue, a
+# label and a milestone. TEST_FORGEJO_ORG and TEST_FORGEJO_REPO name an
+# organization and repository to work in (created when missing, and left
+# there); without them a throwaway organization and repository, named with the
+# prefix below, are made and deleted at the end.
 
 plan skip_all => 'TEST_FORGEJO_URL and TEST_FORGEJO_TOKEN required'
     unless $ENV{TEST_FORGEJO_URL} && $ENV{TEST_FORGEJO_TOKEN};
@@ -18,20 +20,40 @@ my $client = WWW::Forgejo->new(
     token => $ENV{TEST_FORGEJO_TOKEN},
 );
 
-my $TEST_ORG  = $ENV{TEST_FORGEJO_ORG}  // 'testorg';
-my $TEST_REPO = $ENV{TEST_FORGEJO_REPO} // 'testrepo';
+my $PREFIX    = 'wfl92-';
+my $OWN_ORG   = !defined $ENV{TEST_FORGEJO_ORG};
+my $OWN_REPO  = !defined $ENV{TEST_FORGEJO_REPO};
+my $TEST_ORG  = $ENV{TEST_FORGEJO_ORG}  // $PREFIX . 'org-' . $$;
+my $TEST_REPO = $ENV{TEST_FORGEJO_REPO} // $PREFIX . 'repo-' . $$;
 
 # The user the token belongs to, unless another one is named.
 my $me        = $client->current_user->get;
 my $TEST_USER = $ENV{TEST_FORGEJO_USER} // $me->{login};
 
-# Run a call an instance may legitimately not offer (feature switched off,
-# older version). Returns its result, or nothing after skipping the subtest.
+my $all_orgs = $client->orgs->list;
+for my $old_org (@$all_orgs) {
+    next unless index($old_org->name, $PREFIX) == 0;
+    my $org_repos = $client->repos->list_for_org($old_org->name);
+    for my $repo_of_org (@$org_repos) { $client->repos->delete($old_org->name, $repo_of_org->repo) }
+    $client->orgs->delete($old_org->name);
+}
+
+END {
+    if ($client) {
+        eval { $client->repos->delete($TEST_ORG, $TEST_REPO) } if $OWN_REPO || $OWN_ORG;
+        eval { $client->orgs->delete($TEST_ORG) } if $OWN_ORG;
+    }
+}
+
+# Run a call that needs a feature the instance may have switched off. Only the
+# plain-text 404 of a missing route counts as "not there" and skips the
+# subtest; any other error fails it.
 sub optional {
     my ($what, $code) = @_;
     my $result = eval { $code->() };
-    return $result if defined $result;
-    plan skip_all => $what . ' not available: ' . $@;
+    return $result unless $@;
+    die $@ unless $@ =~ /^Forgejo API error: 404 page not found/;
+    plan skip_all => "$what: no such route on this instance";
     return;
 }
 
@@ -267,7 +289,7 @@ subtest 'admin users' => sub {
 };
 
 subtest 'admin users create and delete' => sub {
-    my $name = 'livetest' . $$;
+    my $name = $PREFIX . 'u' . $$;
     my $user = $client->admin->users->create(
         email                => $name . '@example.com',
         username             => $name,

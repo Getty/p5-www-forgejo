@@ -81,6 +81,11 @@ Available as C<< $forgejo->activitypub >>.
 
 All methods return the decoded JSON response as plain Perl data.
 
+With federation switched on (C<[federation] ENABLED>), Forgejo 15 wants every
+request to these endpoints, reads included, signed with HTTP signatures, which
+this client does not make: an unsigned request croaks with
+C<Forgejo API error: request signature verification failed>.
+
 =head1 SEE ALSO
 
 L<WWW::Forgejo>

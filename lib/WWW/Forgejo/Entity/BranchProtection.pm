@@ -32,11 +32,14 @@ sub rule_name { shift->data->{rule_name} }
 
 =method branch_name
 
-The C<branch_name> field of the branch protection data.
+The C<branch_name> field of the branch protection data. Deprecated by Forgejo
+in favour of C<rule_name>; it is empty for a rule that is a pattern
+(C<release/*>).
 
 =method rule_name
 
-The C<rule_name> field of the branch protection data.
+The C<rule_name> field of the branch protection data: the branch name or
+pattern the rule applies to.
 
 =cut
 

@@ -16,6 +16,18 @@ my $client = WWW::Forgejo->new(
     token => $ENV{TEST_FORGEJO_TOKEN},
 );
 
+# Run a call that needs a feature the instance may have switched off. Only the
+# plain-text 404 of a missing route counts as "not there" and skips the
+# subtest; any other error fails it.
+sub optional {
+    my ($what, $code) = @_;
+    my $result = eval { $code->() };
+    return $result unless $@;
+    die $@ unless $@ =~ /^Forgejo API error: 404 page not found/;
+    plan skip_all => "$what: no such route on this instance";
+    return;
+}
+
 subtest 'version' => sub {
     my $v = $client->misc->version;
     ok($v->{version}, 'has a version');
@@ -46,13 +58,16 @@ subtest 'orgs list' => sub {
 };
 
 subtest 'repos list_for_org' => sub {
-    plan skip_all => 'TEST_FORGEJO_ORG not set'
-        unless $ENV{TEST_FORGEJO_ORG};
-    my $repos = $client->repos->list_for_org($ENV{TEST_FORGEJO_ORG});
-    is(ref $repos, 'ARRAY', 'list_for_org returns an arrayref');
+    # TEST_FORGEJO_ORG, else any organization there is.
+    my $some_orgs = $client->orgs->list(limit => 1, page => 1);
+    my $org_name  = $ENV{TEST_FORGEJO_ORG};
+    for my $any_org (@$some_orgs) { $org_name //= $any_org->name }
+    plan skip_all => 'no organization on this instance, and TEST_FORGEJO_ORG not set' unless defined $org_name;
+    my $repos = $client->repos->list_for_org($org_name);
+    is(ref $repos, 'ARRAY', "list_for_org($org_name) returns an arrayref");
     for my $repo (@$repos) {
         isa_ok($repo, 'WWW::Forgejo::Entity::Repo');
-        is($repo->owner, $ENV{TEST_FORGEJO_ORG}, 'bound to the organization');
+        is($repo->owner, $org_name, 'bound to the organization');
     }
 };
 
@@ -75,8 +90,7 @@ subtest 'admin hooks list' => sub {
 };
 
 subtest 'admin runners' => sub {
-    my $runners = eval { $client->admin->runners->list };
-    return plan skip_all => 'Actions runners not available or not enabled: ' . $@ unless defined $runners;
+    my $runners = optional(runners => sub { $client->admin->runners->list }) or return;
     ok(ref $runners, 'list returns a structure');
 };
 
@@ -87,8 +101,7 @@ subtest 'admin cron list' => sub {
 
 subtest 'admin quota' => sub {
     my $me    = $client->current_user->get;
-    my $quota = eval { $client->admin->users->quota($me->{login}) };
-    return plan skip_all => 'Quota API not available on this instance: ' . $@ unless defined $quota;
+    my $quota = optional(quota => sub { $client->admin->users->quota($me->{login}) }) or return;
     ok(ref $quota, 'quota returns a structure');
     note explain $quota;
 };

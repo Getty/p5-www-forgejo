@@ -25,7 +25,9 @@ The L<WWW::Forgejo> client the requests are sent through. Required.
     my $hooks = $forgejo->admin->hooks->list;
 
 List all system-wide hooks. Named arguments are sent as the query string of
-the request.
+the request. Forgejo 15 lists only the system webhooks here; a hook made with
+L</create> is not one of them and does not show up, though L</get>, L</edit>
+and L</delete> reach it.
 
 =cut
 

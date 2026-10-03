@@ -41,7 +41,8 @@ my @DUMMY_ARGS = (
     [ "a", "b", "c" ], [ "a", "b", "c", "d" ], [ k => "v" ], [ "a", k => "v" ],
     [ "a", filename => "f", content => "c" ],
 );
-my @ANSWERS = ('{}', '[{}]');
+# The last one is the envelope of the Actions run list.
+my @ANSWERS = ('{}', '[{}]', '{"workflow_runs":[{}],"total_count":1}');
 
 # What a value is, as far as chains are concerned:
 #   { object => $obj }  one object

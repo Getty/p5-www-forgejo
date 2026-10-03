@@ -205,22 +205,48 @@ prove -l t/
 ```
 
 The suite runs offline against a mock transport. The live tests
-(`t/90-live-admin.t`, `t/91-live-comprehensive.t`, `t/92-live-comprehensive.t`)
-skip themselves unless a test instance is configured:
+(`t/9*-live-*.t`) skip themselves unless a test instance is configured:
 
 ```bash
-export TEST_FORGEJO_URL=http://localhost:30080
-export TEST_FORGEJO_TOKEN=...          # token of an admin user
-export TEST_FORGEJO_ORG=testorg        # optional; also TEST_FORGEJO_REPO, TEST_FORGEJO_USER
-prove -lv t/9*.t
+export TEST_FORGEJO_URL=http://localhost:13080
+export TEST_FORGEJO_TOKEN=...          # token of an admin user, scope "all"
+export TEST_FORGEJO_ORG=someorg        # optional; also TEST_FORGEJO_REPO, TEST_FORGEJO_USER
+prove -l t/9*-live-*.t
 ```
 
-The live tests create and delete data on the instance (users, organizations,
-repositories, issues). Run them against a throwaway instance only;
-`docker-compose.yaml`, `Makefile.docker`, `scripts/setup-forgejo-test.sh` and
-`k8s/forgejo-test/` describe one, and `make -f Makefile.docker test` runs the
-live tests against it. `t/42-live-tests-static.t` checks offline that the live
-tests only call methods that exist.
+The live tests create and delete data on the instance: users, organizations,
+repositories, issues, pull requests, releases, packages, hooks, keys, quota
+groups. Everything they make carries a `wfl9N-` prefix and is deleted at the
+end; leftovers of an aborted run are removed on the next one. Run them against
+a throwaway instance only. `t/91-live-comprehensive.t` is the exception: it
+only reads.
+
+`docker-compose.yaml` describes such an instance (Forgejo 15.0.7 on SQLite,
+quota, federation and repository flags switched on, port 13080 on localhost
+only), and `Makefile.docker` drives it with the compose project name fixed to
+`wwwforgejo-live`:
+
+```bash
+eval "$(make -s -f Makefile.docker setup)"   # start it, create the admin and a token
+make -f Makefile.docker test                 # prove -l t/9*-live-*.t
+make -f Makefile.docker down                 # remove it, data included
+```
+
+`scripts/setup-forgejo-test.sh` (what `setup` runs) prints the two `export`
+lines on stdout. `k8s/forgejo-test/` describes the same instance for
+Kubernetes (NodePort 30080, `make -f k8s/forgejo-test/Makefile apply setup
+test`).
+
+The live tests are checked against Forgejo 15.0.7, while the client follows
+the API description of Forgejo 16. What 15 does not have is skipped there with
+the version as the reason: the jobs of an Actions run, cancelling and deleting
+a run (`get_run_jobs`, `cancel_run`, `delete_run`). Against Forgejo 15 the
+first two croak with `Forgejo API error: 404 page not found`, `delete_run`
+with `Forgejo API error: 405`. The ActivityPub endpoints want HTTP signatures,
+which the client does not make; the live test records the
+`request signature verification failed` they answer with.
+`t/42-live-tests-static.t` checks offline that the live tests only call
+methods that exist.
 
 ## See also
 
