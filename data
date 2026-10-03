@@ -1,0 +1,11 @@
+---
+class: standard
+created: 2026-10-03T00:29:04Z
+id: 25
+priority: low
+status: backlog
+title: Quota rules, group rules/users, star/follow have no controller
+updated: 2026-10-03T00:29:04Z
+---
+
+Found in k17 live run. Admin quota rules and group rules/users: live test uses plain verbs. Star/follow PUT/DELETE/check (/user/starred, /user/following) not in client. See also k21.
