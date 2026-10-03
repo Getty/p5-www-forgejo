@@ -1,71 +1,53 @@
 #!/bin/bash
-set -e
+# Start the throwaway Forgejo from docker-compose.yaml, create an admin user
+# and print an access token for the live tests (t/9*-live-*.t). Progress goes
+# to stderr, the export lines to stdout:
+#   eval "$(scripts/setup-forgejo-test.sh)"
+# The Docker healthcheck is not relied on; the script polls /api/v1/version.
+set -euo pipefail
 
-# Setup-Script für Forgejo Test-Environment
-# Erstellt Admin-User und Token für Live-Tests
+cd "$(dirname "$0")/.."
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-wwwforgejo-live}"
 
-TEST_FORGEJO_URL="${TEST_FORGEJO_URL:-http://localhost:30080}"
-TOKEN_NAME="${TOKEN_NAME:-test-token}"
+TEST_FORGEJO_URL="${TEST_FORGEJO_URL:-http://localhost:13080}"
+TOKEN_NAME="${TOKEN_NAME:-live-tests-$(date +%s)}"
 ADMIN_USER="${ADMIN_USER:-forgejo_admin}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@localhost}"
 ADMIN_PASS="${ADMIN_PASS:-Admin123!}"
 
-echo "==> Starte Forgejo und PostgreSQL..."
-docker compose up -d
-docker compose wait -s postgres
-
-echo "==> Warte auf Forgejo Web-Interface..."
-for i in $(seq 1 30); do
-    if curl -sf "${TEST_FORGEJO_URL}/" > /dev/null 2>&1; then
-        echo "   Forgejo ist bereit nach ${i}s"
-        break
-    fi
+echo "==> Starting Forgejo..." >&2
+docker compose up -d forgejo >&2
+for i in $(seq 1 120); do
+    curl -sf "${TEST_FORGEJO_URL}/api/v1/version" > /dev/null && break
+    [ "$i" = 120 ] && { echo "Forgejo did not come up" >&2; exit 1; }
     sleep 1
 done
 
-# Prüfe ob bereits installiert (INSTALL_LOCK=true aus Docker Env)
-curl -sf "${TEST_FORGEJO_URL}/api/v1/version" > /dev/null 2>&1
-if [ $? -eq 0 ]; then
-    echo "==> Forgejo bereits installiert, überspringe Installation"
-else
-    echo "==> Forgejo muss noch installiert werden (INSTALL_LOCK=false)"
-    echo "   Bitte manuell installieren unter: ${TEST_FORGEJO_URL}/"
-    echo "   Oder nutze: docker compose exec -u git forgejo gitea admin user create ..."
-fi
+forgejo_cli() {
+    docker compose exec -T -u git forgejo forgejo "$@"
+}
 
-# Warte bis Container bereit für CLI
-sleep 5
-
-echo "==> Erstelle Admin-User wenn nicht vorhanden..."
-docker compose exec -u git forgejo gitea admin user list 2>/dev/null | grep -q "$ADMIN_USER" || \
-    docker compose exec -u git forgejo gitea admin user create \
+echo "==> Creating admin user ${ADMIN_USER} (if missing)..." >&2
+if ! forgejo_cli admin user list | awk '{print $2}' | grep -qx "$ADMIN_USER"; then
+    forgejo_cli admin user create \
         --username "$ADMIN_USER" \
         --password "$ADMIN_PASS" \
         --email "$ADMIN_EMAIL" \
-        --admin 2>/dev/null || true
+        --must-change-password=false \
+        --admin >&2
+fi
 
-echo "==> Erstelle Access Token..."
-TOKEN=$(docker compose exec -u git forgejo gitea admin user generate-access-token \
+echo "==> Creating access token..." >&2
+TOKEN=$(forgejo_cli admin user generate-access-token \
     --username "$ADMIN_USER" \
     --token-name "$TOKEN_NAME" \
-    --scopes "sudo" \
-    --raw 2>/dev/null)
+    --scopes all \
+    --raw)
 
-if [ -n "$TOKEN" ]; then
-    echo ""
-    echo "=========================================="
-    echo "  Forgejo Test Environment Ready!"
-    echo "=========================================="
-    echo ""
-    echo "  URL:        ${TEST_FORGEJO_URL}"
-    echo "  Username:   ${ADMIN_USER}"
-    echo "  Password:   ${ADMIN_PASS}"
-    echo "  Token:      ${TOKEN}"
-    echo ""
-    echo "  Export:"
-    echo "    export TEST_FORGEJO_URL='${TEST_FORGEJO_URL}'"
-    echo "    export TEST_FORGEJO_TOKEN='${TOKEN}'"
-    echo ""
-else
-    echo "==> Token-Erstellung fehlgeschlagen. Bitte manuell erstellen."
-fi
+cat >&2 <<EOF
+
+Forgejo test instance ready: ${TEST_FORGEJO_URL} (admin ${ADMIN_USER} / ${ADMIN_PASS})
+
+EOF
+echo "export TEST_FORGEJO_URL='${TEST_FORGEJO_URL}'"
+echo "export TEST_FORGEJO_TOKEN='${TOKEN}'"

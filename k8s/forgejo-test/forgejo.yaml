@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: forgejo
-          image: codeberg.org/forgejo/forgejo:8.0.3
+          image: codeberg.org/forgejo/forgejo:15.0.7
           ports:
             - containerPort: 3000
               name: http
@@ -48,9 +48,19 @@ spec:
             - name: FORGEJO__server__SSH_PORT
               value: "22"
             - name: FORGEJO__security__INSTALL_LOCK
-              value: "false"
+              value: "true"
             - name: FORGEJO__server__ROOT_URL
-              value: "http://localhost:30080"
+              value: "http://localhost:30080/"
+            - name: FORGEJO__service__DISABLE_REGISTRATION
+              value: "true"
+            # Off by default; on so the quota, nodeinfo/ActivityPub and
+            # repository flags endpoints can be tested.
+            - name: FORGEJO__quota__ENABLED
+              value: "true"
+            - name: FORGEJO__federation__ENABLED
+              value: "true"
+            - name: FORGEJO__repository__ENABLE_FLAGS
+              value: "true"
           volumeMounts:
             - name: forgejo-data
               mountPath: /data
@@ -63,13 +73,13 @@ spec:
               memory: 1Gi
           livenessProbe:
             httpGet:
-              path: /
+              path: /api/v1/version
               port: 3000
             initialDelaySeconds: 30
             periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /
+              path: /api/v1/version
               port: 3000
             initialDelaySeconds: 10
             periodSeconds: 5

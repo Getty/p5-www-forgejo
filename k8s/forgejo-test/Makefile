@@ -1,6 +1,6 @@
 FORGEJO_TEST_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 
-.PHONY: deploy destroy apply delete restart logs status check check-db check-forgejo test
+.PHONY: deploy destroy apply delete restart logs status check check-db check-forgejo setup test test-verbose
 
 deploy: apply
 
@@ -38,14 +38,31 @@ check-db:
 
 check-forgejo:
 	@echo "==> Checking Forgejo HTTP response..."
-	@kubectl exec -n forgejo-test deployment/forgejo -- wget -qO- http://localhost:3000 || echo "Forgejo not ready yet"
+	@kubectl exec -n forgejo-test deployment/forgejo -- wget -qO- http://localhost:3000/api/v1/version || echo "Forgejo not ready yet"
 
 check: check-db check-forgejo
 
+# Admin user and token for the live tests; prints the export lines:
+#   eval "$(make -s -f k8s/forgejo-test/Makefile setup)"
+ADMIN_USER ?= forgejo_admin
+ADMIN_PASS ?= Admin123!
+ADMIN_EMAIL ?= admin@localhost
+
+setup:
+	@kubectl exec -n forgejo-test deployment/forgejo -- su git -c "forgejo admin user list" \
+		| awk '{print $$2}' | grep -qx '$(ADMIN_USER)' \
+		|| kubectl exec -n forgejo-test deployment/forgejo -- su git -c \
+			"forgejo admin user create --username '$(ADMIN_USER)' --password '$(ADMIN_PASS)' --email '$(ADMIN_EMAIL)' --must-change-password=false --admin" >&2
+	@echo "export TEST_FORGEJO_URL='$(TEST_FORGEJO_URL)'"
+	@echo "export TEST_FORGEJO_TOKEN='$$(kubectl exec -n forgejo-test deployment/forgejo -- su git -c \
+		"forgejo admin user generate-access-token --username '$(ADMIN_USER)' --token-name live-tests-$$(date +%s) --scopes all --raw")'"
+
+export TEST_FORGEJO_URL ?= http://localhost:30080
+
 test:
-	TEST_FORGEJO_URL=http://localhost:30080 TEST_FORGEJO_TOKEN=test-token \
-		prove -l t/9*-live-*.t
+	@test -n "$$TEST_FORGEJO_TOKEN" || { echo 'TEST_FORGEJO_TOKEN not set; run: eval "$$(make -s -f k8s/forgejo-test/Makefile setup)"' >&2; exit 1; }
+	prove -l t/9*-live-*.t
 
 test-verbose:
-	TEST_FORGEJO_URL=http://localhost:30080 TEST_FORGEJO_TOKEN=test-token \
-		prove -vl t/9*-live-*.t
+	@test -n "$$TEST_FORGEJO_TOKEN" || { echo 'TEST_FORGEJO_TOKEN not set; run: eval "$$(make -s -f k8s/forgejo-test/Makefile setup)"' >&2; exit 1; }
+	prove -vl t/9*-live-*.t

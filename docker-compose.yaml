@@ -1,55 +1,32 @@
+# Throwaway Forgejo instance for the live tests (t/9*-live-*.t).
+# SQLite keeps it to a single small container; the port is bound to
+# localhost only and sits outside the Kubernetes NodePort range
+# (30000-32767). Start with: make -f Makefile.docker setup
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: forgejo
-      POSTGRES_PASSWORD: forgejo
-      POSTGRES_DB: forgejo
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U forgejo"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   forgejo:
-    image: codeberg.org/forgejo/forgejo:8.0.3
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
+    image: codeberg.org/forgejo/forgejo:15.0.7
     environment:
       - USER_UID=1000
       - USER_GID=1000
-      - FORGEJO__database__DB_TYPE=postgres
-      - FORGEJO__database__HOST=postgres:5432
-      - FORGEJO__database__NAME=forgejo
-      - FORGEJO__database__USER=forgejo
-      - FORGEJO__database__PASSWD=forgejo
+      - FORGEJO__database__DB_TYPE=sqlite3
       - FORGEJO__server__PROTOCOL=http
       - FORGEJO__server__DOMAIN=localhost
       - FORGEJO__server__HTTP_PORT=3000
-      - FORGEJO__server__SSH_PORT=22
+      - FORGEJO__server__ROOT_URL=http://localhost:13080/
+      - FORGEJO__server__DISABLE_SSH=true
       - FORGEJO__security__INSTALL_LOCK=true
-      - FORGEJO__server__ROOT_URL=http://localhost:30080
-      - FORGEJO__admin__DISABLE_REGULAR_ORG_CREATION=false
-      - FORGEJO__admin__DEFAULT_KEEP_EMAIL_PRIVATE=false
       - FORGEJO__admin__DEFAULT_ALLOW_CREATE_ORGANIZATION=true
-      - FORGEJO__service__DISABLE_REGISTRATION=false
+      - FORGEJO__service__DISABLE_REGISTRATION=true
       - FORGEJO__service__REQUIRE_SIGNIN_VIEW=false
+      # Off by default; on so the quota, nodeinfo/ActivityPub and repository
+      # flags endpoints can be tested.
+      - FORGEJO__quota__ENABLED=true
+      - FORGEJO__federation__ENABLED=true
+      - FORGEJO__repository__ENABLE_FLAGS=true
     ports:
-      - "30080:3000"
-      - "2222:22"
+      - "127.0.0.1:13080:3000"
     volumes:
       - forgejo_data:/data
-    healthcheck:
-      test: ["CMD", "wget", "-qO", "/dev/null", "http://localhost:3000/"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
 
 volumes:
-  postgres_data:
   forgejo_data:
