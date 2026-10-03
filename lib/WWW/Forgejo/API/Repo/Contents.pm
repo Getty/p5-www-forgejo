@@ -71,13 +71,13 @@ sub get {
     my $zip = $repo->contents->get_archive('main.zip');
 
 Download an archive of the repository. The argument is a git reference with the
-archive format attached, e.g. C<main.zip>. Returns the raw archive.
+archive format attached, e.g. C<main.zip>. Returns the archive as bytes.
 
 =cut
 
 sub get_archive {
     my ($self, $archive) = @_;
-    return $self->client->get($self->_repo_path('archive', $self->_file_path($archive)));
+    return $self->client->get($self->_repo_path('archive', $self->_file_path($archive)), raw => 1);
 }
 
 =method create
@@ -137,16 +137,18 @@ sub delete {
 
 =method raw
 
-    my $text = $repo->contents->raw($path);
-    my $text = $repo->contents->raw($path, ref => 'develop');
+    my $bytes = $repo->contents->raw($path);
+    my $bytes = $repo->contents->raw($path, ref => 'develop');
 
-Get the raw contents of a file. Named arguments are sent as the query string.
+Get the raw contents of a file, as the bytes stored in the repository: a
+text file is not decoded from its charset, a JSON file is not parsed. Named
+arguments are sent as the query string.
 
 =cut
 
 sub raw {
     my ($self, $path, %params) = @_;
-    return $self->client->get($self->_repo_path('raw', $self->_file_path($path)), params => \%params);
+    return $self->client->get($self->_repo_path('raw', $self->_file_path($path)), params => \%params, raw => 1);
 }
 
 =method media
@@ -160,7 +162,7 @@ to the file it stands for. Named arguments are sent as the query string.
 
 sub media {
     my ($self, $path, %params) = @_;
-    return $self->client->get($self->_repo_path('media', $self->_file_path($path)), params => \%params);
+    return $self->client->get($self->_repo_path('media', $self->_file_path($path)), params => \%params, raw => 1);
 }
 
 1;

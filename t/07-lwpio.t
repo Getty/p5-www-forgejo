@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Test::More;
 use HTTP::Response;
+use IO::Compress::Gzip qw(gzip $GzipError);
 use WWW::Forgejo;
 use WWW::Forgejo::LWPIO;
 use WWW::Forgejo::HTTPRequest;
@@ -16,8 +17,9 @@ use WWW::Forgejo::API::Repo::Issues;
     sub new { bless { requests => [], responses => [] }, shift }
     sub add {
         my ($self, $code, $content, @headers) = @_;
-        push @{ $self->{responses} },
-            HTTP::Response->new($code, 'X', [ 'Content-Type' => 'application/json', @headers ], $content);
+        my %given = @headers;
+        unshift @headers, 'Content-Type' => 'application/json' unless exists $given{'Content-Type'};
+        push @{ $self->{responses} }, HTTP::Response->new($code, 'X', \@headers, $content);
     }
     sub request {
         my ($self, $req) = @_;
@@ -69,6 +71,24 @@ subtest 'a request without content sends none' => sub {
     is($ua->{requests}[0]->content, '', 'no content');
     is($res->status, 204, 'status');
     is($res->content, '', 'empty content');
+};
+
+subtest 'call hands on the body bytes, whatever charset the response declares' => sub {
+    # Found against a live Forgejo 15: a UTF-8 text file read through
+    # contents->raw came back as characters, not as the bytes of the file.
+    my $ua    = FakeUA->new;
+    my $bytes = "Gr\xc3\xbc\xc3\x9fe \xe2\x9c\x93\n";
+    $ua->add(200, $bytes, 'Content-Type' => 'text/plain; charset=utf-8');
+    my $io  = WWW::Forgejo::LWPIO->new(ua => $ua);
+    my $res = $io->call(WWW::Forgejo::HTTPRequest->new(method => 'GET', url => 'https://forgejo.test/raw/a.txt'));
+    is($res->content, $bytes, 'the bytes as sent');
+    ok(!utf8::is_utf8($res->content), 'not decoded to characters');
+
+    my $gzipped;
+    gzip(\$bytes => \$gzipped) or die $GzipError;
+    $ua->add(200, $gzipped, 'Content-Type' => 'text/plain; charset=utf-8', 'Content-Encoding' => 'gzip');
+    $res = $io->call(WWW::Forgejo::HTTPRequest->new(method => 'GET', url => 'https://forgejo.test/raw/a.txt'));
+    is($res->content, $bytes, 'a Content-Encoding is still undone');
 };
 
 subtest 'pagination works through the default backend' => sub {

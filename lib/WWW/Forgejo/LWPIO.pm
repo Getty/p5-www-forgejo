@@ -80,7 +80,9 @@ sub call {
 
     return WWW::Forgejo::HTTPResponse->new(
         status  => $response->code,
-        content => $response->decoded_content // '',
+        # The body bytes: a Content-Encoding (gzip) is undone, a charset is
+        # not - which of the bodies are text is up to Role::HTTP.
+        content => $response->decoded_content(charset => 'none') // '',
         headers => \%res_headers,
     );
 }
@@ -90,8 +92,10 @@ sub call {
     my $res = $io->call($req);
 
 Execute an L<WWW::Forgejo::HTTPRequest> via LWP and return a
-L<WWW::Forgejo::HTTPResponse> built from the status code, the decoded content
-and the response headers.
+L<WWW::Forgejo::HTTPResponse> built from the status code, the body and the
+response headers. The body is handed on as bytes: a C<Content-Encoding> such as
+gzip is undone, but text is not decoded from its charset, so a file read
+through L<WWW::Forgejo::API::Repo::Contents/raw> arrives exactly as stored.
 
 =cut
 

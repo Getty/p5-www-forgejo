@@ -38,7 +38,10 @@ has content => (is => 'ro', default => '');
 
 =attr content
 
-The response body content.
+The response body: its bytes, with a C<Content-Encoding> such as gzip undone,
+but not decoded from its charset. L<WWW::Forgejo::Role::HTTP/_parse_response>
+decides which bodies are JSON or text; a backend that hands on text it already
+decoded to characters is tolerated there.
 
 =cut
 

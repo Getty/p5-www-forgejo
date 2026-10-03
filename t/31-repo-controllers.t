@@ -480,6 +480,21 @@ subtest 'contents: file data and raw bodies' => sub {
     is(call(contents => media => ['a.bin'], [ 200, 'BYTES' ]), 'BYTES', 'media returns the body as it is');
     is(call(contents => get_archive => ['main.zip'], [ 200, 'PKzip' ]), 'PKzip', 'archive returns the body as it is');
 
+    # Found against a live Forgejo 15: a JSON file came back decoded, and a
+    # text file as characters instead of the bytes the file holds.
+    is(call(contents => raw => ['a.json'], [ 200, qq({"a":1}\n), 'Content-Type' => 'text/plain; charset=utf-8' ]),
+        qq({"a":1}\n), 'raw: a JSON file is not decoded');
+    is(call(contents => media => ['a.json'], [ 200, '[1,2]', 'Content-Type' => 'application/octet-stream' ]),
+        '[1,2]', 'media: neither is a JSON array');
+    my $utf8 = "Gr\xc3\xbc\xc3\x9fe \xe2\x9c\x93\n";
+    my $raw  = call(contents => raw => ['u.txt'], [ 200, $utf8, 'Content-Type' => 'text/plain; charset=utf-8' ]);
+    is($raw, $utf8, 'raw: a UTF-8 text file comes back as its bytes');
+    ok(!utf8::is_utf8($raw), 'a byte string');
+    is(call(contents => media => ['u.txt'], [ 200, $utf8, 'Content-Type' => 'text/plain; charset=utf-8' ]),
+        $utf8, 'media: the same');
+    eval { call(contents => raw => ['gone.txt'], [ 404, '{"message":"file does not exist"}', 'Content-Type' => 'application/json' ]) };
+    like($@, qr/^Forgejo API error: file does not exist/, 'raw: an error still croaks with the message of the server');
+
     ok(!WWW::Forgejo::API::Repo::Contents->can('readme'), 'no contents->readme (not an API operation)');
 };
 

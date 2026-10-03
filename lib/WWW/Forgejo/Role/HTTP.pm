@@ -7,6 +7,7 @@ use WWW::Forgejo::HTTPRequest;
 use WWW::Forgejo::HTTPResponse;
 use WWW::Forgejo::LWPIO;
 use JSON::MaybeXS qw(decode_json encode_json);
+use Encode ();
 use HTTP::Request::Common ();
 use URI::Escape qw(uri_escape);
 use Carp qw(croak);
@@ -44,13 +45,17 @@ Requests are authenticated with an C<Authorization: token ...> header and carry
 C<Content-Type: application/json>.
 
 A response body that is a JSON object or array is decoded and returned as Perl
-data. Any other non-empty body (rendered HTML, a raw file, an armored key) is
-returned as it is, and an empty body yields C<undef>.
+data. Any other non-empty body (rendered HTML, an armored key) is returned as a
+string: decoded to characters when it is C<text/*> with a C<charset>, else as
+the bytes that came. An empty body yields C<undef>. With the C<raw> option (see
+L</get>) the body is returned exactly as it came, as bytes, never decoded.
 
 A response status outside the 2xx range makes the verb methods croak with
 C<Forgejo API error: ...>, followed by the C<message> of the JSON error body if
-there is one, else the status code. Calling a verb method without a token
-croaks with C<No API token configured>.
+there is a non-empty one, else the body itself when it is one short line of
+plain text (such as C<404 page not found> for a route the instance does not
+have), else the status code. Calling a verb method without a token croaks with
+C<No API token configured>.
 
 HTTP transport is delegated to a pluggable L<WWW::Forgejo::Role::IO> backend
 (default: L<WWW::Forgejo::LWPIO>), making it possible to use async HTTP
@@ -225,6 +230,12 @@ C<< page => 2 >> pins a page.
 
 Query parameters with an undefined value are left out of the request.
 
+C<< raw => 1 >> returns the response body exactly as it came, as bytes: no
+JSON decoding, no charset decoding, no pagination. The file endpoints
+(L<WWW::Forgejo::API::Repo::Contents/raw> and its siblings) use it.
+
+    my $bytes = $self->get('/repos/o/r/raw/data.json', raw => 1);
+
 =cut
 
 sub post {
@@ -297,7 +308,12 @@ sub check {
     my $req      = $self->_build_request('GET', $path, %opts);
     my $response = $self->io->call($req);
 
-    return 0 if $response->status == 404;
+    # A 404 is the "no" of the question - unless it is the plain-text 404 of
+    # a route this instance does not have (an older Forgejo, a feature that
+    # is switched off): that one croaks like any other error.
+    my $route_missing = ($response->headers->{'content-type'} // '') =~ m{\A\s*text/plain\b}i
+        && ($response->content // '') =~ /\A\s*404 page not found/;
+    return 0 if $response->status == 404 && !$route_missing;
     $self->_parse_response($response, 'GET', $path);
     return 1;
 }
@@ -308,7 +324,13 @@ sub check {
 
 Perform a GET request against an endpoint that answers a yes/no question with
 its status code. Returns true for a 2xx response and false for C<404>; any other
-status croaks like the verb methods do.
+status croaks like the verb methods do. So does the plain-text
+C<404 page not found> of a route the instance does not have (an older Forgejo,
+a feature that is switched off), which would otherwise read as "no".
+
+Forgejo answers some questions about a thing that does not exist with the same
+C<404> as the "no" (C<is_merged> of a pull request that does not exist, a member
+check in an organization that does not exist): C<check> cannot tell them apart.
 
 =cut
 
@@ -411,28 +433,41 @@ sub _multipart {
 }
 
 sub _parse_response {
-    my ($self, $response, $method, $path) = @_;
+    my ($self, $response, $method, $path, %opts) = @_;
 
     $log->debugf("Response: %s", $response->status);
 
+    my $ok      = $response->status >= 200 && $response->status < 300;
     my $content = $response->content;
     my $data;
     if (defined $content && length $content) {
-        if ($content =~ /^\s*[\{\[]/) {
-            # Looks like JSON. A raw file may start the same way without being
-            # JSON; then it is handed back as it is.
+        if ($opts{raw} && $ok) {
+            # A file as stored: no decoding of any kind.
+            $data = $content;
+        }
+        elsif ($content =~ /^\s*[\{\[]/) {
+            # Looks like JSON. A body may start the same way without being
+            # JSON; then it is handed back like any other.
             $data = eval { decode_json($content) };
-            $data = $content unless ref $data;
+            $data = $self->_decode_text($response, $content) unless ref $data;
         }
         else {
-            $data = $content;
+            $data = $self->_decode_text($response, $content);
         }
     }
 
-    unless ($response->status >= 200 && $response->status < 300) {
-        my $error = ref $data eq 'HASH' && defined $data->{message}
-            ? $data->{message}
-            : $response->status;
+    unless ($ok) {
+        my $error = $response->status;
+        if (ref $data eq 'HASH' && defined $data->{message} && length $data->{message}) {
+            $error = $data->{message};
+        }
+        elsif (defined $data && !ref $data
+            && ($response->headers->{'content-type'} // '') =~ m{\A\s*text/plain\b}i
+            && $data =~ /\A\s*([^\n]{1,200}?)\s*\z/) {
+            # One short line of plain text, like the "404 page not found" of
+            # a route the instance does not have.
+            $error = $1;
+        }
         $log->errorf("API error: %s", $error);
         croak "Forgejo API error: $error";
     }
@@ -445,8 +480,39 @@ sub _parse_response {
 
     my $data = $self->_parse_response($response, 'GET', '/user');
 
-Parses a L<WWW::Forgejo::HTTPResponse>: decodes JSON, checks for errors.
-Useful for async workflows where response parsing happens after transport.
+    my $bytes = $self->_parse_response($response, 'GET', $path, raw => 1);
+
+Parses a L<WWW::Forgejo::HTTPResponse>: decodes JSON, decodes a C<text/*> body
+from its C<charset>, checks for errors. With C<< raw => 1 >> a successful body
+is returned as it is. Useful for async workflows where response parsing happens
+after transport.
+
+The response content is expected as the bytes of the body (see
+L<WWW::Forgejo::HTTPResponse/content>); a text body that a transport already
+decoded to characters is accepted as well and left alone.
+
+=cut
+
+# A text/* body with a charset becomes characters; anything else stays as it is.
+sub _decode_text {
+    my ($self, $response, $content) = @_;
+    my $type = $response->headers->{'content-type'} // '';
+    return $content unless $type =~ m{\A\s*text/}i;
+    my ($charset) = $type =~ /;\s*charset\s*=\s*"?([\w.:-]+)/i;
+    return $content unless $charset;
+    # Characters already: a transport decoded the text on its own.
+    return $content if utf8::is_utf8($content);
+    my $text = eval { Encode::decode($charset, $content, Encode::FB_CROAK() | Encode::LEAVE_SRC()) };
+    return defined $text ? $text : $content;
+}
+
+=method _decode_text
+
+    my $text = $self->_decode_text($response, $content);
+
+Decodes C<$content> to characters when the C<Content-Type> of C<$response> is
+C<text/*> and names a C<charset>. Any other body, a body that is not valid in
+its charset, and a body that is characters already are returned unchanged.
 
 =cut
 
@@ -463,7 +529,7 @@ sub _request_with_response {
 
     my $req = $self->_build_request($method, $path, %opts);
     my $response = $self->io->call($req);
-    my $data = $self->_parse_response($response, $method, $path);
+    my $data = $self->_parse_response($response, $method, $path, raw => $opts{raw});
     return ($data, $response);
 }
 
