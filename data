@@ -1,0 +1,11 @@
+---
+class: standard
+created: 2026-10-03T00:29:07Z
+id: 26
+priority: low
+status: backlog
+title: ActivityPub endpoints need HTTP signatures on Forgejo 15
+updated: 2026-10-03T00:29:07Z
+---
+
+With federation on, Forgejo 15 requires HTTP signatures; client cannot sign. API decision: document the limitation or drop the controller.
