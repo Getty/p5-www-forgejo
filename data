@@ -1,0 +1,15 @@
+---
+class: standard
+created: 2026-10-02T19:00:27Z
+id: 22
+priority: medium
+status: backlog
+title: Actions list_runs envelope not recognised by auto-pagination
+updated: 2026-10-03T00:47:59Z
+---
+
+The envelope with workflow_runs and total_count is not unwrapped by Role::HTTP get, which only handles plain arrays and the search envelope.
+
+2026-10-03 00:28 Live (15.0.7): /actions/runs sends no X-Total-Count, only total_count in the body; limit alone is ignored (all runs), limit+page gives that page. Practically moot on 15.
+
+2026-10-03 00:47 Async sibling: Net::Async::Forgejo::API mirrors Role::HTTP get pagination (X-Total-Count, bare array + search envelope via _collection_ref). Once this card lands (envelope with workflow_runs/total_count), the async side follows; tracked there as a follow-up card. Keeping the envelope recognition in _collection_ref (and any body-total lookup in a callable helper) lets the async side delegate instead of mirroring.
