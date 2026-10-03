@@ -1,0 +1,14 @@
+---
+class: standard
+created: 2026-10-02T18:59:57Z
+id: 20
+priority: low
+status: backlog
+title: 'Inconsistent call style: top-level and Org use params plus arrayref, Repo
+  uses hashref plus list'
+updated: 2026-10-03T00:28:53Z
+---
+
+Top-level and Org controllers take %params and return arrayrefs; Repo controllers take a hashref body and return lists, Topics list returns an arrayref. Decide and unify.
+
+2026-10-03 00:28 Confirmed live against Forgejo 15.0.7 (k17 live run, t/90-97 green).
