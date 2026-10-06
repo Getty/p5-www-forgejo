@@ -1,0 +1,19 @@
+{"action":"move","agent":"www-forgejo-worker","detail":"in-progress","task_id":17,"ts":"2026-10-02T23:52:13Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":17,"ts":"2026-10-02T23:54:07Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":17,"ts":"2026-10-03T00:03:59Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":17,"ts":"2026-10-03T00:11:50Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":17,"ts":"2026-10-03T00:25:36Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":17,"ts":"2026-10-03T00:25:40Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"review","task_id":17,"ts":"2026-10-03T00:28:42Z"}
+{"action":"move","agent":"www-forgejo-worker","detail":"done","task_id":17,"ts":"2026-10-03T00:28:45Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"backlog","task_id":19,"ts":"2026-10-03T00:28:49Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"backlog","task_id":20,"ts":"2026-10-03T00:28:53Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"backlog","task_id":22,"ts":"2026-10-03T00:28:57Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":25,"ts":"2026-10-03T00:29:04Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":26,"ts":"2026-10-03T00:29:07Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":27,"ts":"2026-10-03T00:29:11Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":28,"ts":"2026-10-03T00:29:15Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":29,"ts":"2026-10-03T00:47:47Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"backlog","task_id":22,"ts":"2026-10-03T00:47:59Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":30,"ts":"2026-10-06T19:48:54Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"backlog","task_id":31,"ts":"2026-10-06T19:48:59Z"}
