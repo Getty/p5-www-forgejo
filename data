@@ -1,0 +1,29 @@
+---
+class: standard
+created: 2026-10-06T19:48:59Z
+id: 31
+priority: medium
+status: backlog
+tags:
+- bug
+- error-handling
+- http
+- review-2026-10-06
+title: 'Connection failures surface as ''Forgejo API error: 500'' - the LWP reason
+  is lost'
+updated: 2026-10-06T19:48:59Z
+---
+
+`WWW::Forgejo::LWPIO::call` (`lib/WWW/Forgejo/LWPIO.pm`, `call`) turns LWP's synthetic response for a request that never reached the server (connection refused, DNS failure, TLS error, timeout) into an ordinary `HTTPResponse` with status 500. `Role::HTTP::_parse_response` (`lib/WWW/Forgejo/Role/HTTP.pm:459-473`) only takes a text body as the message when it is one line; LWP's body for these cases is multi-line (`Can't connect to host:port (Connection refused)\n\nConnection refused at .../LWP/Protocol/http.pm line ...`), so the croak is just the status.
+
+Reproduce (nothing listens on the port):
+
+    perl -Ilib -e 'use WWW::Forgejo; eval { WWW::Forgejo->new(url => "http://127.0.0.1:9", token => "t")->get("/version") }; print $@'
+    # Forgejo API error: 500 at -e line 1.
+
+A caller cannot tell an unreachable or mistyped instance, a certificate problem or a timeout from a real HTTP 500 of Forgejo. `check()` has the same path.
+
+Done when: LWPIO recognises LWP's internal response (`Client-Warning: Internal response` header, or `X-Died`) and the croak carries the reason, e.g. `Forgejo API error: Can't connect to 127.0.0.1:9 (Connection refused)`; covered in `t/07-lwpio.t` with a stub UA returning such a response. Keep the message format in line with what `Net::Async::Forgejo` reports for transport failures.
+
+---
+Fleet review 2026-10-06 · kind: bug · confidence: verified
