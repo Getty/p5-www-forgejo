@@ -1,0 +1,35 @@
+---
+class: standard
+created: 2026-10-06T19:48:54Z
+id: 30
+priority: high
+status: backlog
+tags:
+- bug
+- encoding
+- http
+- review-2026-10-06
+title: 'Non-ASCII path segments and query values: uri_escape sends Latin-1 or croaks'
+updated: 2026-10-06T19:48:54Z
+---
+
+All 237 escape sites in `lib/` use `URI::Escape::uri_escape`, none `uri_escape_utf8` (`grep -rn uri_escape_utf8 lib` is empty). For character strings this is wrong in two ways:
+
+- code points 128-255 go out as Latin-1 (`%FC`) instead of UTF-8 (`%C3%BC`), so Forgejo looks up a different name;
+- code points above 255 die inside the client with `Can't escape \x{65E5}, try uri_escape_utf8() instead`.
+
+Where: query string in `lib/WWW/Forgejo/Role/HTTP.pm:364`, file paths in `lib/WWW/Forgejo/API/Repo/Contents.pm:49` (`_file_path`), and every controller that escapes a name (branches, wiki page names, labels, topics, tags, usernames ...).
+
+Reproduced with a mock `io`:
+
+    $contents->get("docs/\x{dc}bersicht.md")   # GET .../contents/docs/%DCbersicht.md
+    $contents->get("docs/\x{65e5}\x{672c}.md")  # dies: Can't escape \x{65E5} ... Contents.pm line 49
+    $f->get('/repos/search', params => { q => "B\x{fc}ro" })   # ?q=B%FCro
+    $f->get('/repos/search', params => { q => "\x{65e5}" })     # dies ... Role/HTTP.pm line 364
+
+The JSON body is already treated as characters (`encode_json`), so the same string works in a body and breaks in the URL. `t/05-urlencode.t` has no non-ASCII case.
+
+Done when: path segments and query keys/values are encoded as UTF-8 before percent-escaping (one shared helper instead of 237 direct calls would also give the async sibling the fix for free, it builds its requests through `_build_request`), the contract (callers pass decoded text) is in the `Role::HTTP` POD, and `t/05-urlencode.t` covers a Latin-1 and a wide character in a path segment and in a query value.
+
+---
+Fleet review 2026-10-06 · kind: bug · confidence: verified
