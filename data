@@ -1,0 +1,23 @@
+---
+class: standard
+completed: 2026-10-13T20:29:19Z
+created: 2026-10-02T19:00:27Z
+id: 22
+priority: medium
+started: 2026-10-13T20:15:24Z
+status: done
+title: Actions list_runs envelope not recognised by auto-pagination
+updated: 2026-10-13T20:29:19Z
+---
+
+The envelope with workflow_runs and total_count is not unwrapped by Role::HTTP get, which only handles plain arrays and the search envelope.
+
+2026-10-03 00:28 Live (15.0.7): /actions/runs sends no X-Total-Count, only total_count in the body; limit alone is ignored (all runs), limit+page gives that page. Practically moot on 15.
+
+2026-10-03 00:47 Async sibling: Net::Async::Forgejo::API mirrors Role::HTTP get pagination (X-Total-Count, bare array + search envelope via _collection_ref). Once this card lands (envelope with workflow_runs/total_count), the async side follows; tracked there as a follow-up card. Keeping the envelope recognition in _collection_ref (and any body-total lookup in a callable helper) lets the async side delegate instead of mirroring.
+
+2026-10-13 20:17 Worker: Role::HTTP get paginates workflow_runs envelope (total from X-Total-Count header, else body total_count). New helpers _collection_key($data), _collection_total($data,$headers); _collection_ref delegates to _collection_key. Tests in t/06-pagination.t (red before, green after); prove -l t: 29 files, 1732 tests PASS. list_runs works unchanged; only its POD corrected.
+
+2026-10-13 20:17 Done: envelope pagination in Role::HTTP, tests green, Changes updated
+
+2026-10-13 20:18 Done (b757a83 auf worktree-k22-runs-envelope): Role::HTTP::get paginiert das Actions-Envelope {workflow_runs,total_count}; neue Helper _collection_key($data) und _collection_total($data,$headers) (Header x-total-count gewinnt, sonst Body-total_count), _collection_ref delegiert; Re-Wrapping ersetzt nur den Collection-Key. Actions.pm list_runs-POD korrigiert, Changes ergänzt. Gemessen: t/06-pagination.t 6 neue Subtests, rot gegen altes lib (Abbruch im ersten neuen Subtest), danach prove -l t grün: 29 Dateien, 1732 Tests, Live-Tests skippen. Offen: bei Objekt mit data UND workflow_runs gewinnt data (feste Reihenfolge); Body-total_count greift auch für andere Envelopes mit data-Array.
