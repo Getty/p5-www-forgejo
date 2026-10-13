@@ -35,7 +35,9 @@ Revision history for WWW-Forgejo
       "no". Text bodies are decoded by their declared charset; get takes a
       raw option that returns the body bytes unchanged. get follows X-Total-Count based
       auto-pagination (page_size, max_pages) for plain arrays and the search
-      envelope, with the default LWP backend as well.
+      envelope, with the default LWP backend as well. It also paginates the
+      Actions runs envelope (workflow_runs, total from the body's total_count
+      when there is no X-Total-Count header).
     - Pluggable transport via WWW::Forgejo::Role::IO; default backend
       WWW::Forgejo::LWPIO (LWP::UserAgent). Transport-independent
       WWW::Forgejo::HTTPRequest / WWW::Forgejo::HTTPResponse value objects,

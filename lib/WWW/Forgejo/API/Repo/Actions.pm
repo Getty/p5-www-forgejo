@@ -57,11 +57,11 @@ List workflow runs as L<WWW::Forgejo::Entity::WorkflowRun> objects. Named
 arguments are sent as the query string (C<event>, C<status>, C<run_number>,
 C<head_sha>, C<ref>, C<workflow_id>, C<page>, C<limit>).
 
-The API answers with an object holding the runs under C<workflow_runs>; that
-shape is not auto-paginated, so only the requested page is returned. Forgejo 15
-sends no C<X-Total-Count> here (the total is the C<total_count> of the body),
-and it honours C<limit> only together with C<page>: without a C<page> all runs
-come back.
+The API answers with an object holding the runs under C<workflow_runs>; the
+client auto-paginates that shape using the C<total_count> of the body (Forgejo 15
+sends no C<X-Total-Count> here), unless a C<page> is given, in which case only
+that page is returned. The server honours C<limit> only together with C<page>:
+without a C<page> all runs come back.
 
 =cut
 

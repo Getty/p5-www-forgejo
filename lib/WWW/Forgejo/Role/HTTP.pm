@@ -118,18 +118,19 @@ sub get {
     my ($data, $response) = $self->_request_with_response('GET', $path, %opts);
 
     # Locate the collection this response paginates over: a bare JSON array, or
-    # the arrayref inside a Forgejo search envelope ({ ok => ..., data => [...] }).
-    # Auto-paginate only when the server reports the collection as truncated via
-    # X-Total-Count, and only when the caller has not pinned a specific page.
-    # Plain objects (no `data` arrayref), arrays/envelopes without an
-    # X-Total-Count header, and explicitly-paged requests are returned unchanged
-    # with no extra HTTP calls.
+    # the arrayref inside an envelope ({ ok => ..., data => [...] } for search,
+    # { workflow_runs => [...], total_count => N } for Actions runs).
+    # Auto-paginate only when the server reports the collection as truncated
+    # (X-Total-Count header, else the body's total_count), and only when the
+    # caller has not pinned a specific page. Plain objects (no collection
+    # arrayref), collections without a total, and explicitly-paged requests are
+    # returned unchanged with no extra HTTP calls.
     my $items = $self->_collection_ref($data);
     return $data unless $items;
     return $data if $pinned;
 
-    my $total = $response->headers->{'x-total-count'};
-    return $data unless defined $total && $total =~ /^[0-9]+$/;
+    my $total = $self->_collection_total($data, $response->headers);
+    return $data unless defined $total;
     return $data unless $total > scalar @$items;
 
     # Keep the per-page limit consistent across every fetched page so offsets
@@ -155,17 +156,39 @@ sub get {
         push @collected, @$page_items;
     }
 
-    # Return the same shape we received: a bare array as the merged arrayref, a
-    # search envelope with its `data` replaced by the merged collection so
-    # callers keep the { ok => ..., data => [...] } object they consume.
-    return { %$data, data => \@collected } if ref $data eq 'HASH';
+    # Return the same shape we received: a bare array as the merged arrayref,
+    # an envelope with only its collection key (`data` / `workflow_runs`)
+    # replaced by the merged collection so callers keep the object they consume.
+    my $key = $self->_collection_key($data);
+    return { %$data, $key => \@collected } if defined $key;
     return \@collected;
 }
+
+sub _collection_key {
+    my ($self, $data) = @_;
+    return unless ref $data eq 'HASH';
+    for my $key (qw( data workflow_runs )) {
+        return $key if ref $data->{$key} eq 'ARRAY';
+    }
+    return;
+}
+
+=method _collection_key
+
+    my $key = $self->_collection_key($data);
+
+Returns the name of the key holding the collection when C<$data> is a
+paginatable envelope - C<data> (search) or C<workflow_runs> (Actions runs) -
+and nothing for a bare array, a plain object, or an envelope whose value is not
+an arrayref. Has no HTTP state; the async sibling can call it as is.
+
+=cut
 
 sub _collection_ref {
     my ($self, $data) = @_;
     return $data if ref $data eq 'ARRAY';
-    return $data->{data} if ref $data eq 'HASH' && ref $data->{data} eq 'ARRAY';
+    my $key = $self->_collection_key($data);
+    return $data->{$key} if defined $key;
     return;
 }
 
@@ -175,9 +198,30 @@ sub _collection_ref {
 
 Returns the paginatable collection inside a decoded GET body, or nothing when
 there is none: the arrayref itself for a bare JSON array, or the C<data>
-arrayref for a Forgejo search envelope (C<< { ok => ..., data => [...] } >>).
-Any other shape - a plain object, or an envelope whose C<data> is not an
-arrayref - yields C<undef>, so L</get> leaves it untouched.
+arrayref for a Forgejo search envelope (C<< { ok => ..., data => [...] } >>) or
+the C<workflow_runs> arrayref of an Actions runs envelope. Any other shape - a
+plain object, or an envelope whose collection is not an arrayref - yields
+nothing, so L</get> leaves it untouched. See L</_collection_key>.
+
+=cut
+
+sub _collection_total {
+    my ($self, $data, $headers) = @_;
+    my $total = $headers && $headers->{'x-total-count'};
+    $total = $data->{total_count} if !defined $total && ref $data eq 'HASH';
+    return unless defined $total && !ref $total && $total =~ /^[0-9]+$/;
+    return $total;
+}
+
+=method _collection_total
+
+    my $total = $self->_collection_total($data, $response->headers);
+
+Returns the total number of items the server reports for a collection, or
+nothing when it reports none (or a non-numeric one). The C<X-Total-Count>
+header (looked up lower-cased in the C<$headers> hashref) wins; without it the
+C<total_count> of an envelope body is used, which is all the Actions runs
+endpoint sends. Has no HTTP state; the async sibling can call it as is.
 
 =cut
 
@@ -188,15 +232,18 @@ arrayref - yields C<undef>, so L</get> leaves it untouched.
 Perform a GET request.
 
 When the response is a paginatable collection and the server reports more
-results via the C<X-Total-Count> header than were returned on the first page,
-C<get> transparently collects the remaining pages and returns them combined (in
-order). Two collection shapes are recognised: a bare JSON array (returned as the
-merged arrayref) and a Forgejo search envelope C<< { ok => ..., data => [...] } >>
-(returned as the same object with C<data> replaced by the merged collection).
-This happens only when the caller has not pinned a page (no
-C<< params->{page} >>); plain objects (no C<data> arrayref), collections without
-an C<X-Total-Count> header, and explicitly-paged requests are returned as-is
-with no extra HTTP calls.
+results than were returned on the first page, C<get> transparently collects the
+remaining pages and returns them combined (in order). The total is the
+C<X-Total-Count> header, or - when absent - the C<total_count> of an envelope
+body (see L</_collection_total>). Three collection shapes are recognised: a
+bare JSON array (returned as the merged arrayref), a Forgejo search envelope
+C<< { ok => ..., data => [...] } >> and an Actions runs envelope
+C<< { workflow_runs => [...], total_count => N } >> (both returned as the same
+object, other keys kept, with only C<data> / C<workflow_runs> replaced by the
+merged collection). This happens only when the caller has not pinned a page (no
+C<< params->{page} >>); plain objects (no collection arrayref), collections
+without a total, and explicitly-paged requests are returned as-is with no extra
+HTTP calls.
 
 The header is read from L<WWW::Forgejo::HTTPResponse/headers>, so an L</io>
 backend has to pass the response headers on for this to work;

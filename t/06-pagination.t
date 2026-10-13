@@ -191,4 +191,78 @@ subtest 'object with data key but no X-Total-Count is returned intact' => sub {
     is(scalar @Test::MockIO::requests, 1, 'exactly one call, non-envelope never paginates');
 };
 
+# (h) The Actions runs endpoint answers { workflow_runs => [...], total_count
+# => N } and (live, Forgejo 15) sends NO X-Total-Count header: the total is
+# only in the body. It paginates like the search envelope, keeps the other
+# keys and replaces only workflow_runs.
+subtest 'auto-paginates a workflow_runs envelope via body total_count' => sub {
+    reset_mock();
+    queue('{"workflow_runs":[{"id":1},{"id":2}],"total_count":3}');
+    queue('{"workflow_runs":[{"id":3}],"total_count":3}');
+
+    my $result = $client->get('/repos/o/r/actions/runs');
+
+    is(ref $result, 'HASH', 'envelope hashref returned (shape preserved)');
+    is($result->{total_count}, 3, 'total_count key preserved');
+    is(ref $result->{workflow_runs}, 'ARRAY', 'workflow_runs is an arrayref');
+    is_deeply([ map { $_->{id} } @{ $result->{workflow_runs} } ], [ 1, 2, 3 ], 'runs merged in order');
+    ok(!exists $result->{data}, 'no data key invented');
+    is(scalar @Test::MockIO::requests, 2, 'exactly two HTTP calls');
+    like($Test::MockIO::requests[1]->url, qr/\bpage=2\b/,  'second call requests page 2');
+    like($Test::MockIO::requests[1]->url, qr/\blimit=2\b/, 'second call limit = first-page item count');
+};
+
+subtest 'workflow_runs envelope with pinned page is not paginated' => sub {
+    reset_mock();
+    queue('{"workflow_runs":[{"id":1},{"id":2}],"total_count":10}');
+
+    my $result = $client->get('/repos/o/r/actions/runs', params => { page => 1, limit => 2 });
+
+    is(scalar @Test::MockIO::requests, 1, 'caller pinned a page => single call');
+    is(scalar @{ $result->{workflow_runs} }, 2, 'page returned as-is');
+};
+
+subtest 'workflow_runs envelope with total_count <= items needs no extra request' => sub {
+    reset_mock();
+    queue('{"workflow_runs":[{"id":1},{"id":2}],"total_count":2}');
+
+    my $result = $client->get('/repos/o/r/actions/runs');
+
+    is(scalar @Test::MockIO::requests, 1, 'exactly one call');
+    is(scalar @{ $result->{workflow_runs} }, 2, 'both runs returned');
+};
+
+subtest 'X-Total-Count header wins over body total_count' => sub {
+    reset_mock();
+    # Body claims 2 (nothing to fetch); the header says 3, so page 2 is read.
+    queue('{"workflow_runs":[{"id":1},{"id":2}],"total_count":2}', 'X-Total-Count' => 3);
+    queue('{"workflow_runs":[{"id":3}],"total_count":2}',          'X-Total-Count' => 3);
+
+    my $result = $client->get('/repos/o/r/actions/runs');
+
+    is(scalar @{ $result->{workflow_runs} }, 3, 'header total drove the pagination');
+    is(scalar @Test::MockIO::requests, 2, 'two calls');
+};
+
+subtest 'object with total_count but no collection array is unchanged' => sub {
+    reset_mock();
+    queue('{"id":7,"total_count":99}');
+
+    my $obj = $client->get('/some/object');
+
+    is_deeply($obj, { id => 7, total_count => 99 }, 'object left as received');
+    is(scalar @Test::MockIO::requests, 1, 'exactly one call');
+};
+
+subtest 'envelope helpers are callable without a request' => sub {
+    my $runs = { workflow_runs => [ { id => 1 } ], total_count => 5 };
+    is($client->_collection_key($runs), 'workflow_runs', 'workflow_runs key');
+    is($client->_collection_key({ ok => 1, data => [] }), 'data', 'data key');
+    is($client->_collection_key([]), undef, 'bare array has no key');
+    is($client->_collection_key({ id => 1 }), undef, 'plain object has no key');
+    is($client->_collection_total($runs, {}), 5, 'body total_count');
+    is($client->_collection_total($runs, { 'x-total-count' => 9 }), 9, 'header wins');
+    is($client->_collection_total([], {}), undef, 'no total for a bare array');
+};
+
 done_testing;
