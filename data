@@ -1,0 +1,23 @@
+---
+claimed_at: 2026-09-18T02:54:27Z
+claimed_by: opus-orchestrator
+class: standard
+completed: 2026-10-19T20:45:32Z
+created: 2026-09-10T07:54:58Z
+id: 10
+priority: high
+started: 2026-09-18T02:54:27Z
+status: done
+tags:
+- coordination
+- release
+- bridge
+title: Lockstep-land phase2-forgejo + clear 3 baseline blockers for the async sibling
+updated: 2026-10-19T20:45:32Z
+---
+
+Bündelt den koordinierten Lockstep-Landing-Schritt (Maintainer-Entscheidung, aktuell zurückgestellt) plus die 3 Baseline-Blocker, die die async-Schwester Net::Async::Forgejo rot halten. Net::Async::Forgejo #2 (headers-Bridge) + #3 (async Pagination) sind code-fertig (Commit 727953f dort) und OFFLINE GRÜN gegen den phase2-forgejo-Sibling (Commits 1083fa8 headers, 48c14fa pagination) verifiziert, bewusst in-progress belassen. ABER: Ein Merge phase2-forgejo->main allein macht die async-Baseline NICHT auf — t/01-client und t/03-integration bleiben gegen BEIDE Siblings (main UND phase2) rot, aus 3 separaten, von Headers/Pagination UNABHÄNGIGEN Mismatches: (1) fehlender WWW::Forgejo->url-Accessor (phase2 hat nur base_url mit init_arg=>'url'); (2) Pfad-Double-Encoding-Assertion (t/03 Zeile 38); (3) /api/v1-Normalisierung. Diese drei plus die koordinierte phase2->main/Release-Landung muessen zusammen erledigt werden, damit die async-Schwester grün baut. Angelegt von Fleet Worker C nach Entscheidung des Koordinators perl-developer-3f, 2026-09-10.
+
+2026-10-02 18:59 Status: phase2 merged 3e4e592, url accessor exists, api/v1 normalisation works. Point 3 path double-encoding NOT resolved: WWW::Forgejo _build_request keeps pre-encoded paths as is, so /repos/my%20org stays /repos/my%20org, and controllers encode segments once per t/05. Sibling t/03-integration.t line 38 asserts %2520 double encoding and must be adjusted on the sibling board. Left open.
+
+2026-10-19 20:45 Coordinator 2026-10-19: Alle drei Baseline-Blocker sind erledigt. (1) phase2-forgejo ist gemerged (3e4e592 liegt in main; der Branch phase2-forgejo ist Ancestor von main und wurde geloescht). (2) Der url-Accessor existiert (lib/WWW/Forgejo.pm:36, 'has url') und die /api/v1-Normalisierung greift. (3) Die Pfad-Doppeltkodierung ist auf der async-Schwester Seite erledigt: Commit 966568e (2026-10-03, 'Fix t/03 path-encoding assertion to WWW::Forgejo single-encoding contract') liegt in p5-net-async-forgejo/main; der Kommentar in t/03-integration.t beschreibt jetzt den Single-Encoding-Vertrag. Verifikation: prove -l t/ in p5-net-async-forgejo = 9 Dateien, 61 Tests PASS; prove -l t/ in p5-www-forgejo = 29 Dateien, 1732 Tests PASS (die t/9x-live-*.t skippen ohne TEST_FORGEJO_URL, sie sind live gegen Forgejo 15.0.7 gruen gelaufen). Die Live-Tests wurden am 2026-10-02/03 gegen eine Wegwerf-Forgejo 15.0.7 gefahren (Commit c2831cc). Branch phase2-forgejo geloescht, nichts gepusht.
