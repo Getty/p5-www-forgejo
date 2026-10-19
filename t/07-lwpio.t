@@ -21,6 +21,17 @@ use WWW::Forgejo::API::Repo::Issues;
         unshift @headers, 'Content-Type' => 'application/json' unless exists $given{'Content-Type'};
         push @{ $self->{responses} }, HTTP::Response->new($code, 'X', \@headers, $content);
     }
+    # LWP's internal response: what it answers a request that never reached
+    # the server with.
+    sub add_internal {
+        my ($self, $code, $message, $content, %extra) = @_;
+        my @headers = (
+            'Client-Warning' => 'Internal response',
+            'Content-Type'  => 'text/plain',
+            %extra,
+        );
+        push @{ $self->{responses} }, HTTP::Response->new($code, $message, \@headers, $content);
+    }
     sub request {
         my ($self, $req) = @_;
         push @{ $self->{requests} }, $req;
@@ -89,6 +100,119 @@ subtest 'call hands on the body bytes, whatever charset the response declares' =
     $ua->add(200, $gzipped, 'Content-Type' => 'text/plain; charset=utf-8', 'Content-Encoding' => 'gzip');
     $res = $io->call(WWW::Forgejo::HTTPRequest->new(method => 'GET', url => 'https://forgejo.test/raw/a.txt'));
     is($res->content, $bytes, 'a Content-Encoding is still undone');
+};
+
+subtest 'a request that never reached the server names the reason' => sub {
+    # LWP answers a request it could not send with its own internal
+    # response: status 500, the reason in the message and the body.
+    my $ua = FakeUA->new;
+    $ua->add_internal(
+        500,
+        "Can't connect to 127.0.0.1:9 (Connection refused)",
+        "Can't connect to 127.0.0.1:9 (Connection refused)\n\nconnect: Connection refused at /usr/share/perl5/LWP/Protocol/http.pm line 42.\n",
+    );
+    my $io = WWW::Forgejo::LWPIO->new(ua => $ua);
+
+    my $res = eval {
+        $io->call(WWW::Forgejo::HTTPRequest->new(method => 'GET', url => 'http://127.0.0.1:9/version'));
+    };
+    my $err = $@;
+
+    ok(!defined $res, 'no response is handed back');
+    like(
+        $err,
+        qr/^Forgejo API error: Can't connect to 127\.0\.0\.1:9 \(Connection refused\)/,
+        'the reason is named',
+    );
+    unlike($err, qr/Forgejo API error: 500/, 'the status is not the message');
+};
+
+subtest 'a protocol handler that died names the reason' => sub {
+    my $ua = FakeUA->new;
+    $ua->add_internal(
+        500,
+        'Internal Server Error',
+        "body of the internal response\n",
+        'X-Died' => "Can't connect to 127.0.0.1:9 (Connection refused)\n\nconnect: Connection refused at /usr/share/perl5/LWP/Protocol/http.pm line 42.",
+    );
+    my $io = WWW::Forgejo::LWPIO->new(ua => $ua);
+
+    my $res = eval {
+        $io->call(WWW::Forgejo::HTTPRequest->new(method => 'GET', url => 'http://127.0.0.1:9/version'));
+    };
+    my $err = $@;
+
+    ok(!defined $res, 'no response is handed back');
+    like(
+        $err,
+        qr/^Forgejo API error: Can't connect to 127\.0\.0\.1:9 \(Connection refused\)/,
+        'the reason is named',
+    );
+};
+
+subtest 'the client names the reason of a request that never reached the server' => sub {
+    my $ua = FakeUA->new;
+    $ua->add_internal(
+        500,
+        "Can't connect to 127.0.0.1:9 (Connection refused)",
+        "Can't connect to 127.0.0.1:9 (Connection refused)\n\nconnect: Connection refused at /usr/share/perl5/LWP/Protocol/http.pm line 42.\n",
+    );
+    my $client = WWW::Forgejo->new(
+        url   => 'http://127.0.0.1:9',
+        token => 'test-token',
+        io    => WWW::Forgejo::LWPIO->new(ua => $ua),
+    );
+
+    my $ok  = eval { $client->get('/version'); 1 };
+    my $err = $@;
+
+    ok(!$ok, 'the request croaks');
+    like(
+        $err,
+        qr/^Forgejo API error: Can't connect to 127\.0\.0\.1:9 \(Connection refused\)/,
+        'the reason is named',
+    );
+};
+
+subtest 'check names the reason of a request that never reached the server' => sub {
+    my $ua = FakeUA->new;
+    $ua->add_internal(
+        500,
+        "Can't connect to 127.0.0.1:9 (Connection refused)",
+        "Can't connect to 127.0.0.1:9 (Connection refused)\n\nconnect: Connection refused at /usr/share/perl5/LWP/Protocol/http.pm line 42.\n",
+    );
+    my $client = WWW::Forgejo->new(
+        url   => 'http://127.0.0.1:9',
+        token => 'test-token',
+        io    => WWW::Forgejo::LWPIO->new(ua => $ua),
+    );
+
+    my $ok  = eval { $client->check('/version'); 1 };
+    my $err = $@;
+
+    ok(!$ok, 'the check croaks');
+    like(
+        $err,
+        qr/^Forgejo API error: Can't connect to 127\.0\.0\.1:9 \(Connection refused\)/,
+        'the reason is named',
+    );
+};
+
+subtest 'a 500 of the server is not a transport failure' => sub {
+    my $ua = FakeUA->new;
+    $ua->add(500, '{"message":"internal server error"}');
+    my $client = WWW::Forgejo->new(
+        url   => 'https://forgejo.test',
+        token => 'test-token',
+        io    => WWW::Forgejo::LWPIO->new(ua => $ua),
+    );
+
+    my $ok  = eval { $client->get('/version'); 1 };
+    my $err = $@;
+
+    ok(!$ok, 'the request croaks');
+    like($err, qr/^Forgejo API error: internal server error/, 'the message of the server is used');
+    unlike($err, qr/Forgejo API error: 500/, 'the status is not the message');
 };
 
 subtest 'pagination works through the default backend' => sub {

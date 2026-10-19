@@ -3,6 +3,7 @@ package WWW::Forgejo::LWPIO;
 # ABSTRACT: Synchronous HTTP backend using LWP::UserAgent
 
 use Moo;
+use Carp qw( croak );
 use LWP::UserAgent;
 use HTTP::Request;
 use WWW::Forgejo::HTTPResponse;
@@ -69,6 +70,14 @@ sub call {
 
     my $response = $self->ua->request($http_req);
 
+    # A request that never reached the server: LWP answers it with its own
+    # internal response - status 500 and the reason in the message. The
+    # reason is what the caller needs: a refused connection, an unknown host
+    # or a timeout are not the same as an error of the server.
+    if (my $reason = $self->_internal_reason($response)) {
+        croak "Forgejo API error: $reason";
+    }
+
     # Hand the response headers on (X-Total-Count drives the pagination in
     # Role::HTTP). A header that occurs more than once is joined with ", ".
     my %res_headers;
@@ -87,6 +96,34 @@ sub call {
     );
 }
 
+# The reason of a request that never reached the server, if this response is
+# LWP's internal answer to one: the header "Client-Warning: Internal
+# response", or the "X-Died" header of a protocol handler that died. Returns
+# undef for a response the server sent.
+sub _internal_reason {
+    my ($self, $response) = @_;
+
+    my $headers = $response->headers;
+    my $died    = $headers->header('X-Died');
+    my $warning = $headers->header('Client-Warning') // '';
+
+    return undef unless $warning =~ m{\binternal response\b}i
+        || (defined $died && length $died);
+
+    # What the protocol handler died of, else the message of the internal
+    # response: "Can't connect to 127.0.0.1:9 (Connection refused)".
+    my $reason = $died;
+    $reason = $response->message unless defined $reason && length $reason;
+    $reason = '' unless defined $reason;
+
+    # The reason is one line; the rest is the trace LWP appends.
+    my ($line) = split /\n/, $reason;
+    $line = '' unless defined $line;
+    $line =~ s/\s+\z//;
+
+    return length $line ? $line : undef;
+}
+
 =method call
 
     my $res = $io->call($req);
@@ -96,6 +133,11 @@ L<WWW::Forgejo::HTTPResponse> built from the status code, the body and the
 response headers. The body is handed on as bytes: a C<Content-Encoding> such as
 gzip is undone, but text is not decoded from its charset, so a file read
 through L<WWW::Forgejo::API::Repo::Contents/raw> arrives exactly as stored.
+
+A request that never reached the server - a refused connection, an unknown
+host, a timeout - croaks with the reason LWP gives, e.g. C<Forgejo API error:
+Can't connect to 127.0.0.1:9 (Connection refused)>. A response the server sent
+is returned as it is, a C<500> of the server included.
 
 =cut
 
