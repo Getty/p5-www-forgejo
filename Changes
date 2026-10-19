@@ -20,8 +20,10 @@ Revision history for WWW-Forgejo
       file bytes unchanged; statuses->combined escapes a slash in the ref.
     - Per-organization controllers on WWW::Forgejo::Entity::Org: actions,
       blocked_users, hooks, labels, members, quota and teams.
-    - Yes/no endpoints (204/404) are answered as booleans via check();
-      release assets are uploaded as multipart/form-data.
+    - Yes/no endpoints (204/404) are answered as booleans via check(); the
+      verdict of a response is a method of its own, so a transport that
+      fetched the response itself can ask the same question. Release assets
+      are uploaded as multipart/form-data.
     - Entity classes (WWW::Forgejo::Entity::*) wrapping the decoded JSON, with
       accessors following the swagger response schemas and the full structure
       on ->data. Client chains such as $forgejo->repos->get(...)->issues hold

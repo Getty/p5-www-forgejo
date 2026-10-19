@@ -5,6 +5,7 @@ use Test::More;
 use JSON::MaybeXS qw(decode_json);
 use lib 't/lib';
 use MockForgejo qw(mock_client);
+use WWW::Forgejo::HTTPResponse;
 
 subtest 'delete can carry a JSON body' => sub {
     my ($client, $io) = mock_client();
@@ -158,6 +159,60 @@ subtest 'check: 2xx is true, 404 is false, anything else croaks' => sub {
     my ($anon) = mock_client(token => '');
     $err = do { local $@; eval { $anon->check('/x') }; $@ };
     like($err, qr{No API token configured}, 'check needs a token too');
+};
+
+subtest 'check asks _check_response for the verdict' => sub {
+    # The rule lives in one place: a client that changes it changes what check
+    # answers.
+    {
+        package Test::CheckClient;
+        use Moo;
+        extends 'WWW::Forgejo';
+        sub _check_response { return 'the rule of the subclass' }
+    }
+
+    my ($client, $io) = mock_client();
+    $io->add(204, '');
+
+    my $sub = Test::CheckClient->new(
+        url   => 'https://forgejo.test',
+        token => 'test-token',
+        io    => $io,
+    );
+    is($sub->check('/x'), 'the rule of the subclass', 'check delegates to _check_response');
+};
+
+subtest '_check_response: the verdict of a response, for a transport of its own' => sub {
+    my ($client, $io) = mock_client();
+
+    my $ok = WWW::Forgejo::HTTPResponse->new(status => 204, content => '');
+    my $verdict = eval { $client->_check_response($ok, 'GET', '/repos/o/r/collaborators/u') };
+    is($verdict, 1, '2xx => true') or diag $@;
+
+    my $missing = WWW::Forgejo::HTTPResponse->new(
+        status  => 404,
+        content => '{"message":"not found"}',
+        headers => { 'Content-Type' => 'application/json' },
+    );
+    is($client->_check_response($missing, 'GET', '/repos/o/r/collaborators/u'), 0, '404 => false');
+
+    my $route = WWW::Forgejo::HTTPResponse->new(
+        status  => 404,
+        content => "404 page not found\n",
+        headers => { 'Content-Type' => 'text/plain; charset=utf-8' },
+    );
+    my $err = do { local $@; eval { $client->_check_response($route, 'GET', '/x') }; $@ };
+    like($err, qr{^Forgejo API error: 404 page not found}, 'the 404 of a route the instance does not have croaks');
+
+    my $broken = WWW::Forgejo::HTTPResponse->new(
+        status  => 500,
+        content => '{"message":"boom"}',
+        headers => { 'Content-Type' => 'application/json' },
+    );
+    $err = do { local $@; eval { $client->_check_response($broken, 'GET', '/x') }; $@ };
+    like($err, qr{^Forgejo API error: boom}, 'anything else croaks');
+
+    is($io->count, 0, 'no request is sent: the response was handed in');
 };
 
 subtest 'upload sends multipart/form-data' => sub {

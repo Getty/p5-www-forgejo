@@ -361,13 +361,36 @@ sub check {
     my $req      = $self->_build_request('GET', $path, %opts);
     my $response = $self->io->call($req);
 
+    return $self->_check_response($response, 'GET', $path);
+}
+
+=method _check_response
+
+    my $bool = $self->_check_response($response, 'GET', $path);
+
+The verdict of L</check> as a method of its own: returns true for a 2xx
+response and false for a C<404>; any other status croaks like the verb methods
+do. So does the plain-text C<404 page not found> of a route the instance does
+not have.
+
+Takes the L<WWW::Forgejo::HTTPResponse> as it is and the method and path the
+request was sent with, so a transport that is not L</io> - the async sibling -
+can call it after its own request and get the same verdict without repeating
+the rule. The response is expected to carry its headers (see
+L<WWW::Forgejo::HTTPResponse/headers>).
+
+=cut
+
+sub _check_response {
+    my ($self, $response, $method, $path) = @_;
+
     # A 404 is the "no" of the question - unless it is the plain-text 404 of
     # a route this instance does not have (an older Forgejo, a feature that
     # is switched off): that one croaks like any other error.
     my $route_missing = ($response->headers->{'content-type'} // '') =~ m{\A\s*text/plain\b}i
         && ($response->content // '') =~ /\A\s*404 page not found/;
     return 0 if $response->status == 404 && !$route_missing;
-    $self->_parse_response($response, 'GET', $path);
+    $self->_parse_response($response, $method, $path);
     return 1;
 }
 
@@ -384,6 +407,9 @@ a feature that is switched off), which would otherwise read as "no".
 Forgejo answers some questions about a thing that does not exist with the same
 C<404> as the "no" (C<is_merged> of a pull request that does not exist, a member
 check in an organization that does not exist): C<check> cannot tell them apart.
+
+The verdict is a method of its own, L</_check_response>, so a transport that is
+not L</io> can ask the same question of a response it fetched itself.
 
 =cut
 

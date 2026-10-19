@@ -42,7 +42,7 @@ for my $module (sort @modules) {
 subtest 'the client keeps its public interface' => sub {
     can_ok('WWW::Forgejo', qw(
         new url base_url token io get post put patch delete check
-        _build_request _parse_response _request _request_with_response _set_auth
+        _build_request _parse_response _check_response _request _request_with_response _set_auth
         misc users orgs teams notifications packages repos current_user admin activitypub
     ));
 };
