@@ -1,0 +1,29 @@
+---
+class: standard
+completed: 2026-10-19T22:15:18Z
+created: 2026-10-03T00:47:47Z
+id: 29
+priority: low
+started: 2026-10-19T20:49:12Z
+status: done
+tags:
+- bridge
+- coordination
+- escalated-from:Net-Async-Forgejo#2
+title: Expose check's response verdict as _check_response for the async sibling
+updated: 2026-10-19T22:15:18Z
+---
+
+Net::Async::Forgejo::API now has an async check() (commit 2fd1bbf on its branch worktree-lockstep-release). It cannot reuse Role::HTTP::check because check calls io->call synchronously, so it mirrors the verdict logic: 2xx -> 1, 404 -> 0, except the text/plain '404 page not found' of a missing route, which croaks via _parse_response. Wish: factor that verdict into a method like _check_response($response, $method, $path) returning 0/1 or croaking, used by check itself. The async side would then call it after its own transport and stop duplicating the rule. No behaviour change on the sync side.
+
+2026-10-19 21:13 2026-10-19 23:15 Koordinator: Die Schwester-Karte ist angelegt und liegt auf dem Board des async Zwillings: Net-Async-Forgejo #10 'Bridge: async check() uses the shared _check_response of the sync client (paired with WWW::Forgejo #29)' (Status todo, From WWW-Forgejo#29, Tags async/bridge). Bitte in deinem Abschlussbericht die Signatur nennen, die du gewaehlt hast, und ob die async-Seite sie ohne Aenderung der sync-Dist nutzen kann - passt die Parameterform nicht, ist das eine Notiz auf #10 und eine gepaarte Karte auf dem Sync-Board, die der Koordinator anlegt.
+
+2026-10-19 21:35 Fix: Die Regel von check liegt jetzt in einer eigenen Methode _check_response mit der Signatur response, Method, Pfad auf dem Client. Sie gibt 1 bei 2xx zurueck, 0 bei 404 und croakt sonst ueber _parse_response. check ruft sie jetzt; das Verhalten der synchronen Seite bleibt unveraendert.
+
+2026-10-19 21:35 Verifikation: t/08 hat zwei neue Subtests - einer belegt, dass check die Regel einer Unterklasse benutzt, also wirklich delegiert, der andere prueft das Verdict je Antwort (2xx, 404 mit JSON, 404 als plain text einer fehlenden Route, 500). t/11 fuehrt die neue Methode in der Schnittstelle des Clients. Rot-Check mit dem alten lib aus main: der Delegations-Test schlaegt fehl (das alte check antwortet 1 statt der Regel der Unterklasse), der Verdict-Test findet die Methode nicht.
+
+2026-10-19 21:36 Signatur fuer die async-Seite: der Zwilling ruft die Methode auf dem Sync-Client, den er schon haelt, mit der Antwort, GET und dem Pfad. Die Antwort, die er baut, traegt die Header - er liest content-type heute schon selbst daraus. Die async-Seite braucht also keine Aenderung der Sync-Distribution, um Net-Async-Forgejo 10 umzusetzen: die gespiegelte Regel in ihrem check wird durch den Aufruf ersetzt. Test auf der sync-Seite: t/08, 14 Subtests.
+
+2026-10-19 21:36 Erledigt: die Antwort-Regel von check ist als eigene Methode im Sync-Client (_check_response, Argumente: Antwort, Methode, Pfad) herausgezogen und wird von check benutzt - das Verhalten der synchronen Seite ist unveraendert. Der async Zwilling kann sie auf dem Sync-Client aufrufen, den er schon haelt; fuer Net-Async-Forgejo 10 ist keine Aenderung der Sync-Distribution noetig. Verifiziert mit t/08 und t/11 sowie Rot-Check gegen das alte lib aus main.
+
+Abgearbeitet und auf main gemerged: Factor the verdict of check into _check_response (k29)
