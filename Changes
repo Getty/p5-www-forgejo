@@ -53,5 +53,8 @@ Revision history for WWW-Forgejo
       TEST_FORGEJO_URL and TEST_FORGEJO_TOKEN set and are verified against
       Forgejo 15.0.7; the docker test instance (make -f Makefile.docker)
       runs 15.0.7.
+    - The POD coverage test tells the source form of the POD and the woven
+      form of the built distribution apart, checks the documented names in
+      both, and checks the kind of a name where the POD states one.
     - A wiki page edited without a title keeps the name it is addressed by:
       the client sends that name as the title.

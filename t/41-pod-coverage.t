@@ -18,9 +18,13 @@ use WWW::Forgejo;
 #   that exist (see t/lib/MethodChains.pm);
 # - the POD has no syntax errors and no dangling internal links.
 #
-# Works on the source, where Pod::Weaver's =method / =attr are still there,
-# and on the built distribution, where they have become =head2 entries below
-# =head1 METHODS / ATTRIBUTES.
+# Works on the source and on the built distribution. The weaver of this
+# distribution leaves a =method / =attr / =func where it stands and turns it
+# into a =head2: there is no section of their own, and the kind of the name
+# is gone - =attr foo and =method foo become the same =head2 foo. The test
+# tells the two forms apart and asks the same of both: the names documented
+# are the public names of the module. The kind is checked where the POD
+# states it.
 
 my @files;
 find(sub { push @files, $File::Find::name if /\.pm\z/ }, 'lib');
@@ -36,26 +40,62 @@ sub slurp {
     return scalar <$fh>;
 }
 
-# name => 'method' | 'attr' | 'required', from the POD. A role lists what it
-# requires of its consumer below a =head1 REQUIRED ... heading. A =func is an
-# exported function, public API of its module like a method.
-sub documented {
+# The sections the weaver adds itself. What stands below them documents the
+# distribution, not the module: the =head2 IRC below SUPPORT is no method of
+# the module.
+my %weaver_section = map { $_ => 1 } qw(
+    NAME VERSION SUPPORT CONTRIBUTING AUTHOR COPYRIGHT AND LICENSE
+);
+
+# The weaver puts a NAME section in front of the POD and leaves no directive
+# behind: that is what tells the built distribution from the source.
+sub woven {
     my ($src) = @_;
+    return $src =~ /^=head1 NAME\b/m && $src !~ /^=(?:method|attr|func)\b/m ? 1 : 0;
+}
+
+# name => 'method' | 'attr' | 'required' | 'unknown', from the POD.
+# 'unknown' is the kind of a name whose kind the POD does not state. A role
+# lists what it requires of its consumer below a =head1 REQUIRED ... heading.
+# A =func is an exported function, public API of its module like a method.
+#
+# In the source the directives state the kind: =method, =attr and =func. In
+# the built distribution the weaver turned them into =head2 and kept them
+# where they stand - the name is known, the kind is not. What the weaver did
+# not touch still states a kind: the =item * C<name> entries of a REQUIRED
+# section.
+sub documented {
+    my ($src, $woven) = @_;
     my (%doc, $section);
     for my $line (split /\n/, $src) {
         if ($line =~ /^=head1\s+(.+?)\s*$/) {
             $section = $1;
         }
+        elsif ($line =~ /^=head2\s+(\w+)/) {
+            my ($name, $under) = ($1, $section);
+            $section = undef;    # a heading opens a subsection of its own
+            if ($woven) {
+                # A woven =head2 is a directive left in place: the name is
+                # known, the kind is not.
+                $doc{$name} = 'unknown' unless $under && $weaver_section{$under};
+            }
+            elsif ($under && $under =~ /^REQUIRED /) {
+                $doc{$name} = 'required';
+            }
+            elsif ($under && $under eq 'ATTRIBUTES') {
+                $doc{$name} = 'attr';
+            }
+            elsif ($under && $under eq 'METHODS') {
+                $doc{$name} = 'method';
+            }
+        }
         elsif ($line =~ /^=(method|attr|func)\s+(\w+)/) {
             $doc{$2} = $1 eq 'func' ? 'method' : $1;
             $section = undef;    # a directive block is not part of the section before it
         }
-        elsif (defined $section && $section =~ /^REQUIRED /) {
-            $doc{$1} = 'required' if $line =~ /^=head2\s+(\w+)/ || $line =~ /^=item \* C<(\w+)>/;
-        }
-        elsif (defined $section && $line =~ /^=head2\s+(\w+)/) {
-            $doc{$1} = 'attr'   if $section eq 'ATTRIBUTES';
-            $doc{$1} = 'method' if $section eq 'METHODS';
+        elsif ($line =~ /^=item \* C<(\w+)>/) {
+            my $name = $1;    # before the next match resets the capture
+            $doc{$name} = 'required' if $section && $section =~ /^REQUIRED /;
         }
     }
     return \%doc;
@@ -119,9 +159,10 @@ for my $file (sort @files) {
     $module =~ s{/}{::}g;
     $module =~ s{\.pm\z}{};
     my $src = slurp($file);
+    my $woven = woven($src);
 
     subtest "$module: documented names" => sub {
-        my $doc = documented($src);
+        my $doc = documented($src, $woven);
         my $pub = public($module, $src);
 
         my @undocumented = grep { !$doc->{$_} } sort keys %$pub;
@@ -131,8 +172,19 @@ for my $file (sort @files) {
         my @gone = grep { !$pub->{$_} && !(/^_/ && $src =~ /^sub \Q$_\E\b/m) } sort keys %$doc;
         is_deeply(\@gone, [], 'everything documented exists');
 
-        my @wrong = grep { $pub->{$_} && $pub->{$_} ne 'generated' && $pub->{$_} ne $doc->{$_} } sort keys %$doc;
-        is_deeply(\@wrong, [], 'attributes are documented as attributes, methods as methods');
+        if ($woven) {
+            # The weaver turned =attr / =method / =func into =head2 and kept
+            # them where they stand: the name survived, the kind did not.
+            # Only what the weaver did not touch still states a kind - that
+            # is what can be checked here.
+            unlike($src, qr/^=(?:method|attr|func)\b/m, 'the woven POD states no kind of its own');
+            my @wrong = grep { $pub->{$_} && $pub->{$_} ne 'generated' && $doc->{$_} ne 'unknown' && $doc->{$_} ne $pub->{$_} } sort keys %$doc;
+            is_deeply(\@wrong, [], 'the kinds the woven POD states are the kinds of the code');
+        }
+        else {
+            my @wrong = grep { $pub->{$_} && $pub->{$_} ne 'generated' && $pub->{$_} ne $doc->{$_} } sort keys %$doc;
+            is_deeply(\@wrong, [], 'attributes are documented as attributes, methods as methods');
+        }
     };
 
     subtest "$module: POD syntax" => sub {
