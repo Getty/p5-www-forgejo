@@ -1,0 +1,112 @@
+---
+class: standard
+completed: 2026-10-19T22:53:23Z
+created: 2026-10-19T22:26:25Z
+id: 32
+priority: medium
+started: 2026-10-19T22:53:23Z
+status: done
+title: 'dzil test fails in the built distribution: the POD coverage test does not
+  understand the woven POD'
+updated: 2026-10-19T22:53:23Z
+---
+
+Der Test t/41-pod-coverage.t besteht auf dem Quellbaum, scheitert aber im gebauten Tarball: `dzil test` meldet 77 von 237 Subtests als fehlgeschlagen — in jedem Modul "every public method and attribute is documented". Das ist der einzige Fehler im gebauten Tarball (31 Dateien, 1756 Tests, alle anderen gruen).
+
+Ursache: der Test setzt voraus, dass die gewobenen Verzeichnisse in Sektionen "=head1 METHODS" und "=head1 ATTRIBUTES" stehen (so steht es im Kommentar am Dateianfang). Der Weber dieser Dist tut das nicht: [@Author::GETTY] laesst die Kommandos =method, =attr und =func AN DER STELLE stehen, an der sie stehen, und wandelt sie in =head2 um (Pod::Elemental::Transformer::Author::GETTY). Es gibt also keine METHODS- oder ATTRIBUTES-Sektion; die =head2-Eintraege stehen dort, wo die Direktive stand — z. B. unter "=head1 REQUIRED ATTRIBUTES" oder mitten im DESCRIPTION-Text.
+
+Im Quellbaum erkennt die Funktion documented() die Direktiven (=method/=attr/=func) und weiss die Art (Methode/Attribut/required). Im gebauten Tarball ist die Art nicht mehr zu haben: aus =attr foo und =method foo wird dasselbe =head2 foo.
+
+Zustaendig: der Test unterscheidet die beiden Formen gar nicht — er laeuft im gebauten Tarball mit den Annahmen des Quellbaums.
+
+Done when:
+- `prove -l t/41-pod-coverage.t` im Quellbaum gruen bleibt UND im gebauten Tarball gruen ist (der Test unterscheidet die beiden Formen selbst),
+- die Pruefungen, die nur in einer Form moeglich sind, werden in der jeweils anderen Form sinnvoll behandelt (nicht einfach wegfallen): die Namenspruefung ("jede oeffentliche Methode und jedes Attribut ist dokumentiert", "alles Dokumentierte existiert") muss in BEIDEN Formen laufen; die Artpruefung ("Attribute sind als Attribute dokumentiert, Methoden als Methoden") kann im gebauten Tarball nicht laufen, weil der Weber die Art nicht mehr mitgibt — dort darf sie nicht als Fehler gewertet werden,
+- `dzil test` im gebauten Tarball komplett gruen ist (31 Dateien, 1756 Tests),
+- die Zeile im Test, die die Arbeitsweise beschreibt, stimmt wieder (sie behauptet heute von =head1 METHODS / ATTRIBUTES).
+
+Hinweise:
+- `dzil build` erzeugt WWW-Forgejo-0.001.tar.gz im Repo-Root; `tar xzf` davon und `prove -l t/` im entpackten Baum zeigt den Fehler. Der Test laeuft in ~2 Sekunden.
+- Der Test darf an der Absicht nichts aendern: er soll weiterhin auf Quellbaum und gebautem Baum dieselbe Aussage treffen.
+- Wenn eine Unterscheidung "Quelle oder gebaut" noetig ist: der gebaute Baum hat keine =method/=attr/=func-Direktiven mehr (und ein =head1 NAME/VERSION am Anfang), der Quellbaum schon.
+
+2026-10-19 22:45 Ursache bestaetigt und Loesung umgesetzt.
+
+2026-10-19 22:45 Test der Laenge: Der Weber dieser Dist laesst die Kommandos an der Stelle stehen und wandelt sie in Ueberschriften zweiter Ebene um, statt eigene Sektionen fuer Methoden und Attribute anzulegen.
+
+2026-10-19 22:45 Ursache bestaetigt und Loesung umgesetzt (nur t/41-pod-coverage.t geaendert, lib/ unberuehrt).
+
+Der Weber (@@Author::GETTY, Pod::Elemental::Transformer::Author::GETTY v0.326) laesst die Kommandos =method/=attr/=func an der Stelle stehen und wandelt sie in =head2 um; Sektionen "=head1 METHODS" / "=head1 ATTRIBUTES" gibt es nicht. Im gebauten Tarball liest die alte documented() daher keine Direktive und verliert jeden Namen.
+
+Form-Erkennung ohne Umgebungsvariable, allein am POD: der gebaute Baum hat ein "=head1 NAME" am Anfang und keine =method/=attr/=func-Direktive mehr, der Quellbaum umgekehrt. documented() kennt nun beide Formen:
+- Quelle: wie bisher — die Direktive nennt die Art (Methode / Attribut / required).
+- Gebaut: ein "=head2" ist eine Direktive an Ort und Stelle; der Name ist bekannt, die Art nicht (intern "unknown"). Was der Weber nicht anfasst, nennt weiter die Art: die "=item * C<...>"-Eintraege unter einer REQUIRED-Sektion.
+
+Die Namenspruefungen laufen in BEIDEN Formen mit derselben Behauptung ("every public method and attribute is documented", "everything documented exists"). Die Artpruefung laeuft dort, wo das POD eine Art nennt: in der Quelle unveraendert ("attributes are documented as attributes, methods as methods"), im gebauten Baum als "the kinds the woven POD states are the kinds of the code". Sie verschwindet dort also nicht still: der Test stellt ausdruecklich fest, dass das gewobene POD keine eigene Art nennt (unlike), und prueft die Arten, die es doch nennt.
+
+Fallstrick, der dabei auffaellt: im gewobenen POD ist die "=cut"-Grenze weg, deshalb steht z. B. "=head2 io" textuell unter "=head1 REQUIRED ATTRIBUTES", obwohl "io" in der Quelle ein Attribut ist. Jeder gewobene "=head2" wird deshalb als art-unbekannt klassifiziert und nie als "required" — sonst waere die Zuordnung falsch.
+
+Ebenfalls ausgenommen: die Abschnitte des Webers selbst (NAME, VERSION, SUPPORT, CONTRIBUTING, AUTHOR, COPYRIGHT AND LICENSE). Das "=head2 IRC" unter SUPPORT ist keine Methode des Moduls.
+
+Der Kommentar am Dateianfang behauptete bisher, die Verzeichnisse stuenden im gebauten Baum als "=head2" unter "=head1 METHODS / ATTRIBUTES" — das war falsch und ist jetzt die Wahrheit.
+
+2026-10-19 22:46 Verifiziert (Zahlen aus beiden Baeumen):
+
+- Quellbaum: prove -l t/ -> Files=29, Tests=1756, Result: PASS (8 Live-Tests ueberspringen sich selbst ohne TEST_FORGEJO_URL/TOKEN).
+- Gebautes Tarball (dzil build, entpackt): prove -l t/ -> Files=31, Tests=1756, Result: PASS (8 Live-Tests plus 2 Autor/Release-Tests ueberspringen sich selbst).
+- dzil test im Arbeitsbaum: Files=31, Tests=1834, Result: PASS.
+- t/41-pod-coverage.t einzeln: 237 Subtests, PASS in beiden Baeumen.
+
+Aequivalenz der Behauptung:
+- Die neue documented() liefert im Quellbaum ueber alle 78 Module exakt dasselbe %doc wie die alte (0 Unterschiede) — die Aussage im Quellbaum ist unveraendert.
+- Die dokumentierten Namen sind in beiden Baeumen identisch: 675 Namen, 0 Unterschiede ueber 78 Module.
+
+Mutationsproben — der Test hat Zaehne:
+- Form-Erkennung aufgehoben: gebauter Baum meldet 77 von 237 Subtests als fehlgeschlagen, exakt das Karten-Symptom.
+- Ausnahme der Weber-Abschnitte entfernt: 78 Fehlschlaege ("everything documented exists", wegen IRC).
+- Quelle, "=attr content" geloescht: 1 Fehlschlag "every public method and attribute is documented". Quelle, "=attr content" umbenannt: beide Namenspruefungen schlagen an.
+- Gebaut, "=head2 content" geloescht bzw. umbenannt: dieselben Fehlschlaege wie in der Quelle — die Namenspruefungen laufen in beiden Formen wirklich.
+- Gebaut, eine falsche Art behauptet: "the kinds the woven POD states are the kinds of the code" schlaegt an.
+
+Reine Testaenderung: git diff --stat zeigt nur t/41-pod-coverage.t (68 Einfuegungen, 16 Loeschungen). lib/ und .claude/skills/ unberuehrt. Der Baum ist bis auf diese eine Datei sauber; das Build-Artefakt WWW-Forgejo-0.001.tar.gz ist entfernt und ohnehin von .gitignore ausgenommen.
+
+2026-10-19 22:46 Nebenbefunde - nichts davon angefasst, keine neue Karte angelegt:
+
+- Die beiden kurzen Zwischenmeldungen oben (Kurztexte um 22:45) stammen aus dem Suchen nach einer karr-Schreibweise, die die Sandbox der Worktree-Session passiert (ein "=" am Tokenanfang im Text wird abgewiesen). Sie sind leer und werden von der ausfuehrlichen Notiz darunter ueberholt.
+
+- Zwei bekannte Luecken aus dem Skill www-forgejo-core stehen auf keinem Board dieses Repos: HTTPResponse hat kein headers-Attribut (waere eine gepaarte Aenderung mit p5-net-async-forgejo, also Karten auf beiden Boards noetig), und die Basis-Klasse WWW::Forgejo::Entity wird von den konkreten Entities nicht geerbt (waere eine eigene Karte hier). Beides habe ich nicht angefasst - nicht meine Karte, und der Brief sagt ausdruecklich: lib/ bleibt unberuehrt.
+
+- Im gewobenen POD fehlen die "=cut"-Grenzen, deshalb steht eine Direktiven-Ueberschrift textuell unter der Sektion, in der die Direktive im Quellbaum stand (z. B. "=head2 io" unter "=head1 REQUIRED ATTRIBUTES", obwohl "io" in der Quelle ein Attribut ist). Der Test behandelt jeden gewobenen "=head2" deshalb als art-unbekannt und nie als "required". Das ist eine Eigenschaft des Webers, kein Fehler der Doku - hier nur vermerkt, weil es die Form der Karte betrifft.
+
+- Die "=item * C<page_size>" und "=item * C<max_pages>" unter "=head2 get" sind Parameter einer Methode, keine Attribute. Sie zaehlen in keinem der beiden Baeume als dokumentierte Namen - in beiden gleich, also keine Aenderung noetig.
+
+- Beim Suchen nach der Ursache ist mir aufgefallen, dass "=head1 SEE ALSO" im Quellbaum die letzte Sektion jedes Moduls ist (78 von 78) und der gebaute Baum mit "=head1 COPYRIGHT AND LICENSE" endet. Fuer die Unterscheidung der beiden Formen wird das nicht gebraucht (die Form laesst sich am "=head1 NAME" und am Fehlen der Direktiven entscheiden), deshalb ist es nur eine Beobachtung.
+
+2026-10-19 22:47 Fertig. Geaendert wurde ausschliesslich t/41-pod-coverage.t (68 Einfuegungen, 16 Loeschungen); lib/ unberuehrt, nichts committet, kein Push.
+
+Der Test erkennt die Form selbst am POD - gebaut: ein "=head1 NAME" am Anfang und keine =method/=attr/=func-Direktive mehr, Quelle: umgekehrt - und liest beide Formen. In der Quelle wie bisher: die Direktive nennt die Art. Im gebauten Baum ist der Name bekannt, die Art nicht. Beide Namenspruefungen ("every public method and attribute is documented", "everything documented exists") laufen in beiden Baeumen. Die Artpruefung laeuft dort, wo das POD eine Art nennt: in der Quelle unveraendert, im gebauten Baum als "the kinds the woven POD states are the kinds of the code"; zusaetzlich stellt der Test dort ausdruecklich fest, dass das gewobene POD keine eigene Art nennt - sie verschwindet also nicht still, und der Unterschied wird benannt. Der falsche Kommentar am Dateianfang ist korrigiert.
+
+Verifiziert:
+- Quellbaum prove -l t/ -> Files=29, Tests=1756, PASS (8 Live-Tests ueberspringen sich selbst).
+- Gebautes Tarball (dzil build, entpackt) prove -l t/ -> Files=31, Tests=1756, PASS (8 Live-Tests plus 2 Autor/Release-Tests ueberspringen sich selbst).
+- dzil test -> Files=31, Tests=1834, PASS.
+- t/41-pod-coverage.t einzeln: 237 Subtests, PASS in beiden Baeumen.
+- Aequivalenz: die neue documented() liefert im Quellbaum ueber alle 78 Module exakt dasselbe %doc wie die alte (0 Unterschiede); die dokumentierten Namen sind in beiden Baeumen identisch (675 Namen, 0 Unterschiede).
+- Mutationsproben: Form-Erkennung aufgehoben -> 77 von 237 Fehlschlaege, exakt das Karten-Symptom; Weber-Ausnahme entfernt -> 78 Fehlschlaege; undokumentiertes Attribut -> "every public method and attribute is documented" schlaegt an; umbenannter Name -> beide Namenspruefungen schlagen an; jeweils in Quelle und gebautem Baum; falsche Art behauptet -> die Artpruefung schlaegt an.
+
+Der Baum ist commit-ready: nur t/41-pod-coverage.t geaendert, Build-Artefakte entfernt.
+
+Vorschlag fuer den Commit (Betreff im Stil der bisherigen Commits, mit Karten-Kuerzel im Klammern):
+  Understand the woven POD in the POD coverage test (k32)
+
+Changes-Eintrag (CPAN-Format, ohne Kartennummer):
+    - The POD coverage test understands the woven POD of the built
+      distribution: it tells the source form and the built form apart,
+      checks the documented names in both, and checks the kind of a name
+      where the POD states one.
+
+2026-10-19 22:49 Nachtrag zur Basis: Nach der Uebergabe ist local main um einen Commit weitergegangen ("Wrap the changelog entries at 78 columns", 7f4cad0; nur die Datei Changes betroffen). Der Branch worktree-k32-pod-coverage stand noch auf 60784e5. Ich habe den Branch-Zeiger per "git reset --mixed main" auf den aktuellen local main gezogen und die unveraenderte Changes aus main wiederhergestellt - kein Commit, kein Push, die Aenderung selbst blieb unangetastet. Jetzt gilt: merge-base HEAD main == main-Tip (7f4cad0), und der einzige Unterschied zum Arbeitsbaum ist weiterhin t/41-pod-coverage.t (68 Einfuegungen, 16 Loeschungen). Nach diesem Zug sind prove -l t/ (Files=29, Tests=1756, PASS) und dzil test (Files=31, Tests=1834, PASS) erneut gefahren, weiterhin gruen. Grund: der Release-Manager schreibt den Changes-Eintrag selbst - auf einer veralteten Changes-Datei waere das eine Konfliktquelle.
+
+Auf der Karte liegen zwei kurze Zwischenmeldungen (22:45) aus dem Suchen nach einer karr-Schreibweise, die die Sandbox der Worktree-Session passiert; ein "=" am Tokenanfang im Text wird abgewiesen. Sie sind leer, die vollstaendige Notiz steht darunter und in der Uebergabe-Notiz.
+
+Umsetzung geprueft und committet: 72bd929 'Understand the woven POD in the POD coverage test (k32)' (Fast-forward in lokalen main, kein Push). Nachgeprueft: prove -l t/ im Quellbaum (29 Dateien, 1756 Tests PASS), dzil build + dzil test im Worktree (31 Dateien, 1834 Tests PASS), t/41-pod-coverage.t in beiden Baeumen 237 Subtests PASS. Damit ist der Release-Blocker der gebauten Dist behoben.
