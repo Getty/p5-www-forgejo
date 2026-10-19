@@ -8,7 +8,7 @@ package WWW::Forgejo::API::Org::Hooks;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -41,7 +41,7 @@ sub _org_path {
     my ($self, $org, @path) = @_;
     $org = $self->owner unless defined $org && length $org;
     croak "Organization name required" unless defined $org && length $org;
-    return join '/', '/orgs', uri_escape($org), @path;
+    return join '/', '/orgs', escape_component($org), @path;
 }
 
 =method list
@@ -70,7 +70,7 @@ Get a specific hook by ID.
 sub get {
     my ($self, $org, $hook_id) = @_;
     croak "Hook ID required" unless defined $hook_id && length $hook_id;
-    return $self->client->get($self->_org_path($org, 'hooks', uri_escape($hook_id)));
+    return $self->client->get($self->_org_path($org, 'hooks', escape_component($hook_id)));
 }
 
 =method create
@@ -103,7 +103,7 @@ pairs are sent as the JSON body.
 sub edit {
     my ($self, $org, $hook_id, %params) = @_;
     croak "Hook ID required" unless defined $hook_id && length $hook_id;
-    return $self->client->patch($self->_org_path($org, 'hooks', uri_escape($hook_id)), \%params);
+    return $self->client->patch($self->_org_path($org, 'hooks', escape_component($hook_id)), \%params);
 }
 
 =method delete
@@ -117,7 +117,7 @@ Delete an organization hook.
 sub delete {
     my ($self, $org, $hook_id) = @_;
     croak "Hook ID required" unless defined $hook_id && length $hook_id;
-    return $self->client->delete($self->_org_path($org, 'hooks', uri_escape($hook_id)));
+    return $self->client->delete($self->_org_path($org, 'hooks', escape_component($hook_id)));
 }
 
 1;

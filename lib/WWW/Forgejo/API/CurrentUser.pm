@@ -8,7 +8,7 @@ package WWW::Forgejo::API::CurrentUser;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -126,7 +126,7 @@ Get a specific public key.
 
 sub get_key {
     my ($self, $key_id) = @_;
-    return $self->client->get('/user/keys/' . uri_escape($key_id));
+    return $self->client->get('/user/keys/' . escape_component($key_id));
 }
 
 =method create_key
@@ -152,7 +152,7 @@ Delete a public key.
 
 sub delete_key {
     my ($self, $key_id) = @_;
-    return $self->client->delete('/user/keys/' . uri_escape($key_id));
+    return $self->client->delete('/user/keys/' . escape_component($key_id));
 }
 
 =method list_gpg_keys
@@ -179,7 +179,7 @@ Get a specific GPG key.
 
 sub get_gpg_key {
     my ($self, $key_id) = @_;
-    return $self->client->get('/user/gpg_keys/' . uri_escape($key_id));
+    return $self->client->get('/user/gpg_keys/' . escape_component($key_id));
 }
 
 =method create_gpg_key
@@ -205,7 +205,7 @@ Delete a GPG key.
 
 sub delete_gpg_key {
     my ($self, $key_id) = @_;
-    return $self->client->delete('/user/gpg_keys/' . uri_escape($key_id));
+    return $self->client->delete('/user/gpg_keys/' . escape_component($key_id));
 }
 
 =method list_hooks
@@ -232,7 +232,7 @@ Get a specific webhook.
 
 sub get_hook {
     my ($self, $hook_id) = @_;
-    return $self->client->get('/user/hooks/' . uri_escape($hook_id));
+    return $self->client->get('/user/hooks/' . escape_component($hook_id));
 }
 
 =method create_hook
@@ -262,7 +262,7 @@ Edit a webhook. The key/value pairs are sent as the JSON body.
 
 sub edit_hook {
     my ($self, $hook_id, %params) = @_;
-    return $self->client->patch('/user/hooks/' . uri_escape($hook_id), \%params);
+    return $self->client->patch('/user/hooks/' . escape_component($hook_id), \%params);
 }
 
 =method delete_hook
@@ -275,7 +275,7 @@ Delete a webhook.
 
 sub delete_hook {
     my ($self, $hook_id) = @_;
-    return $self->client->delete('/user/hooks/' . uri_escape($hook_id));
+    return $self->client->delete('/user/hooks/' . escape_component($hook_id));
 }
 
 =method list_applications
@@ -319,7 +319,7 @@ Delete an OAuth2 application.
 
 sub delete_application {
     my ($self, $app_id) = @_;
-    return $self->client->delete('/user/applications/oauth2/' . uri_escape($app_id));
+    return $self->client->delete('/user/applications/oauth2/' . escape_component($app_id));
 }
 
 =method orgs
@@ -430,7 +430,7 @@ Block a user (C<PUT /user/block/{username}>).
 
 sub block {
     my ($self, $username) = @_;
-    return $self->client->put('/user/block/' . uri_escape($username));
+    return $self->client->put('/user/block/' . escape_component($username));
 }
 
 =method unblock
@@ -443,7 +443,7 @@ Unblock a user (C<PUT /user/unblock/{username}>).
 
 sub unblock {
     my ($self, $username) = @_;
-    return $self->client->put('/user/unblock/' . uri_escape($username));
+    return $self->client->put('/user/unblock/' . escape_component($username));
 }
 
 =method list_blocked
@@ -514,7 +514,7 @@ secrets back.
 
 sub set_secret {
     my ($self, $secret_name, $data) = @_;
-    return $self->client->put('/user/actions/secrets/' . uri_escape($secret_name), $data);
+    return $self->client->put('/user/actions/secrets/' . escape_component($secret_name), $data);
 }
 
 =method delete_secret
@@ -527,7 +527,7 @@ Delete an Actions secret of the current user.
 
 sub delete_secret {
     my ($self, $secret_name) = @_;
-    return $self->client->delete('/user/actions/secrets/' . uri_escape($secret_name));
+    return $self->client->delete('/user/actions/secrets/' . escape_component($secret_name));
 }
 
 =method list_variables

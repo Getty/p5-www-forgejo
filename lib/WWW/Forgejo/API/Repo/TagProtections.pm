@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::TagProtections;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -34,7 +34,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -67,7 +67,7 @@ Get a specific tag protection by ID.
 
 sub get {
     my ($self, $id) = @_;
-    return $self->client->get($self->_path_for(uri_escape($id)));
+    return $self->client->get($self->_path_for(escape_component($id)));
 }
 
 =method create
@@ -96,7 +96,7 @@ Edit a tag protection; only the fields that are given are changed.
 
 sub edit {
     my ($self, $id, $data) = @_;
-    return $self->client->patch($self->_path_for(uri_escape($id)), $data);
+    return $self->client->patch($self->_path_for(escape_component($id)), $data);
 }
 
 =method update
@@ -117,7 +117,7 @@ Delete a tag protection.
 
 sub delete {
     my ($self, $id) = @_;
-    return $self->client->delete($self->_path_for(uri_escape($id)));
+    return $self->client->delete($self->_path_for(escape_component($id)));
 }
 
 1;

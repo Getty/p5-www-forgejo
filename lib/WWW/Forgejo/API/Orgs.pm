@@ -8,7 +8,7 @@ package WWW::Forgejo::API::Orgs;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::Org;
 use namespace::clean;
 
@@ -55,7 +55,7 @@ Get a specific organization by name. Returns a L<WWW::Forgejo::Entity::Org>.
 sub get {
     my ($self, $org) = @_;
     croak "Organization name required" unless defined $org && length $org;
-    return $self->_org($self->client->get("/orgs/" . uri_escape($org)));
+    return $self->_org($self->client->get("/orgs/" . escape_component($org)));
 }
 
 =method create
@@ -89,7 +89,7 @@ JSON body. Returns a L<WWW::Forgejo::Entity::Org>.
 sub edit {
     my ($self, $org, %params) = @_;
     croak "Organization name required" unless $org;
-    return $self->_org($self->client->patch("/orgs/" . uri_escape($org), \%params));
+    return $self->_org($self->client->patch("/orgs/" . escape_component($org), \%params));
 }
 
 =method delete
@@ -103,7 +103,7 @@ Delete an organization.
 sub delete {
     my ($self, $org) = @_;
     croak "Organization name required" unless $org;
-    return $self->client->delete("/orgs/" . uri_escape($org));
+    return $self->client->delete("/orgs/" . escape_component($org));
 }
 
 =method rename
@@ -119,7 +119,7 @@ sub rename {
     my ($self, $org, %params) = @_;
     croak "Organization name required" unless $org;
     croak "New name required" unless $params{new_name};
-    return $self->client->post("/orgs/" . uri_escape($org) . "/rename", \%params);
+    return $self->client->post("/orgs/" . escape_component($org) . "/rename", \%params);
 }
 
 1;

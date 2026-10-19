@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Milestones;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::Milestone;
 use WWW::Forgejo::Entity::Issue;
 use namespace::clean;
@@ -36,7 +36,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -80,7 +80,7 @@ Get a milestone by its ID or title.
 
 sub get {
     my ($self, $id) = @_;
-    return $self->_to_milestone($self->client->get($self->_path_for(uri_escape($id))));
+    return $self->_to_milestone($self->client->get($self->_path_for(escape_component($id))));
 }
 
 =method create
@@ -106,7 +106,7 @@ Edit a milestone.
 
 sub edit {
     my ($self, $id, $data) = @_;
-    return $self->_to_milestone($self->client->patch($self->_path_for(uri_escape($id)), $data));
+    return $self->_to_milestone($self->client->patch($self->_path_for(escape_component($id)), $data));
 }
 
 =method update
@@ -127,7 +127,7 @@ Delete a milestone. Returns true.
 
 sub delete {
     my ($self, $id) = @_;
-    $self->client->delete($self->_path_for(uri_escape($id)));
+    $self->client->delete($self->_path_for(escape_component($id)));
     return 1;
 }
 

@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Notifications;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -22,7 +22,7 @@ The L<WWW::Forgejo> client the requests are sent through. Required.
 
 sub _repo_path {
     my ($self, $owner, $repo) = @_;
-    return join '/', '/repos', uri_escape($owner), uri_escape($repo), 'notifications';
+    return join '/', '/repos', escape_component($owner), escape_component($repo), 'notifications';
 }
 
 =method list
@@ -64,7 +64,7 @@ Get one notification thread (C<GET /notifications/threads/{id}>).
 
 sub get_thread {
     my ($self, $thread_id) = @_;
-    return $self->client->get("/notifications/threads/" . uri_escape($thread_id));
+    return $self->client->get("/notifications/threads/" . escape_component($thread_id));
 }
 
 =method mark_read
@@ -93,7 +93,7 @@ named arguments are sent as the query string of the request.
 
 sub mark_read_thread {
     my ($self, $thread_id, %params) = @_;
-    return $self->client->patch("/notifications/threads/" . uri_escape($thread_id), undef, params => \%params);
+    return $self->client->patch("/notifications/threads/" . escape_component($thread_id), undef, params => \%params);
 }
 
 =method list_for_repo

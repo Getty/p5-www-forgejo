@@ -8,7 +8,7 @@ package WWW::Forgejo::API::Repos;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::Repo;
 use namespace::clean;
 
@@ -26,7 +26,7 @@ sub _repo_path {
     my ($self, $owner, $repo, @path) = @_;
     croak "Repository owner required" unless defined $owner && length $owner;
     croak "Repository name required"  unless defined $repo  && length $repo;
-    return join '/', '/repos', uri_escape($owner), uri_escape($repo), @path;
+    return join '/', '/repos', escape_component($owner), escape_component($repo), @path;
 }
 
 # Wrap repository data as returned by the API; owner and name are taken from
@@ -117,7 +117,7 @@ L<WWW::Forgejo::Entity::Repo>.
 sub create_for_org {
     my ($self, $org, %params) = @_;
     croak "Organization name required" unless $org;
-    return $self->_repo($self->client->post("/orgs/" . uri_escape($org) . "/repos", \%params));
+    return $self->_repo($self->client->post("/orgs/" . escape_component($org) . "/repos", \%params));
 }
 
 =method create_from_template
@@ -258,7 +258,7 @@ Delete a push mirror from a repository. Returns true.
 
 sub delete_push_mirror {
     my ($self, $owner, $repo, $name) = @_;
-    $self->client->delete($self->_repo_path($owner, $repo, 'push_mirrors', uri_escape($name)));
+    $self->client->delete($self->_repo_path($owner, $repo, 'push_mirrors', escape_component($name)));
     return 1;
 }
 
@@ -276,7 +276,7 @@ L<WWW::Forgejo::Entity::Repo> objects. Croaks without an organization name.
 sub list_for_org {
     my ($self, $org, %params) = @_;
     croak "Organization name required" unless $org;
-    my $data = $self->client->get("/orgs/" . uri_escape($org) . "/repos", params => \%params);
+    my $data = $self->client->get("/orgs/" . escape_component($org) . "/repos", params => \%params);
     return [
         map {
             WWW::Forgejo::Entity::Repo->new(client => $self->client, owner => $org, repo => $_->{name}, data => $_)

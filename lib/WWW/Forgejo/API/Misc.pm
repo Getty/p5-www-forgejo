@@ -8,7 +8,7 @@ package WWW::Forgejo::API::Misc;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -156,7 +156,7 @@ name is required.
 sub settings {
     my ($self, $section) = @_;
     croak "Settings section required (api, attachment, repository or ui)" unless $section;
-    return $self->client->get("/settings/" . uri_escape($section));
+    return $self->client->get("/settings/" . escape_component($section));
 }
 
 =method topics_search

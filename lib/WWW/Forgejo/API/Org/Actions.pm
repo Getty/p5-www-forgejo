@@ -8,7 +8,7 @@ package WWW::Forgejo::API::Org::Actions;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -41,7 +41,7 @@ sub _org_path {
     my ($self, $org, @path) = @_;
     $org = $self->owner unless defined $org && length $org;
     croak "Organization name required" unless defined $org && length $org;
-    return join '/', '/orgs', uri_escape($org), @path;
+    return join '/', '/orgs', escape_component($org), @path;
 }
 
 =method list_secrets
@@ -71,7 +71,7 @@ The hashref is sent as the JSON body; the API expects the value in C<data>.
 sub set_secret {
     my ($self, $org, $secret_name, $data) = @_;
     croak "Secret name required" unless defined $secret_name && length $secret_name;
-    return $self->client->put($self->_org_path($org, 'actions', 'secrets', uri_escape($secret_name)), $data);
+    return $self->client->put($self->_org_path($org, 'actions', 'secrets', escape_component($secret_name)), $data);
 }
 
 =method delete_secret
@@ -85,7 +85,7 @@ Delete a secret.
 sub delete_secret {
     my ($self, $org, $secret_name) = @_;
     croak "Secret name required" unless defined $secret_name && length $secret_name;
-    return $self->client->delete($self->_org_path($org, 'actions', 'secrets', uri_escape($secret_name)));
+    return $self->client->delete($self->_org_path($org, 'actions', 'secrets', escape_component($secret_name)));
 }
 
 =method list_variables
@@ -113,7 +113,7 @@ Get a specific variable.
 sub get_variable {
     my ($self, $org, $var_name) = @_;
     croak "Var name required" unless defined $var_name && length $var_name;
-    return $self->client->get($self->_org_path($org, 'actions', 'variables', uri_escape($var_name)));
+    return $self->client->get($self->_org_path($org, 'actions', 'variables', escape_component($var_name)));
 }
 
 =method create_variable
@@ -128,7 +128,7 @@ The hashref is sent as the JSON body; the API expects the value in C<value>.
 sub create_variable {
     my ($self, $org, $var_name, $data) = @_;
     croak "Var name required" unless defined $var_name && length $var_name;
-    return $self->client->post($self->_org_path($org, 'actions', 'variables', uri_escape($var_name)), $data);
+    return $self->client->post($self->_org_path($org, 'actions', 'variables', escape_component($var_name)), $data);
 }
 
 =method set_variable
@@ -144,7 +144,7 @@ JSON body.
 sub set_variable {
     my ($self, $org, $var_name, $data) = @_;
     croak "Var name required" unless defined $var_name && length $var_name;
-    return $self->client->put($self->_org_path($org, 'actions', 'variables', uri_escape($var_name)), $data);
+    return $self->client->put($self->_org_path($org, 'actions', 'variables', escape_component($var_name)), $data);
 }
 
 =method delete_variable
@@ -158,7 +158,7 @@ Delete a variable.
 sub delete_variable {
     my ($self, $org, $var_name) = @_;
     croak "Var name required" unless defined $var_name && length $var_name;
-    return $self->client->delete($self->_org_path($org, 'actions', 'variables', uri_escape($var_name)));
+    return $self->client->delete($self->_org_path($org, 'actions', 'variables', escape_component($var_name)));
 }
 
 =method list_runners
@@ -186,7 +186,7 @@ Get a specific runner.
 sub get_runner {
     my ($self, $org, $runner_id) = @_;
     croak "Runner ID required" unless defined $runner_id && length $runner_id;
-    return $self->client->get($self->_org_path($org, 'actions', 'runners', uri_escape($runner_id)));
+    return $self->client->get($self->_org_path($org, 'actions', 'runners', escape_component($runner_id)));
 }
 
 =method delete_runner
@@ -200,7 +200,7 @@ Delete a runner.
 sub delete_runner {
     my ($self, $org, $runner_id) = @_;
     croak "Runner ID required" unless defined $runner_id && length $runner_id;
-    return $self->client->delete($self->_org_path($org, 'actions', 'runners', uri_escape($runner_id)));
+    return $self->client->delete($self->_org_path($org, 'actions', 'runners', escape_component($runner_id)));
 }
 
 =method runner_registration_token

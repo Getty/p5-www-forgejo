@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Issues;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::Issue;
 use WWW::Forgejo::Entity::IssueComment;
 use namespace::clean;
@@ -36,7 +36,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -82,7 +82,7 @@ Get an issue by its index.
 
 sub get {
     my ($self, $index) = @_;
-    return $self->_issue($self->client->get($self->_path_for(uri_escape($index))));
+    return $self->_issue($self->client->get($self->_path_for(escape_component($index))));
 }
 
 =method create
@@ -108,7 +108,7 @@ Edit an issue.
 
 sub edit {
     my ($self, $index, $data) = @_;
-    return $self->_issue($self->client->patch($self->_path_for(uri_escape($index)), $data));
+    return $self->_issue($self->client->patch($self->_path_for(escape_component($index)), $data));
 }
 
 =method update
@@ -129,7 +129,7 @@ Delete an issue. Returns true.
 
 sub delete {
     my ($self, $index) = @_;
-    $self->client->delete($self->_path_for(uri_escape($index)));
+    $self->client->delete($self->_path_for(escape_component($index)));
     return 1;
 }
 
@@ -144,7 +144,7 @@ Named arguments are sent as the query string (C<since>, C<before>).
 
 sub list_comments {
     my ($self, $index, %params) = @_;
-    my $data = $self->client->get($self->_path_for(uri_escape($index), 'comments'), params => \%params);
+    my $data = $self->client->get($self->_path_for(escape_component($index), 'comments'), params => \%params);
     return map {
         WWW::Forgejo::Entity::IssueComment->new(
             client => $self->client,
@@ -174,7 +174,7 @@ structure.
 
 sub add_comment {
     my ($self, $index, $data) = @_;
-    return $self->client->post($self->_path_for(uri_escape($index), 'comments'), $data);
+    return $self->client->post($self->_path_for(escape_component($index), 'comments'), $data);
 }
 
 =method list_labels
@@ -187,7 +187,7 @@ List the labels of an issue, as plain label structures.
 
 sub list_labels {
     my ($self, $index) = @_;
-    my $data = $self->client->get($self->_path_for(uri_escape($index), 'labels'));
+    my $data = $self->client->get($self->_path_for(escape_component($index), 'labels'));
     return @$data;
 }
 
@@ -209,7 +209,7 @@ Add labels to an issue. Returns the labels the issue then has.
 
 sub add_label {
     my ($self, $index, $data) = @_;
-    return $self->client->post($self->_path_for(uri_escape($index), 'labels'), $data);
+    return $self->client->post($self->_path_for(escape_component($index), 'labels'), $data);
 }
 
 =method remove_label
@@ -222,7 +222,7 @@ Remove one label, given by its ID or name, from an issue. Returns true.
 
 sub remove_label {
     my ($self, $index, $label) = @_;
-    $self->client->delete($self->_path_for(uri_escape($index), 'labels', uri_escape($label)));
+    $self->client->delete($self->_path_for(escape_component($index), 'labels', escape_component($label)));
     return 1;
 }
 

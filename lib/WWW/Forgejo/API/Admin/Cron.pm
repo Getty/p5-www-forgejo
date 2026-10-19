@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Admin::Cron;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -44,7 +44,7 @@ Run a cron task (C<POST /admin/cron/{task}>).
 
 sub run {
     my ($self, $task) = @_;
-    return $self->client->post('/admin/cron/' . uri_escape($task));
+    return $self->client->post('/admin/cron/' . escape_component($task));
 }
 
 1;

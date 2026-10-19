@@ -8,7 +8,7 @@ package WWW::Forgejo::API::Users;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -24,7 +24,7 @@ The L<WWW::Forgejo> client the requests are sent through. Required.
 sub _user_path {
     my ($self, $username, @path) = @_;
     croak "Username required" unless defined $username && length $username;
-    return join '/', '/users', uri_escape($username), @path;
+    return join '/', '/users', escape_component($username), @path;
 }
 
 =method search

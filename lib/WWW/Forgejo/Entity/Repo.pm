@@ -9,7 +9,7 @@ package WWW::Forgejo::Entity::Repo;
 use Moo;
 extends 'WWW::Forgejo::Entity';
 use JSON::MaybeXS qw(encode_json);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::API::Repo::Branches;
 use WWW::Forgejo::API::Repo::BranchProtections;
 use WWW::Forgejo::API::Repo::Tags;
@@ -203,7 +203,7 @@ The L<WWW::Forgejo::API::Repo::Statuses> controller for this repository. Built l
 
 sub _path {
     my ($self) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo);
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo);
 }
 
 =method update

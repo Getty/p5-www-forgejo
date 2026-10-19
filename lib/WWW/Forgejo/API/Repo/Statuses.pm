@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Statuses;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::CommitStatus;
 use namespace::clean;
 
@@ -35,7 +35,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -66,7 +66,7 @@ C<limit>).
 
 sub list {
     my ($self, $sha, %params) = @_;
-    my $data = $self->client->get($self->_path_for(uri_escape($sha)), params => \%params);
+    my $data = $self->client->get($self->_path_for(escape_component($sha)), params => \%params);
     return map { $self->_status($_) } @$data;
 }
 
@@ -80,7 +80,7 @@ Create a status for a commit. Returns the L<WWW::Forgejo::Entity::CommitStatus>.
 
 sub create {
     my ($self, $sha, $data) = @_;
-    return $self->_status($self->client->post($self->_path_for(uri_escape($sha)), $data));
+    return $self->_status($self->client->post($self->_path_for(escape_component($sha)), $data));
 }
 
 =method combined
@@ -100,7 +100,7 @@ sub combined {
     my ($self, $ref, %params) = @_;
     return $self->client->get(
         # {ref} is one path segment: a slash in a branch name goes as %2F.
-        $self->_repo_path('commits', uri_escape($ref), 'status'),
+        $self->_repo_path('commits', escape_component($ref), 'status'),
         params => \%params,
     );
 }

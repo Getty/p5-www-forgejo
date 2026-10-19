@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Admin::Users;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -65,7 +65,7 @@ pairs are sent as the JSON body.
 
 sub edit {
     my ($self, $username, %params) = @_;
-    return $self->client->patch('/admin/users/' . uri_escape($username), \%params);
+    return $self->client->patch('/admin/users/' . escape_component($username), \%params);
 }
 
 =method delete
@@ -79,7 +79,7 @@ Delete a user. Named arguments are sent as the query string of the request.
 
 sub delete {
     my ($self, $username, %params) = @_;
-    return $self->client->delete('/admin/users/' . uri_escape($username), undef, params => \%params);
+    return $self->client->delete('/admin/users/' . escape_component($username), undef, params => \%params);
 }
 
 =method rename
@@ -92,7 +92,7 @@ Rename a user (C<POST /admin/users/{username}/rename>).
 
 sub rename {
     my ($self, $username, $new_username) = @_;
-    return $self->client->post('/admin/users/' . uri_escape($username) . '/rename', { new_username => $new_username });
+    return $self->client->post('/admin/users/' . escape_component($username) . '/rename', { new_username => $new_username });
 }
 
 =method list_emails
@@ -105,7 +105,7 @@ List the email addresses of a user.
 
 sub list_emails {
     my ($self, $username) = @_;
-    return $self->client->get('/admin/users/' . uri_escape($username) . '/emails');
+    return $self->client->get('/admin/users/' . escape_component($username) . '/emails');
 }
 
 =method delete_email
@@ -119,7 +119,7 @@ Delete one or more email addresses of a user (C<DELETE
 
 sub delete_email {
     my ($self, $username, @emails) = @_;
-    return $self->client->delete('/admin/users/' . uri_escape($username) . '/emails', { emails => \@emails });
+    return $self->client->delete('/admin/users/' . escape_component($username) . '/emails', { emails => \@emails });
 }
 
 =method search_emails
@@ -147,7 +147,7 @@ Add a public key to a user. The key/value pairs are sent as the JSON body.
 
 sub add_key {
     my ($self, $username, %params) = @_;
-    return $self->client->post('/admin/users/' . uri_escape($username) . '/keys', \%params);
+    return $self->client->post('/admin/users/' . escape_component($username) . '/keys', \%params);
 }
 
 =method delete_key
@@ -160,7 +160,7 @@ Delete a public key from a user.
 
 sub delete_key {
     my ($self, $username, $key_id) = @_;
-    return $self->client->delete('/admin/users/' . uri_escape($username) . '/keys/' . uri_escape($key_id));
+    return $self->client->delete('/admin/users/' . escape_component($username) . '/keys/' . escape_component($key_id));
 }
 
 =method create_org_for
@@ -174,7 +174,7 @@ organization. The key/value pairs are sent as the JSON body.
 
 sub create_org_for {
     my ($self, $username, %params) = @_;
-    return $self->client->post('/admin/users/' . uri_escape($username) . '/orgs', \%params);
+    return $self->client->post('/admin/users/' . escape_component($username) . '/orgs', \%params);
 }
 
 =method create_repo_for
@@ -188,7 +188,7 @@ body.
 
 sub create_repo_for {
     my ($self, $username, %params) = @_;
-    return $self->client->post('/admin/users/' . uri_escape($username) . '/repos', \%params);
+    return $self->client->post('/admin/users/' . escape_component($username) . '/repos', \%params);
 }
 
 =method quota
@@ -201,7 +201,7 @@ Get quota information for a user.
 
 sub quota {
     my ($self, $username) = @_;
-    return $self->client->get('/admin/users/' . uri_escape($username) . '/quota');
+    return $self->client->get('/admin/users/' . escape_component($username) . '/quota');
 }
 
 =method set_quota_groups
@@ -215,7 +215,7 @@ Set the quota groups of a user to the given list (C<POST
 
 sub set_quota_groups {
     my ($self, $username, @groups) = @_;
-    return $self->client->post('/admin/users/' . uri_escape($username) . '/quota/groups', { groups => \@groups });
+    return $self->client->post('/admin/users/' . escape_component($username) . '/quota/groups', { groups => \@groups });
 }
 
 1;

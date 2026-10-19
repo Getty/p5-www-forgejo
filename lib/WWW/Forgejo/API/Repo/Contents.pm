@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Contents;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use Carp qw(croak);
 use namespace::clean;
 
@@ -35,7 +35,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -46,7 +46,7 @@ sub _path_for {
 # A file path keeps its slashes; every segment between them is escaped.
 sub _file_path {
     my ($self, $path) = @_;
-    return map { uri_escape($_) } grep { length } split m{/}, $path // '';
+    return map { escape_component($_) } grep { length } split m{/}, $path // '';
 }
 
 =method get

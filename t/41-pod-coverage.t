@@ -37,7 +37,8 @@ sub slurp {
 }
 
 # name => 'method' | 'attr' | 'required', from the POD. A role lists what it
-# requires of its consumer below a =head1 REQUIRED ... heading.
+# requires of its consumer below a =head1 REQUIRED ... heading. A =func is an
+# exported function, public API of its module like a method.
 sub documented {
     my ($src) = @_;
     my (%doc, $section);
@@ -45,8 +46,8 @@ sub documented {
         if ($line =~ /^=head1\s+(.+?)\s*$/) {
             $section = $1;
         }
-        elsif ($line =~ /^=(method|attr)\s+(\w+)/) {
-            $doc{$2} = $1;
+        elsif ($line =~ /^=(method|attr|func)\s+(\w+)/) {
+            $doc{$2} = $1 eq 'func' ? 'method' : $1;
             $section = undef;    # a directive block is not part of the section before it
         }
         elsif (defined $section && $section =~ /^REQUIRED /) {
@@ -137,7 +138,7 @@ for my $file (sort @files) {
     subtest "$module: POD syntax" => sub {
         # podchecker does not know the weaver directives; give it what the
         # weaver makes of them.
-        (my $pod = $src) =~ s/^=(?:method|attr)\b/=head2/mg;
+        (my $pod = $src) =~ s/^=(?:method|attr|func)\b/=head2/mg;
         my $report = "";
         open my $in,  "<", \$pod    or die $!;
         open my $out, ">", \$report or die $!;

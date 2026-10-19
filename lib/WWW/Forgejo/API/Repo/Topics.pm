@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Topics;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -34,7 +34,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -67,7 +67,7 @@ Add one topic to the repository, keeping the others.
 
 sub add {
     my ($self, $topic) = @_;
-    $self->client->put($self->_path_for(uri_escape($topic)));
+    $self->client->put($self->_path_for(escape_component($topic)));
     return;
 }
 
@@ -95,7 +95,7 @@ Remove one topic from the repository.
 
 sub remove {
     my ($self, $topic) = @_;
-    $self->client->delete($self->_path_for(uri_escape($topic)));
+    $self->client->delete($self->_path_for(escape_component($topic)));
     return;
 }
 

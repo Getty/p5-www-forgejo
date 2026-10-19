@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::PullRequests;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::PullRequest;
 use WWW::Forgejo::Entity::PullRequestReview;
 use namespace::clean;
@@ -36,7 +36,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -81,7 +81,7 @@ Get a pull request by its index.
 
 sub get {
     my ($self, $index) = @_;
-    return $self->_to_pr($self->client->get($self->_path_for(uri_escape($index))));
+    return $self->_to_pr($self->client->get($self->_path_for(escape_component($index))));
 }
 
 =method create
@@ -109,7 +109,7 @@ C<< state => 'closed' >> is the way to retire one.
 
 sub edit {
     my ($self, $index, $data) = @_;
-    return $self->_to_pr($self->client->patch($self->_path_for(uri_escape($index)), $data));
+    return $self->_to_pr($self->client->patch($self->_path_for(escape_component($index)), $data));
 }
 
 =method update
@@ -132,7 +132,7 @@ C<manually-merged>.
 
 sub merge {
     my ($self, $index, $data) = @_;
-    return $self->client->post($self->_path_for(uri_escape($index), 'merge'), $data);
+    return $self->client->post($self->_path_for(escape_component($index), 'merge'), $data);
 }
 
 =method is_merged
@@ -146,7 +146,7 @@ answers this with its status code only.
 
 sub is_merged {
     my ($self, $index) = @_;
-    return $self->client->check($self->_path_for(uri_escape($index), 'merge'));
+    return $self->client->check($self->_path_for(escape_component($index), 'merge'));
 }
 
 =method reviews
@@ -160,7 +160,7 @@ objects. Named arguments are sent as the query string.
 
 sub reviews {
     my ($self, $index, %params) = @_;
-    my $data = $self->client->get($self->_path_for(uri_escape($index), 'reviews'), params => \%params);
+    my $data = $self->client->get($self->_path_for(escape_component($index), 'reviews'), params => \%params);
     return map {
         WWW::Forgejo::Entity::PullRequestReview->new(
             client => $self->client,
@@ -181,7 +181,7 @@ Create a review on a pull request. Returns the plain review structure.
 
 sub create_review {
     my ($self, $index, $data) = @_;
-    return $self->client->post($self->_path_for(uri_escape($index), 'reviews'), $data);
+    return $self->client->post($self->_path_for(escape_component($index), 'reviews'), $data);
 }
 
 1;

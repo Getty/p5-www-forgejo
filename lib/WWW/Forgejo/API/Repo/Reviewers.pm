@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Reviewers;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -34,7 +34,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -80,7 +80,7 @@ resulting review structures.
 sub add {
     my ($self, $index, $reviewers, $team_reviewers) = @_;
     return $self->client->post(
-        $self->_repo_path('pulls', uri_escape($index), 'requested_reviewers'),
+        $self->_repo_path('pulls', escape_component($index), 'requested_reviewers'),
         $self->_request_body($reviewers, $team_reviewers),
     );
 }
@@ -98,7 +98,7 @@ L</add>; they are sent as the JSON body of the request.
 sub remove {
     my ($self, $index, $reviewers, $team_reviewers) = @_;
     $self->client->delete(
-        $self->_repo_path('pulls', uri_escape($index), 'requested_reviewers'),
+        $self->_repo_path('pulls', escape_component($index), 'requested_reviewers'),
         $self->_request_body($reviewers, $team_reviewers),
     );
     return;

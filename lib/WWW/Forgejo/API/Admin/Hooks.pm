@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Admin::Hooks;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -46,7 +46,7 @@ Get a specific hook by ID.
 
 sub get {
     my ($self, $id) = @_;
-    return $self->client->get('/admin/hooks/' . uri_escape($id));
+    return $self->client->get('/admin/hooks/' . escape_component($id));
 }
 
 =method create
@@ -77,7 +77,7 @@ sent as the JSON body.
 
 sub edit {
     my ($self, $id, %params) = @_;
-    return $self->client->patch('/admin/hooks/' . uri_escape($id), \%params);
+    return $self->client->patch('/admin/hooks/' . escape_component($id), \%params);
 }
 
 =method delete
@@ -90,7 +90,7 @@ Delete a hook.
 
 sub delete {
     my ($self, $id) = @_;
-    return $self->client->delete('/admin/hooks/' . uri_escape($id));
+    return $self->client->delete('/admin/hooks/' . escape_component($id));
 }
 
 1;

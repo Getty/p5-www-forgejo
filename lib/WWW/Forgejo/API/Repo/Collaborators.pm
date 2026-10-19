@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Collaborators;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::Collaborator;
 use namespace::clean;
 
@@ -35,7 +35,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -76,7 +76,7 @@ false; the API answers this with its status code only.
 
 sub check {
     my ($self, $username) = @_;
-    return $self->client->check($self->_path_for(uri_escape($username)));
+    return $self->client->check($self->_path_for(escape_component($username)));
 }
 
 =method add
@@ -91,7 +91,7 @@ back.
 
 sub add {
     my ($self, $username, $data) = @_;
-    $self->client->put($self->_path_for(uri_escape($username)), $data);
+    $self->client->put($self->_path_for(escape_component($username)), $data);
     return 1;
 }
 
@@ -105,7 +105,7 @@ Remove a collaborator.
 
 sub remove {
     my ($self, $username) = @_;
-    return $self->client->delete($self->_path_for(uri_escape($username)));
+    return $self->client->delete($self->_path_for(escape_component($username)));
 }
 
 =method permission
@@ -120,7 +120,7 @@ C<role_name> and C<user>.
 
 sub permission {
     my ($self, $username) = @_;
-    return $self->client->get($self->_path_for(uri_escape($username), 'permission'));
+    return $self->client->get($self->_path_for(escape_component($username), 'permission'));
 }
 
 1;

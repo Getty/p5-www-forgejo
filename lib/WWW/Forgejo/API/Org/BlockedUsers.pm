@@ -8,7 +8,7 @@ package WWW::Forgejo::API::Org::BlockedUsers;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -41,7 +41,7 @@ sub _org_path {
     my ($self, $org, @path) = @_;
     $org = $self->owner unless defined $org && length $org;
     croak "Organization name required" unless defined $org && length $org;
-    return join '/', '/orgs', uri_escape($org), @path;
+    return join '/', '/orgs', escape_component($org), @path;
 }
 
 =method list
@@ -70,7 +70,7 @@ Block a user from the organization (C<PUT /orgs/{org}/block/{username}>).
 sub block {
     my ($self, $org, $username) = @_;
     croak "Username required" unless defined $username && length $username;
-    return $self->client->put($self->_org_path($org, 'block', uri_escape($username)));
+    return $self->client->put($self->_org_path($org, 'block', escape_component($username)));
 }
 
 =method unblock
@@ -84,7 +84,7 @@ Unblock a user (C<PUT /orgs/{org}/unblock/{username}>).
 sub unblock {
     my ($self, $org, $username) = @_;
     croak "Username required" unless defined $username && length $username;
-    return $self->client->put($self->_org_path($org, 'unblock', uri_escape($username)));
+    return $self->client->put($self->_org_path($org, 'unblock', escape_component($username)));
 }
 
 1;

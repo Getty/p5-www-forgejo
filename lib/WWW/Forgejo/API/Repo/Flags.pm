@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Flags;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -34,7 +34,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -66,7 +66,7 @@ Add a flag to the repository.
 
 sub add {
     my ($self, $flag) = @_;
-    $self->client->put($self->_path_for(uri_escape($flag)));
+    $self->client->put($self->_path_for(escape_component($flag)));
     return;
 }
 
@@ -80,7 +80,7 @@ Remove a flag from the repository.
 
 sub remove {
     my ($self, $flag) = @_;
-    $self->client->delete($self->_path_for(uri_escape($flag)));
+    $self->client->delete($self->_path_for(escape_component($flag)));
     return;
 }
 
@@ -94,7 +94,7 @@ Whether the repository has the given flag.
 
 sub check {
     my ($self, $flag) = @_;
-    return $self->client->check($self->_path_for(uri_escape($flag)));
+    return $self->client->check($self->_path_for(escape_component($flag)));
 }
 
 =method replace

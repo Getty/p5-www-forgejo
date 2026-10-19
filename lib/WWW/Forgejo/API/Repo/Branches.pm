@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Branches;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::Branch;
 use namespace::clean;
 
@@ -35,7 +35,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -79,7 +79,7 @@ Get a specific branch as a L<WWW::Forgejo::Entity::Branch>.
 
 sub get {
     my ($self, $branch) = @_;
-    return $self->_branch($self->client->get($self->_path_for(uri_escape($branch))));
+    return $self->_branch($self->client->get($self->_path_for(escape_component($branch))));
 }
 
 =method create
@@ -113,7 +113,7 @@ themselves have no operations for them.
 
 sub delete {
     my ($self, $branch) = @_;
-    return $self->client->delete($self->_path_for(uri_escape($branch)));
+    return $self->client->delete($self->_path_for(escape_component($branch)));
 }
 
 =method rename
@@ -127,7 +127,7 @@ true.
 
 sub rename {
     my ($self, $branch, $new_name) = @_;
-    $self->client->patch($self->_path_for(uri_escape($branch)), { name => $new_name });
+    $self->client->patch($self->_path_for(escape_component($branch)), { name => $new_name });
     return 1;
 }
 

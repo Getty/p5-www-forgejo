@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::ActivityPub;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -31,7 +31,7 @@ The user is addressed by numeric ID.
 
 sub actor {
     my ($self, $user_id) = @_;
-    return $self->client->get("/activitypub/user-id/" . uri_escape($user_id));
+    return $self->client->get("/activitypub/user-id/" . escape_component($user_id));
 }
 
 =method inbox
@@ -46,7 +46,7 @@ body.
 
 sub inbox {
     my ($self, $user_id, $activity) = @_;
-    return $self->client->post("/activitypub/user-id/" . uri_escape($user_id) . "/inbox", $activity);
+    return $self->client->post("/activitypub/user-id/" . escape_component($user_id) . "/inbox", $activity);
 }
 
 =method outbox
@@ -60,7 +60,7 @@ Get the ActivityPub outbox of a user
 
 sub outbox {
     my ($self, $user_id) = @_;
-    return $self->client->get("/activitypub/user-id/" . uri_escape($user_id) . "/outbox");
+    return $self->client->get("/activitypub/user-id/" . escape_component($user_id) . "/outbox");
 }
 
 1;

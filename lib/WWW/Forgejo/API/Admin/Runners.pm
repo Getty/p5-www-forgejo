@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Admin::Runners;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -44,7 +44,7 @@ Get a specific runner by ID.
 
 sub get {
     my ($self, $runner_id) = @_;
-    return $self->client->get('/admin/actions/runners/' . uri_escape($runner_id));
+    return $self->client->get('/admin/actions/runners/' . escape_component($runner_id));
 }
 
 =method delete
@@ -57,7 +57,7 @@ Delete a runner.
 
 sub delete {
     my ($self, $runner_id) = @_;
-    return $self->client->delete('/admin/actions/runners/' . uri_escape($runner_id));
+    return $self->client->delete('/admin/actions/runners/' . escape_component($runner_id));
 }
 
 =method registration_token

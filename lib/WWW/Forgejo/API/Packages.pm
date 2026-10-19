@@ -8,7 +8,7 @@ package WWW::Forgejo::API::Packages;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -23,7 +23,7 @@ The L<WWW::Forgejo> client the requests are sent through. Required.
 
 sub _package_path {
     my ($self, $owner, $type, $name, $version, @path) = @_;
-    return join '/', '/packages', map { uri_escape($_) } $owner, $type, $name, $version, @path;
+    return join '/', '/packages', map { escape_component($_) } $owner, $type, $name, $version, @path;
 }
 
 =method list
@@ -39,7 +39,7 @@ arguments are sent as the query string of the request.
 sub list {
     my ($self, $owner, %params) = @_;
     croak "Package owner required" unless defined $owner && length $owner;
-    return $self->client->get("/packages/" . uri_escape($owner), params => \%params);
+    return $self->client->get("/packages/" . escape_component($owner), params => \%params);
 }
 
 =method get

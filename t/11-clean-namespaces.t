@@ -32,6 +32,10 @@ for my $module (sort @modules) {
     my @leaked = grep { $module->can($_) }
         qw(croak carp uri_escape encode_json decode_json has extends with requires around
            before after DEFAULT_MAX_PAGES);
+    # The escaping helper is exported by its own module; everywhere else it is
+    # an import and must not survive as a method.
+    push @leaked, 'escape_component'
+        if $module ne 'WWW::Forgejo::URL' && $module->can('escape_component');
     is_deeply(\@leaked, [], "$module leaks no imported functions as methods");
 }
 

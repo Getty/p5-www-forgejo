@@ -8,7 +8,7 @@ package WWW::Forgejo::API::Teams;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::Team;
 use namespace::clean;
 
@@ -30,7 +30,7 @@ sub _team {
 sub _team_path {
     my ($self, $team_id, @path) = @_;
     croak "Team ID required" unless $team_id;
-    return join '/', '/teams', uri_escape($team_id), @path;
+    return join '/', '/teams', escape_component($team_id), @path;
 }
 
 =method get
@@ -66,7 +66,7 @@ sub create {
     croak "Team name required" unless $params{name};
     my $org = delete $params{org};
     croak "Organization name required" unless $org;
-    return $self->_team($self->client->post("/orgs/" . uri_escape($org) . "/teams", \%params));
+    return $self->_team($self->client->post("/orgs/" . escape_component($org) . "/teams", \%params));
 }
 
 =method edit
@@ -121,7 +121,7 @@ Add a member to a team.
 sub add_member {
     my ($self, $team_id, $username) = @_;
     croak "Username required" unless $username;
-    return $self->client->put($self->_team_path($team_id, 'members', uri_escape($username)));
+    return $self->client->put($self->_team_path($team_id, 'members', escape_component($username)));
 }
 
 =method remove_member
@@ -135,7 +135,7 @@ Remove a member from a team.
 sub remove_member {
     my ($self, $team_id, $username) = @_;
     croak "Username required" unless $username;
-    return $self->client->delete($self->_team_path($team_id, 'members', uri_escape($username)));
+    return $self->client->delete($self->_team_path($team_id, 'members', escape_component($username)));
 }
 
 =method list_repos
@@ -164,7 +164,7 @@ sub add_repo {
     my ($self, $team_id, $org, $repo) = @_;
     croak "Organization name required" unless $org;
     croak "Repository name required" unless $repo;
-    return $self->client->put($self->_team_path($team_id, 'repos', uri_escape($org), uri_escape($repo)));
+    return $self->client->put($self->_team_path($team_id, 'repos', escape_component($org), escape_component($repo)));
 }
 
 =method remove_repo
@@ -179,7 +179,7 @@ sub remove_repo {
     my ($self, $team_id, $org, $repo) = @_;
     croak "Organization name required" unless $org;
     croak "Repository name required" unless $repo;
-    return $self->client->delete($self->_team_path($team_id, 'repos', uri_escape($org), uri_escape($repo)));
+    return $self->client->delete($self->_team_path($team_id, 'repos', escape_component($org), escape_component($repo)));
 }
 
 1;

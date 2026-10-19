@@ -9,7 +9,7 @@ use WWW::Forgejo::LWPIO;
 use JSON::MaybeXS qw(decode_json encode_json);
 use Encode ();
 use HTTP::Request::Common ();
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use Carp qw(croak);
 use Log::Any qw($log);
 use constant DEFAULT_MAX_PAGES => 100;
@@ -43,6 +43,12 @@ controllers send all their requests through these methods.
 Paths are relative to C<base_url>, e.g. C</user> or C</repos/owner/name>.
 Requests are authenticated with an C<Authorization: token ...> header and carry
 C<Content-Type: application/json>.
+
+Path segments and query keys and values are percent-encoded by
+L<WWW::Forgejo::URL>, which encodes the text as UTF-8 before escaping it. The
+contract is: callers pass decoded text - characters, not percent-encoded text -
+and encode every part exactly once. The controllers escape each part of the
+path they build, and the request builder passes the finished path on unchanged.
 
 A response body that is a JSON object or array is decoded and returned as Perl
 data. Any other non-empty body (rendered HTML, an armored key) is returned as a
@@ -408,7 +414,7 @@ sub _build_request {
         for my $k (sort keys %{$opts{params}}) {
             my $v = $opts{params}{$k};
             next unless defined $v;
-            push @pairs, uri_escape($k) . '=' . uri_escape($v);
+            push @pairs, escape_component($k) . '=' . escape_component($v);
         }
         $url .= '?' . join('&', @pairs) if @pairs;
     }

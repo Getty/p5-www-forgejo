@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Releases;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::Release;
 use WWW::Forgejo::Entity::ReleaseAsset;
 use namespace::clean;
@@ -36,7 +36,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -91,7 +91,7 @@ Get a release by ID.
 
 sub get {
     my ($self, $id) = @_;
-    return $self->_release($self->client->get($self->_path_for(uri_escape($id))));
+    return $self->_release($self->client->get($self->_path_for(escape_component($id))));
 }
 
 =method get_by_tag
@@ -104,7 +104,7 @@ Get a release by the name of its tag.
 
 sub get_by_tag {
     my ($self, $tag) = @_;
-    return $self->_release($self->client->get($self->_path_for('tags', uri_escape($tag))));
+    return $self->_release($self->client->get($self->_path_for('tags', escape_component($tag))));
 }
 
 =method latest
@@ -144,7 +144,7 @@ Edit a release.
 
 sub edit {
     my ($self, $id, $data) = @_;
-    return $self->_release($self->client->patch($self->_path_for(uri_escape($id)), $data));
+    return $self->_release($self->client->patch($self->_path_for(escape_component($id)), $data));
 }
 
 =method update
@@ -165,7 +165,7 @@ Delete a release. Returns true.
 
 sub delete {
     my ($self, $id) = @_;
-    $self->client->delete($self->_path_for(uri_escape($id)));
+    $self->client->delete($self->_path_for(escape_component($id)));
     return 1;
 }
 
@@ -179,7 +179,7 @@ Delete the release that belongs to a tag. Returns true.
 
 sub delete_by_tag {
     my ($self, $tag) = @_;
-    $self->client->delete($self->_path_for('tags', uri_escape($tag)));
+    $self->client->delete($self->_path_for('tags', escape_component($tag)));
     return 1;
 }
 
@@ -194,7 +194,7 @@ objects.
 
 sub assets {
     my ($self, $id) = @_;
-    my $data = $self->client->get($self->_path_for(uri_escape($id), 'assets'));
+    my $data = $self->client->get($self->_path_for(escape_component($id), 'assets'));
     return map { $self->_asset($_) } @$data;
 }
 
@@ -223,7 +223,7 @@ sub upload_asset {
     my ($self, $id, %upload) = @_;
     my $name = delete $upload{name};
     my $data = $self->client->post(
-        $self->_path_for(uri_escape($id), 'assets'), undef,
+        $self->_path_for(escape_component($id), 'assets'), undef,
         params => { name => $name },
         upload => \%upload,
     );
@@ -240,7 +240,7 @@ Get one attachment of a release as L<WWW::Forgejo::Entity::ReleaseAsset>.
 
 sub get_asset {
     my ($self, $id, $asset_id) = @_;
-    return $self->_asset($self->client->get($self->_path_for(uri_escape($id), 'assets', uri_escape($asset_id))));
+    return $self->_asset($self->client->get($self->_path_for(escape_component($id), 'assets', escape_component($asset_id))));
 }
 
 =method edit_asset
@@ -256,7 +256,7 @@ L<WWW::Forgejo::Entity::ReleaseAsset>.
 sub edit_asset {
     my ($self, $id, $asset_id, $data) = @_;
     return $self->_asset(
-        $self->client->patch($self->_path_for(uri_escape($id), 'assets', uri_escape($asset_id)), $data));
+        $self->client->patch($self->_path_for(escape_component($id), 'assets', escape_component($asset_id)), $data));
 }
 
 =method delete_asset
@@ -269,7 +269,7 @@ Delete an attachment of a release. Returns true.
 
 sub delete_asset {
     my ($self, $id, $asset_id) = @_;
-    $self->client->delete($self->_path_for(uri_escape($id), 'assets', uri_escape($asset_id)));
+    $self->client->delete($self->_path_for(escape_component($id), 'assets', escape_component($asset_id)));
     return 1;
 }
 

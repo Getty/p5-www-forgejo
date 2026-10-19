@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Wiki;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -34,7 +34,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -68,7 +68,7 @@ C<sub_url> of the page (C<Page-Title> for the title C<Page Title>).
 
 sub get_page {
     my ($self, $page_name) = @_;
-    return $self->client->get($self->_path_for('page', uri_escape($page_name)));
+    return $self->client->get($self->_path_for('page', escape_component($page_name)));
 }
 
 =method create_page
@@ -103,7 +103,7 @@ C<unnamed>.
 
 sub edit_page {
     my ($self, $page_name, $data) = @_;
-    return $self->client->patch($self->_path_for('page', uri_escape($page_name)), $data);
+    return $self->client->patch($self->_path_for('page', escape_component($page_name)), $data);
 }
 
 =method delete_page
@@ -116,7 +116,7 @@ Delete a wiki page.
 
 sub delete_page {
     my ($self, $page_name) = @_;
-    $self->client->delete($self->_path_for('page', uri_escape($page_name)));
+    $self->client->delete($self->_path_for('page', escape_component($page_name)));
     return;
 }
 

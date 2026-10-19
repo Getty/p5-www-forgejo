@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Hooks;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::Hook;
 use namespace::clean;
 
@@ -35,7 +35,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -78,7 +78,7 @@ Get a specific hook by ID.
 
 sub get {
     my ($self, $id) = @_;
-    return $self->_hook($self->client->get($self->_path_for(uri_escape($id))));
+    return $self->_hook($self->client->get($self->_path_for(escape_component($id))));
 }
 
 =method create
@@ -108,7 +108,7 @@ Update a hook.
 
 sub update {
     my ($self, $id, $data) = @_;
-    return $self->_hook($self->client->patch($self->_path_for(uri_escape($id)), $data));
+    return $self->_hook($self->client->patch($self->_path_for(escape_component($id)), $data));
 }
 
 =method edit
@@ -129,7 +129,7 @@ Delete a hook.
 
 sub delete {
     my ($self, $id) = @_;
-    return $self->client->delete($self->_path_for(uri_escape($id)));
+    return $self->client->delete($self->_path_for(escape_component($id)));
 }
 
 =method test
@@ -145,7 +145,7 @@ the only way the API offers to exercise a hook; it has no separate ping.
 
 sub test {
     my ($self, $id, %params) = @_;
-    return $self->client->post($self->_path_for(uri_escape($id), 'tests'), undef, params => \%params);
+    return $self->client->post($self->_path_for(escape_component($id), 'tests'), undef, params => \%params);
 }
 
 1;

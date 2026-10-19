@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Actions;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::WorkflowRun;
 use WWW::Forgejo::Entity::WorkflowJob;
 use namespace::clean;
@@ -35,7 +35,7 @@ Name of the repository this controller works on. Required.
 
 sub _path_for {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), 'actions', @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), 'actions', @path;
 }
 
 sub _run {
@@ -81,7 +81,7 @@ Get a workflow run by ID as a L<WWW::Forgejo::Entity::WorkflowRun>.
 
 sub get_run {
     my ($self, $run_id) = @_;
-    return $self->_run($self->client->get($self->_path_for('runs', uri_escape($run_id))));
+    return $self->_run($self->client->get($self->_path_for('runs', escape_component($run_id))));
 }
 
 =method get_run_jobs
@@ -96,7 +96,7 @@ C<Forgejo API error: 404 page not found>.
 
 sub get_run_jobs {
     my ($self, $run_id) = @_;
-    my $data = $self->client->get($self->_path_for('runs', uri_escape($run_id), 'jobs'));
+    my $data = $self->client->get($self->_path_for('runs', escape_component($run_id), 'jobs'));
     return map { WWW::Forgejo::Entity::WorkflowJob->new(client => $self->client, data => $_) } @$data;
 }
 
@@ -111,7 +111,7 @@ no such route and croaks with C<Forgejo API error: 404 page not found>.
 
 sub cancel_run {
     my ($self, $run_id) = @_;
-    $self->client->post($self->_path_for('runs', uri_escape($run_id), 'cancel'));
+    $self->client->post($self->_path_for('runs', escape_component($run_id), 'cancel'));
     return 1;
 }
 
@@ -126,7 +126,7 @@ croaks with C<Forgejo API error: 405> (the path exists there for C<GET> only).
 
 sub delete_run {
     my ($self, $run_id) = @_;
-    $self->client->delete($self->_path_for('runs', uri_escape($run_id)));
+    $self->client->delete($self->_path_for('runs', escape_component($run_id)));
     return 1;
 }
 
@@ -154,7 +154,7 @@ Create or update a secret; the API requires C<data>, the value of the secret.
 
 sub set_secret {
     my ($self, $name, $data) = @_;
-    return $self->client->put($self->_path_for('secrets', uri_escape($name)), $data);
+    return $self->client->put($self->_path_for('secrets', escape_component($name)), $data);
 }
 
 =method delete_secret
@@ -167,7 +167,7 @@ Delete a secret.
 
 sub delete_secret {
     my ($self, $name) = @_;
-    $self->client->delete($self->_path_for('secrets', uri_escape($name)));
+    $self->client->delete($self->_path_for('secrets', escape_component($name)));
     return;
 }
 
@@ -195,7 +195,7 @@ Get an action variable by name.
 
 sub get_variable {
     my ($self, $name) = @_;
-    return $self->client->get($self->_path_for('variables', uri_escape($name)));
+    return $self->client->get($self->_path_for('variables', escape_component($name)));
 }
 
 =method create_variable
@@ -208,7 +208,7 @@ Create an action variable; the API requires C<value>.
 
 sub create_variable {
     my ($self, $name, $data) = @_;
-    return $self->client->post($self->_path_for('variables', uri_escape($name)), $data);
+    return $self->client->post($self->_path_for('variables', escape_component($name)), $data);
 }
 
 =method set_variable
@@ -223,7 +223,7 @@ renames it.
 
 sub set_variable {
     my ($self, $name, $data) = @_;
-    return $self->client->put($self->_path_for('variables', uri_escape($name)), $data);
+    return $self->client->put($self->_path_for('variables', escape_component($name)), $data);
 }
 
 =method delete_variable
@@ -236,7 +236,7 @@ Delete an action variable.
 
 sub delete_variable {
     my ($self, $name) = @_;
-    $self->client->delete($self->_path_for('variables', uri_escape($name)));
+    $self->client->delete($self->_path_for('variables', escape_component($name)));
     return;
 }
 

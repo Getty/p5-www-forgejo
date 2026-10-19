@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Admin::Quota;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -43,7 +43,7 @@ Get a specific quota group by name.
 
 sub get_group {
     my ($self, $name) = @_;
-    return $self->client->get('/admin/quota/groups/' . uri_escape($name));
+    return $self->client->get('/admin/quota/groups/' . escape_component($name));
 }
 
 =method create_group
@@ -69,7 +69,7 @@ Delete a quota group.
 
 sub delete_group {
     my ($self, $name) = @_;
-    return $self->client->delete('/admin/quota/groups/' . uri_escape($name));
+    return $self->client->delete('/admin/quota/groups/' . escape_component($name));
 }
 
 1;

@@ -28,7 +28,8 @@ Revision history for WWW-Forgejo
       no reference cycle.
     - WWW::Forgejo::Role::HTTP: get/post/put/patch/delete with token auth, JSON
       encoding/decoding, query parameters on every verb, DELETE with a body,
-      URL-escaped path segments, and a croak carrying status and message on
+      path segments and query values percent-encoded as UTF-8, each part
+      encoded exactly once, and a croak carrying status and message on
       non-2xx and undecodable responses; an empty JSON message or a one-line
       plain-text body (such as "404 page not found") becomes the message of
       the croak, and check croaks on a missing route instead of answering

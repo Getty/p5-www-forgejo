@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::BranchProtections;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use WWW::Forgejo::Entity::BranchProtection;
 use namespace::clean;
 
@@ -35,7 +35,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -78,7 +78,7 @@ Get a specific branch protection by its name.
 
 sub get {
     my ($self, $name) = @_;
-    return $self->_protection($self->client->get($self->_path_for(uri_escape($name))));
+    return $self->_protection($self->client->get($self->_path_for(escape_component($name))));
 }
 
 =method create
@@ -107,7 +107,7 @@ Update a branch protection rule.
 
 sub update {
     my ($self, $name, $data) = @_;
-    return $self->_protection($self->client->patch($self->_path_for(uri_escape($name)), $data));
+    return $self->_protection($self->client->patch($self->_path_for(escape_component($name)), $data));
 }
 
 =method edit
@@ -128,7 +128,7 @@ Delete a branch protection rule.
 
 sub delete {
     my ($self, $name) = @_;
-    return $self->client->delete($self->_path_for(uri_escape($name)));
+    return $self->client->delete($self->_path_for(escape_component($name)));
 }
 
 1;

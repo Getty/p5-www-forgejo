@@ -8,7 +8,7 @@ package WWW::Forgejo::API::Org::Labels;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -41,7 +41,7 @@ sub _org_path {
     my ($self, $org, @path) = @_;
     $org = $self->owner unless defined $org && length $org;
     croak "Organization name required" unless defined $org && length $org;
-    return join '/', '/orgs', uri_escape($org), @path;
+    return join '/', '/orgs', escape_component($org), @path;
 }
 
 =method list
@@ -70,7 +70,7 @@ Get a specific label by ID.
 sub get {
     my ($self, $org, $label_id) = @_;
     croak "Label ID required" unless defined $label_id && length $label_id;
-    return $self->client->get($self->_org_path($org, 'labels', uri_escape($label_id)));
+    return $self->client->get($self->_org_path($org, 'labels', escape_component($label_id)));
 }
 
 =method create
@@ -103,7 +103,7 @@ sent as the JSON body.
 sub edit {
     my ($self, $org, $label_id, %params) = @_;
     croak "Label ID required" unless defined $label_id && length $label_id;
-    return $self->client->patch($self->_org_path($org, 'labels', uri_escape($label_id)), \%params);
+    return $self->client->patch($self->_org_path($org, 'labels', escape_component($label_id)), \%params);
 }
 
 =method delete
@@ -117,7 +117,7 @@ Delete a label.
 sub delete {
     my ($self, $org, $label_id) = @_;
     croak "Label ID required" unless defined $label_id && length $label_id;
-    return $self->client->delete($self->_org_path($org, 'labels', uri_escape($label_id)));
+    return $self->client->delete($self->_org_path($org, 'labels', escape_component($label_id)));
 }
 
 1;

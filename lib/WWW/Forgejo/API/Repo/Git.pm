@@ -7,7 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Repo::Git;
 
 use Moo;
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -34,7 +34,7 @@ Name of the repository this controller works on. Required.
 # /repos/{owner}/{repo}/... of the repository this controller is bound to.
 sub _repo_path {
     my ($self, @path) = @_;
-    return join '/', '/repos', uri_escape($self->owner), uri_escape($self->repo), @path;
+    return join '/', '/repos', escape_component($self->owner), escape_component($self->repo), @path;
 }
 
 sub _path_for {
@@ -71,7 +71,7 @@ L<WWW::Forgejo::API::Repo::Tags>.
 
 sub get_ref {
     my ($self, $ref) = @_;
-    return $self->client->get($self->_path_for('refs', map { uri_escape($_) } split m{/}, $ref));
+    return $self->client->get($self->_path_for('refs', map { escape_component($_) } split m{/}, $ref));
 }
 
 =method get_commit
@@ -85,7 +85,7 @@ C<verification>, C<files>).
 
 sub get_commit {
     my ($self, $sha, %params) = @_;
-    return $self->client->get($self->_path_for('commits', uri_escape($sha)), params => \%params);
+    return $self->client->get($self->_path_for('commits', escape_component($sha)), params => \%params);
 }
 
 =method get_tree
@@ -100,7 +100,7 @@ Get the tree of a commit. Named arguments are sent as the query string
 
 sub get_tree {
     my ($self, $sha, %params) = @_;
-    return $self->client->get($self->_path_for('trees', uri_escape($sha)), params => \%params);
+    return $self->client->get($self->_path_for('trees', escape_component($sha)), params => \%params);
 }
 
 =method get_blob
@@ -113,7 +113,7 @@ Get a blob.
 
 sub get_blob {
     my ($self, $sha) = @_;
-    return $self->client->get($self->_path_for('blobs', uri_escape($sha)));
+    return $self->client->get($self->_path_for('blobs', escape_component($sha)));
 }
 
 1;

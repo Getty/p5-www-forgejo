@@ -8,7 +8,7 @@ package WWW::Forgejo::API::Org::Teams;
 
 use Moo;
 use Carp qw(croak);
-use URI::Escape qw(uri_escape);
+use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -41,7 +41,7 @@ sub _org_path {
     my ($self, $org, @path) = @_;
     $org = $self->owner unless defined $org && length $org;
     croak "Organization name required" unless defined $org && length $org;
-    return join '/', '/orgs', uri_escape($org), @path;
+    return join '/', '/orgs', escape_component($org), @path;
 }
 
 =method list
