@@ -2,12 +2,13 @@ Revision history for WWW-Forgejo
 
 {{$NEXT}}
 
-    - Initial release: synchronous Moo client for the Forgejo REST API (api/v1).
+    - Initial release: synchronous Moo client for the Forgejo REST API
+      (api/v1).
     - WWW::Forgejo: url/token from constructor options or FORGEJO_URL /
       FORGEJO_TOKEN; url is normalised to the /api/v1 base (base_url).
-    - Controllers on the client: misc, users, current_user, repos, orgs, teams,
-      notifications, packages, activitypub and admin (users, hooks, cron,
-      quota, runners). Paths, parameters and request bodies are checked
+    - Controllers on the client: misc, users, current_user, repos, orgs,
+      teams, notifications, packages, activitypub and admin (users, hooks,
+      cron, quota, runners). Paths, parameters and request bodies are checked
       against the official Forgejo swagger spec by the test suite.
     - Per-repository controllers on WWW::Forgejo::Entity::Repo: actions,
       assignees, branches, branch_protections, collaborators, contents, flags,
@@ -28,19 +29,19 @@ Revision history for WWW-Forgejo
       accessors following the swagger response schemas and the full structure
       on ->data. Client chains such as $forgejo->repos->get(...)->issues hold
       no reference cycle.
-    - WWW::Forgejo::Role::HTTP: get/post/put/patch/delete with token auth, JSON
-      encoding/decoding, query parameters on every verb, DELETE with a body,
-      path segments and query values percent-encoded as UTF-8, each part
-      encoded exactly once, and a croak carrying status and message on
+    - WWW::Forgejo::Role::HTTP: get/post/put/patch/delete with token auth,
+      JSON encoding/decoding, query parameters on every verb, DELETE with a
+      body, path segments and query values percent-encoded as UTF-8, each
+      part encoded exactly once, and a croak carrying status and message on
       non-2xx and undecodable responses; an empty JSON message or a one-line
       plain-text body (such as "404 page not found") becomes the message of
       the croak, and check croaks on a missing route instead of answering
       "no". Text bodies are decoded by their declared charset; get takes a
-      raw option that returns the body bytes unchanged. get follows X-Total-Count based
-      auto-pagination (page_size, max_pages) for plain arrays and the search
-      envelope, with the default LWP backend as well. It also paginates the
-      Actions runs envelope (workflow_runs, total from the body's total_count
-      when there is no X-Total-Count header).
+      raw option that returns the body bytes unchanged. get follows
+      X-Total-Count based auto-pagination (page_size, max_pages) for plain
+      arrays and the search envelope, with the default LWP backend as well.
+      It also paginates the Actions runs envelope (workflow_runs, total from
+      the body's total_count when there is no X-Total-Count header).
     - Pluggable transport via WWW::Forgejo::Role::IO; default backend
       WWW::Forgejo::LWPIO (LWP::UserAgent). Transport-independent
       WWW::Forgejo::HTTPRequest / WWW::Forgejo::HTTPResponse value objects,
