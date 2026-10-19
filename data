@@ -1,0 +1,53 @@
+---
+class: standard
+completed: 2026-10-19T22:14:49Z
+created: 2026-10-06T19:48:54Z
+id: 30
+priority: high
+started: 2026-10-19T20:49:12Z
+status: done
+tags:
+- bug
+- encoding
+- http
+- review-2026-10-06
+title: 'Non-ASCII path segments and query values: uri_escape sends Latin-1 or croaks'
+updated: 2026-10-19T22:14:49Z
+---
+
+All 237 escape sites in `lib/` use `URI::Escape::uri_escape`, none `uri_escape_utf8` (`grep -rn uri_escape_utf8 lib` is empty). For character strings this is wrong in two ways:
+
+- code points 128-255 go out as Latin-1 (`%FC`) instead of UTF-8 (`%C3%BC`), so Forgejo looks up a different name;
+- code points above 255 die inside the client with `Can't escape \x{65E5}, try uri_escape_utf8() instead`.
+
+Where: query string in `lib/WWW/Forgejo/Role/HTTP.pm:364`, file paths in `lib/WWW/Forgejo/API/Repo/Contents.pm:49` (`_file_path`), and every controller that escapes a name (branches, wiki page names, labels, topics, tags, usernames ...).
+
+Reproduced with a mock `io`:
+
+    $contents->get("docs/\x{dc}bersicht.md")   # GET .../contents/docs/%DCbersicht.md
+    $contents->get("docs/\x{65e5}\x{672c}.md")  # dies: Can't escape \x{65E5} ... Contents.pm line 49
+    $f->get('/repos/search', params => { q => "B\x{fc}ro" })   # ?q=B%FCro
+    $f->get('/repos/search', params => { q => "\x{65e5}" })     # dies ... Role/HTTP.pm line 364
+
+The JSON body is already treated as characters (`encode_json`), so the same string works in a body and breaks in the URL. `t/05-urlencode.t` has no non-ASCII case.
+
+Done when: path segments and query keys/values are encoded as UTF-8 before percent-escaping (one shared helper instead of 237 direct calls would also give the async sibling the fix for free, it builds its requests through `_build_request`), the contract (callers pass decoded text) is in the `Role::HTTP` POD, and `t/05-urlencode.t` covers a Latin-1 and a wide character in a path segment and in a query value.
+
+---
+Fleet review 2026-10-06 · kind: bug · confidence: verified
+
+2026-10-19 21:15 Ursache und Fix: EIN gemeinsamer Helfer WWW::Forgejo::URL::escape_component (Wrapper um URI::Escape::uri_escape_utf8, UTF-8 vor dem Escaping). Alle 189 Aufrufstellen in 48 Dateien (Branches, Wiki, Labels, Topics, Tags, Usernames, Contents._file_path, ...) plus der Query-String in Role::HTTP::_build_request benutzen ihn jetzt; use URI::Escape qw(uri_escape) ist aus lib/ komplett raus (grep uri_escape lib findet nur noch den Helfer selbst). Der Vertrag (Aufrufer uebergeben dekodierten Text, jeder Teil genau einmal kodieren) steht jetzt im Role::HTTP-POD (DESCRIPTION). Dateipfade behalten ihre Slashes, jedes Segment wird einzeln escaped; encode once gilt unveraendert, ein bereits kodierter Pfad bleibt unveraendert, _build_request fasst den Pfad nicht an.
+
+2026-10-19 21:15 Tests: t/05-urlencode.t um vier Subtests erweitert (Latin-1 und breiter Buchstabe im Repo-Pfadsegment, im Query-Wert, im Query-Key, als Methodenargument und im Dateipfad); die alte Assertion %E4 (Latin-1) wurde zu %C3%A4 (UTF-8).
+
+2026-10-19 21:16 t/41-pod-coverage.t kennt jetzt die Haus-Direktive func (exportierte Funktion = oeffentliche API des Moduls); t/11-clean-namespaces.t prueft, dass escape_component nirgends ausser in seinem eigenen Modul als Methode auftaucht.
+
+2026-10-19 21:16 Rot-gegen-altes-lib geprueft (git archive main lib plus cp -r t): 5 von 9 Subtests in t/05-urlencode.t schlagen fehl, mit der Escape-Croak-Meldung fuer Zeichen oberhalb U+00FF bzw. %E4 statt %C3%A4, nicht an Cant locate. Offline-Suite gruen: 29 Dateien, 1747 Tests; Live-Suite gruen: 8 Dateien, 111 Tests (Forgejo 15.0.7 auf localhost:13080).
+
+2026-10-19 21:16 NOTIZ fuer das Schwester-Board p5-net-async-forgejo: die async-Schwester baut ihre Pfade selbst und hat kein Escaping, sie braucht dort eine Karte, die den neuen Helfer WWW::Forgejo::URL::escape_component benutzt; der Query-String kommt ueber _build_request automatisch mit. Aus p5-www-forgejo heraus nicht editierbar.
+
+2026-10-19 21:16 Fertig: ein gemeinsamer Helfer WWW::Forgejo::URL::escape_component (UTF-8 vor dem Escaping) ersetzt uri_escape an allen 189 Aufrufstellen in 48 Dateien plus im Query-String von _build_request. Vertrag (dekodierter Text, einmal kodieren) im Role::HTTP-POD dokumentiert. t/05-urlencode.t deckt Latin-1 und breiten Buchstabe in Pfadsegment, Query-Wert, Query-Key, Methodenargument und Dateipfad ab, rot gegen das alte lib geprueft (5 von 9 Subtests fehlgeschlagen). t/41 lernt die Direktive func, t/11 prueft das Nicht-Lecken des Helfers. Gruen: prove -l t/ (29 Dateien, 1747 Tests) und prove -l t/9*-live-*.t (8 Dateien, 111 Tests). Kein Commit, kein Push; Baum ist commit-fertig. Schwester-Board p5-net-async-forgejo braucht eine Karte fuer den Helfer (Notiz auf der Karte).
+
+2026-10-19 21:39 Nebenbefund, Board WWW-Forgejo, nicht Teil dieser vier Karten: dzil test schlaegt im gebauten Tarball an t/41-pod-coverage.t fehl - der Test erkennt die vom Weaver erzeugten head2-Eintraege nicht, weil sie nicht unter head1 METHODS oder head1 ATTRIBUTES stehen. Auf main sind es 76 Module (Baseline vor diesen Karten: 76 Fehlschlage in 234 Subtests), mit der neuen URL.pm 77. Die Offline-Suite prove -l t/ ist gruen, weil sie die Quell-POD mit den Weaver-Direktiven prueft. Ich habe nichts daran geaendert.
+
+Abgearbeitet und auf main gemerged: Percent-encode path segments and query values as UTF-8 (k30)
