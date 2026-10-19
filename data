@@ -1,0 +1,25 @@
+---
+class: standard
+completed: 2026-10-19T22:15:08Z
+created: 2026-10-03T00:29:11Z
+id: 27
+priority: medium
+started: 2026-10-19T20:49:12Z
+status: done
+title: Wiki edit_page without title renames the page to 'unnamed'
+updated: 2026-10-19T22:15:08Z
+---
+
+Observed on Forgejo 15. Decide whether the client fills title itself.
+
+2026-10-19 21:29 Ursache: Forgejo 15 benennt eine Wiki-Seite, die ohne Titel editiert wird, in unnamed um. Der Client schickte keinen Titel und ueberliess Forgejo die Benennung; danach loeste der alte Seitenname nicht mehr auf (The target could not be found).
+
+2026-10-19 21:29 Fix: Der Client fuellt den Titel selbst, wenn der Aufrufer keinen gibt - er nimmt den Namen der Seite, mit der der Aufrufer sie adressiert. Keine neue oeffentliche Option, der Aufruf bleibt unveraendert. t/31 hat dafuer einen Fall ohne Titel und einen mit Titel.
+
+2026-10-19 21:29 Verifikation: Live gegen die Wegwerf-Forgejo 15 - vorher hiess die Seite unnamed, nachher heisst sie nach ihrem Namen und der Name bleibt stabil; der Inhalt ist der neue. Rot-Check mit dem alten lib aus main: t/31 schlaegt 2 Fehler, der Live-Test schlaegt 3 Fehler (Seite unnamed) und bricht mit The target could not be found ab.
+
+2026-10-19 21:30 Entscheidung des Koordinators uebernommen: der Client fuellt den Titel aus dem Namen, den der Aufrufer ohnehin uebergibt - kein zusaetzlicher GET, keine neue Option. Abgrenzung: Forgejo leitet den Seitenname aus dem Titel ab. Ein Name, der selbst wie ein Titel aussieht (Live-Page, aus Live Page), wird dabei zu Live-Page.- umbenannt; das kann der Client nicht verhindern, weil er den Originaltitel nicht kennt. Wer den Namen behalten will, schickt den Titel mit.
+
+2026-10-19 21:32 Erledigt: der Wiki-Client fuellt den Titel einer Seite selbst, wenn der Aufrufer keinen gibt - er nimmt den Namen, mit dem der Aufrufer die Seite adressiert. Damit benennt Forgejo 15 die Seite nicht mehr auf unnamed um. Verifiziert offline (t/31, 30 Tests) und live gegen die Wegwerf-Forgejo (t/93, 16 Tests); Rot-Check gegen das alte lib aus main schlaegt fehl.
+
+Abgearbeitet und auf main gemerged: Keep the name of a wiki page edited without a title (k27)
