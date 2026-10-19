@@ -50,3 +50,5 @@ Revision history for WWW-Forgejo
       TEST_FORGEJO_URL and TEST_FORGEJO_TOKEN set and are verified against
       Forgejo 15.0.7; the docker test instance (make -f Makefile.docker)
       runs 15.0.7.
+    - A wiki page edited without a title keeps the name it is addressed by:
+      the client sends that name as the title.

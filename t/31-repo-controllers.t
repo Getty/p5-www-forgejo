@@ -269,7 +269,9 @@ my @table = (
     [ wiki => create_page => [ { title => 'T', content_base64 => 'eA==' } ], [ 201, '{}' ],
         "POST $R/wiki/new", { title => 'T', content_base64 => 'eA==' } ],
     [ wiki => edit_page => [ 'Home', { content_base64 => 'eQ==' } ], undef,
-        "PATCH $R/wiki/page/Home", { content_base64 => 'eQ==' } ],
+        "PATCH $R/wiki/page/Home", { content_base64 => 'eQ==', title => 'Home' } ],
+    [ wiki => edit_page => [ 'Home', { title => 'Home Page', content_base64 => 'eQ==' } ], undef,
+        "PATCH $R/wiki/page/Home", { title => 'Home Page', content_base64 => 'eQ==' } ],
     [ wiki => delete_page => ['Home'], $none, "DELETE $R/wiki/page/Home" ],
 );
 
@@ -284,6 +286,16 @@ subtest 'requests: verb, path, query string and body' => sub {
         is_deeply(body(), $body, "$name: " . (defined $body ? 'JSON body' : 'no body'));
         is($io->last->headers->{Authorization}, 'token test-token', "$name: authenticated");
     }
+};
+
+subtest 'a wiki page edited without a title is titled with the name it is addressed by' => sub {
+    # Forgejo (15) renames a page that is edited without a title to "unnamed",
+    # so the client sends the name of the page as the title.
+    call(wiki => edit_page => [ 'Home', { content_base64 => 'eQ==' } ]);
+    is_deeply(body(), { content_base64 => 'eQ==', title => 'Home' }, 'the title is filled in');
+
+    call(wiki => edit_page => [ 'Home', { title => 'Home Page', content_base64 => 'eQ==' } ]);
+    is_deeply(body(), { title => 'Home Page', content_base64 => 'eQ==' }, 'a title of the caller is kept');
 };
 
 subtest 'every public controller method is in the request table' => sub {

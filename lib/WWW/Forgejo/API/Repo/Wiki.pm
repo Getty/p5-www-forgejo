@@ -95,15 +95,25 @@ sub create_page {
         content_base64 => $base64_encoded_markdown,
     });
 
-Edit a wiki page; takes the same fields as L</create_page>. Pass the C<title>
-even when it stays the same: without one Forgejo (15) renames the page to
-C<unnamed>.
+Edit a wiki page; takes the same fields as L</create_page>. Without a
+C<title> the page is titled with the name it is addressed by, C<$page_name>:
+Forgejo (15) renames a page that is edited without a title to C<unnamed>.
 
 =cut
 
 sub edit_page {
     my ($self, $page_name, $data) = @_;
-    return $self->client->patch($self->_path_for('page', escape_component($page_name)), $data);
+
+    my $body = $data;
+    if (ref $data eq 'HASH') {
+        # Without a title Forgejo (15) renames the page to "unnamed". The
+        # name the caller addresses the page by is the title it wants.
+        $body = { %$data };
+        $body->{title} = $page_name
+            unless defined $body->{title} && length $body->{title};
+    }
+
+    return $self->client->patch($self->_path_for('page', escape_component($page_name)), $body);
 }
 
 =method delete_page

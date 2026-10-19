@@ -163,6 +163,32 @@ subtest 'wiki create, read, edit, delete' => sub {
     ok(!eval { $repo->wiki->get_page($sub_url); 1 }, 'gone');
 };
 
+subtest 'a wiki page edited without a title keeps its name' => sub {
+    # Forgejo (15) renames a page that is edited without a title to
+    # "unnamed"; the client sends the name of the page as the title.
+    my $page = $repo->wiki->create_page({
+        title          => 'Livepage',
+        content_base64 => encode_base64($TEXT, ''),
+        message        => 'create wiki page',
+    });
+    my $sub_url = $page->{sub_url};
+    is($sub_url, 'Livepage', 'the page is named after its title');
+
+    my $edited = $repo->wiki->edit_page($sub_url, {
+        content_base64 => encode_base64("edited\n", ''),
+        message        => 'edit wiki page without a title',
+    });
+    is($edited->{title}, 'Livepage', 'the page keeps its title');
+    is($edited->{sub_url}, $sub_url, 'the page keeps its name');
+    isnt($edited->{title}, 'unnamed', 'and is not renamed to "unnamed"');
+
+    my $got = $repo->wiki->get_page($sub_url);
+    is($got->{title}, 'Livepage', 'the page is still there under its name');
+    is(decode_base64($got->{content_base64}), "edited\n", 'with the new content');
+
+    is($repo->wiki->delete_page($sub_url), undef, 'deleted');
+};
+
 # =============================================================================
 # Branches and tags with a slash in the name
 # =============================================================================
