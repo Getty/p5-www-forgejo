@@ -1,0 +1,139 @@
+---
+class: standard
+completed: 2026-10-20T02:14:58Z
+created: 2026-10-02T19:00:33Z
+id: 23
+priority: low
+started: 2026-10-19T20:49:12Z
+status: done
+title: 'Cleanup: unused entities, unused Log::Any imports, stale skill'
+updated: 2026-10-20T02:14:58Z
+---
+
+Entity User, Email, CronTask, QuotaGroup, QuotaRule are returned by no controller; 7 Entity modules import Log::Any without using it; skill www-forgejo-core is stale: claims no ENV fallback, no HTTPResponse headers, entities not extending the base.
+
+2026-10-20 00:27 k23 umgesetzt: ungenutzte Entities, ungenutzte Log::Any-Importe, veralteter Skill.
+
+(a) Entity-Module ohne Controller
+Geprueft mit einer Suche nach "Entity::" in lib/WWW/Forgejo/API/ und im ganzen Repo:
+- WWW::Forgejo::Entity::User     - kein Controller gibt sie zurueck. Die Nutzer
+  kommen ueberall als plain data (users->get, admin->users->list). Entfernt.
+- WWW::Forgejo::Entity::Email    - kein Controller gibt sie zurueck. Entfernt.
+- WWW::Forgejo::Entity::CronTask - kein Controller gibt sie zurueck; der
+  Cron-Controller (API::Admin::Cron) liefert die Tasks als plain data. Entfernt.
+- WWW::Forgejo::Entity::QuotaGroup und ::QuotaRule - werden seit k25 vom
+  Controller WWW::Forgejo::API::Admin::Quota benutzt (list_groups, get_group,
+  create_group, list_rules, get_rule, create_rule, edit_rule). Sie bleiben
+  deshalb, wie in der Karte vorgesehen, und werden nicht entfernt.
+
+Folgen der Entfernung (oeffentliche API: die drei Klassen
+WWW::Forgejo::Entity::User, ::Email und ::CronTask gibt es nicht mehr; sie
+wurden von keinem Controller geliefert):
+- Das SYNOPSIS der Basisklasse lib/WWW/Forgejo/Entity.pm zeigt jetzt
+  WWW::Forgejo::Entity::Team statt Entity::User.
+- t/04-entity.t brauchte eine nicht repo-gebundene Entity als Beispiel; es
+  nimmt jetzt WWW::Forgejo::Entity::WorkflowJob (ebenfalls nicht repo-gebundene
+  und von einem Controller geliefert: API::Repo::Actions). Die geprueften
+  Eigenschaften (Vererbung, starker Client, geerbte update/delete-Croaks,
+  Accessoren, optionales data) bleiben dieselben.
+- t/33-entity-schema.t mappt jedes Entity-Modul auf ein Schema; die drei
+  Eintraege CronTask, Email und User sind weg.
+
+(b) Log::Any
+Die sieben Module mit ungenutztem "use Log::Any qw($log)" waren Entity.pm,
+Entity/CronTask.pm, Entity/Email.pm, Entity/QuotaGroup.pm, Entity/QuotaRule.pm,
+Entity/Team.pm und Entity/User.pm. Drei davon gingen mit den geloeschten
+Modulen weg, Entity/QuotaGroup.pm war schon im k25-Umbau sauber. Es bleiben
+drei Dateien, in denen der Import jetzt entfernt ist:
+- lib/WWW/Forgejo/Entity.pm
+- lib/WWW/Forgejo/Entity/QuotaRule.pm
+- lib/WWW/Forgejo/Entity/Team.pm
+Role::HTTP.pm behalte ihn - dort wird wirklich geloggt.
+
+(c) Skill www-forgejo-core
+.claude/skills/www-forgejo-core/SKILL.md ist repo-lokal (nicht von skilletor
+verwaltet, kein Hardlink) und wurde korrigiert:
+- "kein ENV-Fallback": falsch. FORGEJO_URL und FORGEJO_TOKEN werden
+  ausgewertet, und base_url wird aus url normalisiert, sodass es auf
+  /api/v1 endet (idempotent).
+- "HTTPResponse hat kein headers": falsch. HTTPResponse hat headers, die
+  Schluessel werden bei der Konstruktion kleingeschrieben.
+- "die konkreten Entities extends-en die Basis nicht": falsch. Alle
+  konkreten Entities extends-en WWW::Forgejo::Entity; client ist ein
+  einfaches required-Attribut, kein weak_ref.
+- dazu korrigiert: Log::Any nur dort, wo wirklich geloggt wird; die
+  Top-Level-Gruppen (activitypub fehlte); die Optionen von _build_request
+  (params, body, content/content_type, upload, auth, base_url); check und
+  _check_response; der Stil der Controller-Methoden (benannte Argumente,
+  Arrayref, escaped Pfade); die Wächter t/40, t/41 und t/42.
+
+Verifiziert:
+- prove -l t/ -> 30 Dateien, 1722 Tests PASS
+- prove -l t/9*-live-*.t -> 8 Dateien, 113 Tests PASS gegen die Wegwerf-
+  Forgejo 15.0.7 (http://localhost:13080)
+- Schwester ../p5-net-async-forgejo: 9 Dateien, 62 Tests PASS gegen das
+  geaenderte lib (die Schwester benutzt keine der drei entfernten Klassen)
+
+2026-10-20 00:27 k23 umgesetzt: ungenutzte Entities, ungenutzte Log::Any-Importe, veralteter Skill.
+
+(a) Entity-Module ohne Controller
+Geprueft mit einer Suche nach "Entity::" in lib/WWW/Forgejo/API/ und im ganzen Repo:
+- WWW::Forgejo::Entity::User     - kein Controller gibt sie zurueck. Die Nutzer
+  kommen ueberall als plain data (users->get, admin->users->list). Entfernt.
+- WWW::Forgejo::Entity::Email    - kein Controller gibt sie zurueck. Entfernt.
+- WWW::Forgejo::Entity::CronTask - kein Controller gibt sie zurueck; der
+  Cron-Controller (API::Admin::Cron) liefert die Tasks als plain data. Entfernt.
+- WWW::Forgejo::Entity::QuotaGroup und ::QuotaRule - werden seit k25 vom
+  Controller WWW::Forgejo::API::Admin::Quota benutzt (list_groups, get_group,
+  create_group, list_rules, get_rule, create_rule, edit_rule). Sie bleiben
+  deshalb, wie in der Karte vorgesehen, und werden nicht entfernt.
+
+Folgen der Entfernung (oeffentliche API: die drei Klassen
+WWW::Forgejo::Entity::User, ::Email und ::CronTask gibt es nicht mehr; sie
+wurden von keinem Controller geliefert):
+- Das SYNOPSIS der Basisklasse lib/WWW/Forgejo/Entity.pm zeigt jetzt
+  WWW::Forgejo::Entity::Team statt Entity::User.
+- t/04-entity.t brauchte eine nicht repo-gebundene Entity als Beispiel; es
+  nimmt jetzt WWW::Forgejo::Entity::WorkflowJob (ebenfalls nicht repo-gebundene
+  und von einem Controller geliefert: API::Repo::Actions). Die geprueften
+  Eigenschaften (Vererbung, starker Client, geerbte update/delete-Croaks,
+  Accessoren, optionales data) bleiben dieselben.
+- t/33-entity-schema.t mappt jedes Entity-Modul auf ein Schema; die drei
+  Eintraege CronTask, Email und User sind weg.
+
+(b) Log::Any
+Die sieben Module mit ungenutztem "use Log::Any qw($log)" waren Entity.pm,
+Entity/CronTask.pm, Entity/Email.pm, Entity/QuotaGroup.pm, Entity/QuotaRule.pm,
+Entity/Team.pm und Entity/User.pm. Drei davon gingen mit den geloeschten
+Modulen weg, Entity/QuotaGroup.pm war schon im k25-Umbau sauber. Es bleiben
+drei Dateien, in denen der Import jetzt entfernt ist:
+- lib/WWW/Forgejo/Entity.pm
+- lib/WWW/Forgejo/Entity/QuotaRule.pm
+- lib/WWW/Forgejo/Entity/Team.pm
+Role::HTTP.pm behalte ihn - dort wird wirklich geloggt.
+
+(c) Skill www-forgejo-core
+.claude/skills/www-forgejo-core/SKILL.md ist repo-lokal (nicht von skilletor
+verwaltet, kein Hardlink) und wurde korrigiert:
+- "kein ENV-Fallback": falsch. FORGEJO_URL und FORGEJO_TOKEN werden
+  ausgewertet, und base_url wird aus url normalisiert, sodass es auf
+  /api/v1 endet (idempotent).
+- "HTTPResponse hat kein headers": falsch. HTTPResponse hat headers, die
+  Schluessel werden bei der Konstruktion kleingeschrieben.
+- "die konkreten Entities extends-en die Basis nicht": falsch. Alle
+  konkreten Entities extends-en WWW::Forgejo::Entity; client ist ein
+  einfaches required-Attribut, kein weak_ref.
+- dazu korrigiert: Log::Any nur dort, wo wirklich geloggt wird; die
+  Top-Level-Gruppen (activitypub fehlte); die Optionen von _build_request
+  (params, body, content/content_type, upload, auth, base_url); check und
+  _check_response; der Stil der Controller-Methoden (benannte Argumente,
+  Arrayref, escaped Pfade); die Wächter t/40, t/41 und t/42.
+
+Verifiziert:
+- prove -l t/ -> 30 Dateien, 1722 Tests PASS
+- prove -l t/9*-live-*.t -> 8 Dateien, 113 Tests PASS gegen die Wegwerf-
+  Forgejo 15.0.7 (http://localhost:13080)
+- Schwester ../p5-net-async-forgejo: 9 Dateien, 62 Tests PASS gegen das
+  geaenderte lib (die Schwester benutzt keine der drei entfernten Klassen)
+
+Umgesetzt: die ungenutzten Entity-Klassen Entity::User, ::Email und ::CronTask sind entfernt, die ungenutzten Log::Any-Importe aus Entity, Entity::QuotaRule und Entity::Team sind weg, der repo-lokale Skill www-forgejo-core ist auf dem aktuellen Stand. Landed in fd113a7 auf lokalem main; prove -l t/ gruen, die async-Schwester bleibt gruen.
