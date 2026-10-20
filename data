@@ -1,0 +1,34 @@
+---
+class: standard
+completed: 2026-10-20T02:14:34Z
+created: 2026-10-02T18:59:57Z
+id: 20
+priority: low
+started: 2026-10-19T20:49:12Z
+status: done
+title: 'Inconsistent call style: top-level and Org use params plus arrayref, Repo
+  uses hashref plus list'
+updated: 2026-10-20T02:14:34Z
+---
+
+Top-level and Org controllers take %params and return arrayrefs; Repo controllers take a hashref body and return lists, Topics list returns an arrayref. Decide and unify.
+
+2026-10-03 00:28 Confirmed live against Forgejo 15.0.7 (k17 live run, t/90-97 green).
+
+2026-10-19 23:11 Einheitlicher Aufrufstil in allen Controllern hergestellt (Zielstil des Koordinators, wie WWW::Gitea und die Top-Level-Controller von WWW::Forgejo es bereits tun): Query-Parameter und Request-Body werden als benannte Argumente uebergeben (kein Hashref mehr positionell), Kollektionen liefern ein Arrayref, Pfad-Parameter (owner, repo, index, org, name) bleiben positional.
+
+Geaendert: 43 Controller-Module in lib/WWW/Forgejo/API/ (Repo/*, Org/*, CurrentUser, ActivityPub) plus die Beispiele in lib/WWW/Forgejo.pm; die betroffenen Entities (Collaborator, CommitStatus, IssueComment, PullRequestReview, ReleaseAsset, Repo, WorkflowJob) wurden auf die geaenderte Listenform (Arrayref) nachgezogen; die Testdateien t/02, t/07, t/09, t/12, t/20, t/30, t/31, t/32, t/40, t/42 und alle Live-Tests t/92 bis t/97 wurden auf den Zielstil umgestellt.
+
+Verifikation:
+- prove -l t/ (offline, ohne ENV): 29 Dateien, 1757 Tests, PASS.
+- prove -l t/9*-live-*.t (live, Forgejo 15.0.7 auf localhost:13080): 8 Dateien, 112 Tests, PASS.
+- prove -l t/ mit ENV: 29 Dateien, 1869 Tests, PASS (keine Warnungen mehr).
+- Rot gegen das alte lib aus main: mit dem lib von main und den neuen t/ scheitern 10 Testdateien verhaltensbedingt, nicht wegen "Can't locate"; z. B. "Can't use string ("2") as an ARRAY ref while "strict refs" in use" (t/30) und "Failed test 'actions->set_secret: JSON body'" (t/31).
+
+Offen/Abweichung: Repos::search und Users::search akzeptieren weiterhin zusaetzlich ein positionales Suchargument (my %params = @args % 2 ? (q => $args[0]) : @args). Das ist ein vorbestehender, unveraenderter Komfort-Aufruf dieser beiden Top-Level-Controller (im Diff nicht enthalten) und damit ausserhalb dieser Karte; ich habe ihn nicht eigenmaechtig geaendert. Falls er auch weg soll, braucht es eine eigene Entscheidung.
+
+Vorschlag Commit-Subject: "Use one call style in all controllers: named arguments and arrayrefs (k20)"; Changes-Eintrag siehe Bericht.
+
+2026-10-19 23:12 Fertig: einheitlicher Aufrufstil in allen Controllern (benannte Argumente fuer Query und Body, Arrayrefs fuer Kollektionen, Pfad-Parameter positional). 43 Controller-Module, 7 Entities, 10 Offline-Tests und die Live-Tests t/92-t/97 umgestellt. Verifiziert: prove -l t/ -> 29 Dateien/1757 Tests PASS; prove -l t/9*-live-*.t -> 8 Dateien/112 Tests PASS (Forgejo 15.0.7); mit ENV 1869 Tests PASS. Rot gegen das alte lib aus main: 10 Testdateien scheitern verhaltensbedingt. Offen: das vorbestehende positionale q-Argument in Repos::search/Users::search (unveraendert, ausserhalb der Karte). Vorschlag Commit-Subject: 'Use one call style in all controllers: named arguments and arrayrefs (k20)'.
+
+Umgesetzt: eine Aufrufsform fuer alle Controller — Query-Parameter und Request-Body als benannte Argumente, kein Hashref positional, Sammlungen als Arrayref; die Pfadparameter (owner, repo, index, org, name) bleiben positional. 43 Controller-Module, 7 Entities und die Testdateien umgestellt. Landed in e66570d auf lokalem main; 42 Dateien/2050 Tests PASS, live 113 Tests PASS.
