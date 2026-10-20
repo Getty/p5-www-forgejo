@@ -1,0 +1,21 @@
+---
+class: standard
+completed: 2026-10-20T02:14:24Z
+created: 2026-10-02T18:59:50Z
+id: 19
+priority: medium
+started: 2026-10-19T20:49:12Z
+status: done
+title: Org controllers on a bound Org entity still expect the org name as first argument
+updated: 2026-10-20T02:14:24Z
+---
+
+org->teams->list(limit => 5) reads limit as the org name, must be written list(undef, limit => 5). API decision needed.
+
+2026-10-03 00:28 Live (15.0.7): $org->teams->list(limit=>1) sends GET /orgs/limit/teams plus odd-hash warning; $org->members->check($user) fails with 'Username required'. Recorded as TODO tests in t/94.
+
+2026-10-19 22:30 Umgesetzt: Die sieben Org-Controller (Actions, BlockedUsers, Hooks, Labels, Members, Quota, Teams) holen die Organisation jetzt aus $self->owner (dem Namen des gebundenen Entity); das Positionsargument entfaellt. _org_path nimmt nur noch den Pfad, ein Controller ohne Owner croakt weiterhin mit 'Organization name required'. Verifiziert: prove -l t/ -> 29 Dateien, 1757 Tests, PASS; prove -l t/9*-live-*.t -> 8 Dateien, 112 Tests, PASS. Die neuen Tests sind rot gegen das alte lib (falsche Pfade /orgs/KEY/... und /orgs/limit/teams, 4 Fehlschlaege in t/40, 4 in t/12); t/94-live-org.t stirbt mit 'GetOrgByName' auf dem alten lib. Die beiden TODO-Tests aus t/94 sind zu echten Tests geworden, alle undef-Erstargumente sind entfernt.
+
+2026-10-19 22:30 Die sieben Org-Controller nehmen den Organisationsnamen nicht mehr als Positionsargument, sondern aus dem gebundenen Entity (owner). _org_path baut den Pfad /orgs/{org}/... nur noch aus dem Owner; ein Controller ohne Owner croakt weiterhin mit 'Organization name required', has_owner bleibt. Beruehrt wurde nichts am Transport-Seam (Role::HTTP, Role::IO, LWPIO, HTTPRequest/HTTPResponse) - der async-Sibling ist nicht betroffen. Geaendert: lib/WWW/Forgejo/API/Org/{Actions,BlockedUsers,Hooks,Labels,Members,Quota,Teams}.pm, t/02-http-mock.t, t/12-top-level-controllers.t, t/40-spec-conformance.t, t/92-live-comprehensive.t, t/94-live-org.t. Verifiziert: prove -l t/ -> 29 Dateien/1757 Tests PASS, prove -l t/9*-live-*.t -> 8 Dateien/112 Tests PASS (Forgejo 15.0.7 auf localhost:13080). Gegen das alte lib rot: 4 Fehlschlaege in t/40 (falsche Pfade /orgs/type/hooks, /orgs/name/labels, /orgs/q/teams/search, /orgs/name/teams) und 4 in t/12 (Pfad/Body), t/94-live-org.t bricht mit 'GetOrgByName' ab. Vorschlag Commit-Subject: 'Take the organization of a bound Org controller from the entity (k19)'; Changes-Eintrag siehe Bericht.
+
+Umgesetzt: die sieben Per-Org-Controller (Actions, BlockedUsers, Hooks, Labels, Members, Quota, Teams) nehmen die Organisation aus dem gebundenen Entity, nicht mehr als erstes Positionsargument. Landed in fd113a7/e66570d auf lokalem main; prove -l t/ 42 Dateien/2050 Tests PASS, live 8 Dateien/113 Tests PASS.
