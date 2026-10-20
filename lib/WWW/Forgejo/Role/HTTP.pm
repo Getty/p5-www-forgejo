@@ -9,6 +9,7 @@ use WWW::Forgejo::LWPIO;
 use JSON::MaybeXS qw(decode_json encode_json);
 use Encode ();
 use HTTP::Request::Common ();
+use MIME::Base64 qw(encode_base64);
 use WWW::Forgejo::URL qw( escape_component );
 use Carp qw(croak);
 use Log::Any qw($log);
@@ -42,7 +43,12 @@ controllers send all their requests through these methods.
 
 Paths are relative to C<base_url>, e.g. C</user> or C</repos/owner/name>.
 Requests are authenticated with an C<Authorization: token ...> header and carry
-C<Content-Type: application/json>.
+C<Content-Type: application/json>. A request may ask for basic authentication
+instead with the C<auth> option, for the few endpoints of Forgejo that want it
+- creating a token for another user is one of them. It may also carry raw
+bytes as its body (C<content>) and a base URL of its own (C<base_url>), for
+the paths of Forgejo that live outside the C</api/v1> of the API. All three
+are described in L</_build_request>.
 
 Path segments and query keys and values are percent-encoded by
 L<WWW::Forgejo::URL>, which encodes the text as UTF-8 before escaping it. The
@@ -61,7 +67,8 @@ C<Forgejo API error: ...>, followed by the C<message> of the JSON error body if
 there is a non-empty one, else the body itself when it is one short line of
 plain text (such as C<404 page not found> for a route the instance does not
 have), else the status code. Calling a verb method without a token croaks with
-C<No API token configured>.
+C<No API token configured> - unless the request asks for basic authentication
+with the C<auth> option, which needs no token at all.
 
 HTTP transport is delegated to a pluggable L<WWW::Forgejo::Role::IO> backend
 (default: L<WWW::Forgejo::LWPIO>), making it possible to use async HTTP
@@ -283,6 +290,9 @@ C<< page => 2 >> pins a page.
 
 Query parameters with an undefined value are left out of the request.
 
+C<auth> asks for basic authentication for this request instead of the token of
+the client (see L</_build_request>).
+
 C<< raw => 1 >> returns the response body exactly as it came, as bytes: no
 JSON decoding, no charset decoding, no pagination. The file endpoints
 (L<WWW::Forgejo::API::Repo::Contents/raw> and its siblings) use it.
@@ -356,7 +366,7 @@ Perform a PATCH request with JSON body. C<params> adds a query string.
 sub check {
     my ($self, $path, %opts) = @_;
 
-    croak "No API token configured" unless $self->token;
+    croak "No API token configured" unless $self->token || $opts{auth};
 
     my $req      = $self->_build_request('GET', $path, %opts);
     my $response = $self->io->call($req);
@@ -414,7 +424,14 @@ not L</io> can ask the same question of a response it fetched itself.
 =cut
 
 sub _set_auth {
-    my ($self, $headers) = @_;
+    my ($self, $headers, $auth) = @_;
+
+    if (ref $auth eq 'HASH' && defined $auth->{user}) {
+        my $pair = $auth->{user} . ':' . (defined $auth->{password} ? $auth->{password} : '');
+        $headers->{Authorization} = 'Basic ' . encode_base64($pair, '');
+        return;
+    }
+
     $headers->{Authorization} = 'token ' . $self->token;
 }
 
@@ -427,12 +444,17 @@ Sets authentication headers using token authentication:
         $headers->{Authorization} = 'token ' . $self->token;
     }
 
+With a second argument - a hashref with a C<user> and a C<password> - the
+request is authenticated with basic authentication instead:
+
+    $self->_set_auth($headers, { user => 'getty', password => $secret });
+
 =cut
 
 sub _build_request {
     my ($self, $method, $path, %opts) = @_;
 
-    my $url = $self->base_url . $path;
+    my $url = (defined $opts{base_url} ? $opts{base_url} : $self->base_url) . $path;
 
     # Query string, in sorted key order so the URL is deterministic.
     if ($opts{params}) {
@@ -448,8 +470,9 @@ sub _build_request {
     $log->debug("$method $url");
 
     my %headers;
-    $self->_set_auth(\%headers);
-    $headers{'Content-Type'} = 'application/json';
+    $self->_set_auth(\%headers, $opts{auth});
+    $headers{'Content-Type'} = $opts{content_type}
+        // (defined $opts{content} ? 'application/octet-stream' : 'application/json');
 
     my %req_args = (
         method  => $method,
@@ -462,6 +485,10 @@ sub _build_request {
         $headers{'Content-Type'} = $content_type;
         $req_args{content} = $content;
         $log->debugf("Body: multipart upload, %d bytes", length $content);
+    }
+    elsif (defined $opts{content}) {
+        $req_args{content} = $opts{content};
+        $log->debugf("Body: %d bytes", length $opts{content});
     }
     elsif ($opts{body}) {
         $req_args{content} = encode_json($opts{body});
@@ -481,6 +508,25 @@ async workflows where request creation and execution are separate steps.
 C<params> (a hashref) becomes the query string; C<body> (a hashref or arrayref)
 is encoded as the JSON request content; C<upload> (see L</post>) produces a
 C<multipart/form-data> request instead.
+
+Beside that the request can be tuned:
+
+=over 4
+
+=item * C<auth> - a hashref with a C<user> and a C<password>: the request is
+authenticated with basic authentication instead of the token of the client.
+
+=item * C<base_url> - the base URL the path is appended to. Defaults to the
+base URL of the client; a path outside the C</api/v1> of the API (the upload
+of a package, which lives at C</api/packages>) names its own base.
+
+=item * C<content> - the body of the request as it is, the bytes of a file
+say. It is sent as they are, not encoded as JSON.
+
+=item * C<content_type> - the media type of the body. Defaults to
+C<application/json>, or C<application/octet-stream> when C<content> is given.
+
+=back
 
 =cut
 
@@ -604,7 +650,7 @@ sub _request {
 sub _request_with_response {
     my ($self, $method, $path, %opts) = @_;
 
-    croak "No API token configured" unless $self->token;
+    croak "No API token configured" unless $self->token || $opts{auth};
 
     my $req = $self->_build_request($method, $path, %opts);
     my $response = $self->io->call($req);

@@ -55,18 +55,18 @@ sub _branch {
 
 =method list
 
-    my @branches = $repo->branches->list;
-    my @branches = $repo->branches->list(page => 2, limit => 50);
+    my $branches = $repo->branches->list;
+    my $branches = $repo->branches->list(page => 2, limit => 50);
 
-List all branches as L<WWW::Forgejo::Entity::Branch> objects. Named arguments
-are sent as the query string.
+List all branches as L<WWW::Forgejo::Entity::Branch> objects, in an arrayref.
+Named arguments are sent as the query string.
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return map { $self->_branch($_) } @$data;
+    return [ map { $self->_branch($_) } @$data ];
 }
 
 =method get
@@ -84,19 +84,19 @@ sub get {
 
 =method create
 
-    my $branch = $repo->branches->create({
+    my $branch = $repo->branches->create(
         new_branch_name => 'new-branch',
         old_ref_name    => 'main',
-    });
+    );
 
-Create a new branch; the API requires C<new_branch_name>. Returns the
-L<WWW::Forgejo::Entity::Branch>.
+Create a new branch; the API requires C<new_branch_name>. The named arguments
+are sent as the JSON body. Returns the L<WWW::Forgejo::Entity::Branch>.
 
 =cut
 
 sub create {
-    my ($self, $data) = @_;
-    return $self->_branch($self->client->post($self->_path_for, $data));
+    my ($self, %params) = @_;
+    return $self->_branch($self->client->post($self->_path_for, \%params));
 }
 
 =method delete
@@ -118,16 +118,16 @@ sub delete {
 
 =method rename
 
-    $repo->branches->rename($branch_name, $new_name);
+    $repo->branches->rename($branch_name, name => $new_name);
 
-Rename a branch (C<PATCH /repos/{owner}/{repo}/branches/{branch}>). Returns
-true.
+Rename a branch (C<PATCH /repos/{owner}/{repo}/branches/{branch}>). The named
+arguments are sent as the JSON body. Returns true.
 
 =cut
 
 sub rename {
-    my ($self, $branch, $new_name) = @_;
-    $self->client->patch($self->_path_for(escape_component($branch)), { name => $new_name });
+    my ($self, $branch, %params) = @_;
+    $self->client->patch($self->_path_for(escape_component($branch)), \%params);
     return 1;
 }
 
@@ -140,16 +140,16 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @branches = $repo->branches->list;
+    my $branches = $repo->branches->list;
 
     my $branch = $repo->branches->get('main');
 
-    my $new = $repo->branches->create({
+    my $new = $repo->branches->create(
         new_branch_name => 'new-branch',
         old_ref_name    => 'main',
-    });
+    );
 
-    $repo->branches->rename('new-branch', 'feature');
+    $repo->branches->rename('new-branch', name => 'feature');
     $repo->branches->delete('feature');
 
 =head1 DESCRIPTION

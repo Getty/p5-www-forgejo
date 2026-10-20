@@ -25,6 +25,7 @@ my $RENAMED  = $PREFIX . 'r' . $$;
 my $ORG      = $PREFIX . 'org-' . $$;
 my $GROUP    = $PREFIX . 'group-' . $$;
 my $RULE     = $PREFIX . 'rule-' . $$;
+my $RULE2    = $PREFIX . 'rule2-' . $$;
 my $HOOK_URL = 'http://127.0.0.1:9/' . $PREFIX . 'hook';
 my $USER_KEY = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBpKEyuOdfQ+0EmAuN9VVb9i4ATvdRCyjB2CdW1hlJF0 wfl-live-user';
 my $me       = $client->current_user->get;
@@ -40,11 +41,10 @@ for my $old_user (@{ $client->admin->users->list }) {
     $client->admin->users->delete($old_user->{login}, purge => 'true') if index($old_user->{login}, $PREFIX) == 0;
 }
 for my $old_group (@{ $client->admin->quota->list_groups }) {
-    $client->admin->quota->delete_group($old_group->{name}) if index($old_group->{name}, $PREFIX) == 0;
+    $client->admin->quota->delete_group($old_group->name) if index($old_group->name, $PREFIX) == 0;
 }
-# Quota rules have no controller (yet): plain verbs.
-for my $old_rule (@{ $client->get('/admin/quota/rules') }) {
-    $client->delete('/admin/quota/rules/' . $old_rule->{name}) if index($old_rule->{name}, $PREFIX) == 0;
+for my $old_rule (@{ $client->admin->quota->list_rules }) {
+    $client->admin->quota->delete_rule($old_rule->name) if index($old_rule->name, $PREFIX) == 0;
 }
 
 END {
@@ -53,7 +53,8 @@ END {
         eval { $client->orgs->delete($ORG) };
         for my $login ($USER, $RENAMED) { eval { $client->admin->users->delete($login, purge => 'true') } }
         eval { $client->admin->quota->delete_group($GROUP) };
-        eval { $client->delete("/admin/quota/rules/$RULE") };
+        eval { $client->admin->quota->delete_rule($RULE) };
+        eval { $client->admin->quota->delete_rule($RULE2) };
     }
 }
 
@@ -138,11 +139,47 @@ subtest 'quota groups and rules' => sub {
         name  => $GROUP,
         rules => [ { name => $RULE, limit => 1024 * 1024, subjects => ['size:repos:all'] } ],
     );
-    is($group->{name}, $GROUP, 'create_group, with a rule');
-    is($group->{rules}[0]{name}, $RULE, 'the rule');
-    is($client->admin->quota->get_group($GROUP)->{rules}[0]{limit}, 1024 * 1024, 'get_group');
-    my %groups = map { ($_->{name} => 1) } @{ $client->admin->quota->list_groups };
+    isa_ok($group, 'WWW::Forgejo::Entity::QuotaGroup');
+    is($group->name, $GROUP, 'create_group, with a rule');
+    is(scalar @{ $group->rules }, 1, 'the group holds one rule');
+
+    my $fetched = $client->admin->quota->get_group($GROUP);
+    is($fetched->name, $GROUP, 'get_group');
+    is(scalar @{ $fetched->rules }, 1, 'and its rule');
+
+    my $groups = $client->admin->quota->list_groups;
+    my %groups;
+    for my $one (@$groups) { $groups{ $one->name } = 1 }
     ok($groups{$GROUP}, 'list_groups');
+
+    # The rules have their own controller.
+    my $rules = $client->admin->quota->list_rules;
+    my %rules;
+    for my $one (@$rules) { $rules{ $one->name } = 1 }
+    ok($rules{$RULE}, 'list_rules');
+    is($client->admin->quota->get_rule($RULE)->limit, 1024 * 1024, 'get_rule');
+    is($client->admin->quota->edit_rule($RULE, limit => 2048)->limit, 2048, 'edit_rule');
+
+    # A second rule, added to the group afterwards.
+    my $rule2 = $client->admin->quota->create_rule(
+        name     => $RULE2,
+        limit    => 4096,
+        subjects => ['size:repos:all'],
+    );
+    isa_ok($rule2, 'WWW::Forgejo::Entity::QuotaRule');
+    is($rule2->name, $RULE2, 'create_rule');
+    ok($client->admin->quota->add_rule_to_group($GROUP, $RULE2), 'add_rule_to_group');
+    is(scalar @{ $client->admin->quota->get_group($GROUP)->rules }, 2, 'the group holds both rules');
+    $client->admin->quota->remove_rule_from_group($GROUP, $RULE2);
+    is(scalar @{ $client->admin->quota->get_group($GROUP)->rules }, 1, 'and only one again');
+
+    # The users of a group.
+    ok($client->admin->quota->add_user_to_group($GROUP, $RENAMED), 'add_user_to_group');
+    my @users = @{ $client->admin->quota->list_group_users($GROUP) };
+    ok((grep { $_->{login} eq $RENAMED } @users), 'list_group_users');
+    $client->admin->quota->remove_user_from_group($GROUP, $RENAMED);
+    my @after = @{ $client->admin->quota->list_group_users($GROUP) };
+    ok(!(grep { $_->{login} eq $RENAMED } @after), 'remove_user_from_group');
 
     is($client->admin->users->set_quota_groups($RENAMED, $GROUP), undef, 'set_quota_groups');
     my $quota = $client->admin->users->quota($RENAMED);
@@ -154,9 +191,12 @@ subtest 'quota groups and rules' => sub {
 
     $client->admin->quota->delete_group($GROUP);
     ok(!eval { $client->admin->quota->get_group($GROUP); 1 }, 'delete_group');
-    my %rules = map { ($_->{name} => 1) } @{ $client->get('/admin/quota/rules') };
-    ok($rules{$RULE}, 'the rule outlives its group');
-    $client->delete("/admin/quota/rules/$RULE");
+    my $left = $client->admin->quota->list_rules;
+    my %left;
+    for my $one (@$left) { $left{ $one->name } = 1 }
+    ok($left{$RULE}, 'the rule outlives its group');
+    $client->admin->quota->delete_rule($RULE);
+    $client->admin->quota->delete_rule($RULE2);
 };
 
 # =============================================================================

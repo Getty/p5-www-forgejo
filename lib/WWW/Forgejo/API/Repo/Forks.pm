@@ -44,31 +44,32 @@ sub _path_for {
 
 =method list
 
-    my @forks = $repo->forks->list;
+    my $forks = $repo->forks->list;
 
-List the forks of the repository, as plain repository structures. Named
-arguments are sent as the query string.
+List the forks of the repository, as plain repository structures in an arrayref.
+Named arguments are sent as the query string.
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return @$data;
+    return [@$data];
 }
 
 =method create
 
-    my $fork = $repo->forks->create({ organization => 'myorg', name => 'fork-name' });
+    my $fork = $repo->forks->create(organization => 'myorg', name => 'fork-name');
 
 Fork the repository, into C<organization> or else the account of the
-authenticated user. Returns the plain repository structure of the fork.
+authenticated user. The named arguments are sent as the JSON body. Returns the
+plain repository structure of the fork.
 
 =cut
 
 sub create {
-    my ($self, $data) = @_;
-    return $self->client->post($self->_path_for, $data);
+    my ($self, %params) = @_;
+    return $self->client->post($self->_path_for, \%params);
 }
 
 1;
@@ -80,11 +81,11 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @forks = $repo->forks->list;
+    my $forks = $repo->forks->list;
 
-    my $fork = $repo->forks->create({
+    my $fork = $repo->forks->create(
         organization => 'myorg',
-    });
+    );
 
 =head1 DESCRIPTION
 

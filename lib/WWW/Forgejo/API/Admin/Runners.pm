@@ -7,6 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Admin::Runners;
 
 use Moo;
+use Carp qw(croak);
 use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
@@ -71,6 +72,72 @@ Get the token for registering an instance-wide runner.
 sub registration_token {
     my ($self) = @_;
     return $self->client->get('/admin/actions/runners/registration-token');
+}
+
+=method create
+
+    my $runner = $forgejo->admin->runners->create(
+        name => 'my-runner',
+    );
+
+Register a new global runner (C<POST /admin/actions/runners>). The key/value
+pairs are sent as the JSON body; the API takes the C<name> of the runner, its
+C<description> and whether it is C<ephemeral>.
+
+=cut
+
+sub create {
+    my ($self, %params) = @_;
+    croak "Runner name required" unless $params{name};
+    return $self->client->post('/admin/actions/runners', \%params);
+}
+
+=method jobs
+
+    my $jobs = $forgejo->admin->runners->jobs;
+
+List the jobs of the runners of the instance
+(C<GET /admin/actions/runners/jobs>). Named arguments are sent as the query
+string of the request (C<labels>).
+
+=cut
+
+sub jobs {
+    my ($self, %params) = @_;
+    return $self->client->get('/admin/actions/runners/jobs', params => \%params);
+}
+
+=method global_jobs
+
+    my $jobs = $forgejo->admin->runners->global_jobs;
+
+List the jobs of the global runners of the instance
+(C<GET /admin/runners/jobs>). Named arguments are sent as the query string of
+the request (C<labels>).
+
+Forgejo 15 has deprecated this call in favour of L</jobs>.
+
+=cut
+
+sub global_jobs {
+    my ($self, %params) = @_;
+    return $self->client->get('/admin/runners/jobs', params => \%params);
+}
+
+=method global_registration_token
+
+    my $token = $forgejo->admin->runners->global_registration_token;
+
+Get the token for registering a global runner
+(C<GET /admin/runners/registration-token>).
+
+Forgejo 15 has deprecated this call in favour of L</registration_token>.
+
+=cut
+
+sub global_registration_token {
+    my ($self) = @_;
+    return $self->client->get('/admin/runners/registration-token');
 }
 
 1;

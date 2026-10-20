@@ -55,17 +55,17 @@ sub _protection {
 
 =method list
 
-    my @protections = $repo->branch_protections->list;
+    my $protections = $repo->branch_protections->list;
 
 List all branch protections as L<WWW::Forgejo::Entity::BranchProtection>
-objects. Named arguments are sent as the query string.
+objects, in an arrayref. Named arguments are sent as the query string.
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return map { $self->_protection($_) } @$data;
+    return [ map { $self->_protection($_) } @$data ];
 }
 
 =method get
@@ -83,31 +83,32 @@ sub get {
 
 =method create
 
-    my $protection = $repo->branch_protections->create({
+    my $protection = $repo->branch_protections->create(
         rule_name          => 'main',
         required_approvals => 1,
-    });
+    );
 
-Create a new branch protection rule.
+Create a new branch protection rule. The named arguments are sent as the JSON
+body.
 
 =cut
 
 sub create {
-    my ($self, $data) = @_;
-    return $self->_protection($self->client->post($self->_path_for, $data));
+    my ($self, %params) = @_;
+    return $self->_protection($self->client->post($self->_path_for, \%params));
 }
 
 =method update
 
-    my $protection = $repo->branch_protections->update($name, { required_approvals => 2 });
+    my $protection = $repo->branch_protections->update($name, required_approvals => 2);
 
-Update a branch protection rule.
+Update a branch protection rule. The named arguments are sent as the JSON body.
 
 =cut
 
 sub update {
-    my ($self, $name, $data) = @_;
-    return $self->_protection($self->client->patch($self->_path_for(escape_component($name)), $data));
+    my ($self, $name, %params) = @_;
+    return $self->_protection($self->client->patch($self->_path_for(escape_component($name)), \%params));
 }
 
 =method edit
@@ -140,14 +141,14 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @protections = $repo->branch_protections->list;
+    my $protections = $repo->branch_protections->list;
 
     my $protection = $repo->branch_protections->get('main');
 
-    $protection = $repo->branch_protections->create({
+    $protection = $repo->branch_protections->create(
         rule_name          => 'main',
         required_approvals => 1,
-    });
+    );
 
 =head1 DESCRIPTION
 

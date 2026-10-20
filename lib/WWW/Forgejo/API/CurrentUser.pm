@@ -208,6 +208,72 @@ sub delete_gpg_key {
     return $self->client->delete('/user/gpg_keys/' . escape_component($key_id));
 }
 
+=method gpg_key_token
+
+    my $token = $forgejo->current_user->gpg_key_token;
+
+Get the token to sign a commit with the GPG key of the current user
+(C<GET /user/gpg_key_token>). The token is returned as a plain structure.
+
+=cut
+
+sub gpg_key_token {
+    my ($self) = @_;
+    return $self->client->get('/user/gpg_key_token');
+}
+
+=method verify_gpg_key
+
+    my $key = $forgejo->current_user->verify_gpg_key(
+        armored_signature => $signature,
+        key_id            => $key_id,
+    );
+
+Verify a GPG key of the current user (C<POST /user/gpg_key_verify>). The
+key/value pairs are sent as the JSON body; the API takes the
+C<armored_signature> and the C<key_id>.
+
+=cut
+
+sub verify_gpg_key {
+    my ($self, %params) = @_;
+    croak "Armored signature required" unless $params{armored_signature};
+    croak "Key ID required" unless $params{key_id};
+    return $self->client->post('/user/gpg_key_verify', \%params);
+}
+
+=method set_avatar
+
+    $forgejo->current_user->set_avatar(image => $base64);
+
+Set the avatar of the current user (C<POST /user/avatar>). The named
+arguments are sent as the JSON body; the API expects the image in C<image>,
+as a base64 encoded string. Returns true.
+
+=cut
+
+sub set_avatar {
+    my ($self, %params) = @_;
+    croak "Avatar image required" unless defined $params{image} && length $params{image};
+    $self->client->post('/user/avatar', \%params);
+    return 1;
+}
+
+=method delete_avatar
+
+    $forgejo->current_user->delete_avatar;
+
+Delete the avatar of the current user (C<DELETE /user/avatar>); the user gets
+the default avatar. Returns true.
+
+=cut
+
+sub delete_avatar {
+    my ($self) = @_;
+    $self->client->delete('/user/avatar');
+    return 1;
+}
+
 =method list_hooks
 
     my $hooks = $forgejo->current_user->list_hooks;
@@ -322,6 +388,54 @@ sub delete_application {
     return $self->client->delete('/user/applications/oauth2/' . escape_component($app_id));
 }
 
+=method get_application
+
+    my $app = $forgejo->current_user->get_application($app_id);
+
+Get an OAuth2 application of the current user
+(C<GET /user/applications/oauth2/{id}>).
+
+=cut
+
+sub get_application {
+    my ($self, $app_id) = @_;
+    croak "Application ID required" unless defined $app_id && length $app_id;
+    return $self->client->get('/user/applications/oauth2/' . escape_component($app_id));
+}
+
+=method edit_application
+
+    my $app = $forgejo->current_user->edit_application($app_id, name => 'New name');
+
+Edit an OAuth2 application of the current user
+(C<PATCH /user/applications/oauth2/{id}>). The key/value pairs are sent as the
+JSON body.
+
+=cut
+
+sub edit_application {
+    my ($self, $app_id, %params) = @_;
+    croak "Application ID required" unless defined $app_id && length $app_id;
+    return $self->client->patch('/user/applications/oauth2/' . escape_component($app_id), \%params);
+}
+
+=method activitypub_follow
+
+    $forgejo->current_user->activitypub_follow(target => 'https://example.com/user');
+
+Follow an actor of the fediverse (C<POST /user/activitypub/follow>). The
+named arguments are sent as the JSON body; the API takes the C<target>, the
+URL of the actor.
+
+=cut
+
+sub activitypub_follow {
+    my ($self, %params) = @_;
+    croak "Target required" unless defined $params{target} && length $params{target};
+    $self->client->post('/user/activitypub/follow', \%params);
+    return 1;
+}
+
 =method orgs
 
     my $orgs = $forgejo->current_user->orgs;
@@ -378,6 +492,55 @@ sub starred {
     return $self->client->get('/user/starred', params => \%params);
 }
 
+=method star
+
+    $forgejo->current_user->star($owner, $repo);
+
+Star a repository (C<PUT /user/starred/{owner}/{repo}>). Returns true; the API
+sends no data back.
+
+=cut
+
+sub star {
+    my ($self, $owner, $repo) = @_;
+    croak "Repository owner required" unless defined $owner && length $owner;
+    croak "Repository name required" unless defined $repo && length $repo;
+    $self->client->put('/user/starred/' . escape_component($owner) . '/' . escape_component($repo));
+    return 1;
+}
+
+=method unstar
+
+    $forgejo->current_user->unstar($owner, $repo);
+
+Remove the star from a repository (C<DELETE /user/starred/{owner}/{repo}>).
+
+=cut
+
+sub unstar {
+    my ($self, $owner, $repo) = @_;
+    croak "Repository owner required" unless defined $owner && length $owner;
+    croak "Repository name required" unless defined $repo && length $repo;
+    return $self->client->delete('/user/starred/' . escape_component($owner) . '/' . escape_component($repo));
+}
+
+=method check_starred
+
+    my $is_starred = $forgejo->current_user->check_starred($owner, $repo);
+
+Check whether the current user starred a repository (C<GET
+/user/starred/{owner}/{repo}>). Returns true or false; the API answers this
+with its status code only.
+
+=cut
+
+sub check_starred {
+    my ($self, $owner, $repo) = @_;
+    croak "Repository owner required" unless defined $owner && length $owner;
+    croak "Repository name required" unless defined $repo && length $repo;
+    return $self->client->check('/user/starred/' . escape_component($owner) . '/' . escape_component($repo));
+}
+
 =method subscriptions
 
     my $subs = $forgejo->current_user->subscriptions;
@@ -418,6 +581,52 @@ query string of the request.
 sub following {
     my ($self, %params) = @_;
     return $self->client->get('/user/following', params => \%params);
+}
+
+=method follow
+
+    $forgejo->current_user->follow($username);
+
+Follow a user (C<PUT /user/following/{username}>). Returns true; the API sends
+no data back.
+
+=cut
+
+sub follow {
+    my ($self, $username) = @_;
+    croak "Username required" unless defined $username && length $username;
+    $self->client->put('/user/following/' . escape_component($username));
+    return 1;
+}
+
+=method unfollow
+
+    $forgejo->current_user->unfollow($username);
+
+Stop following a user (C<DELETE /user/following/{username}>).
+
+=cut
+
+sub unfollow {
+    my ($self, $username) = @_;
+    croak "Username required" unless defined $username && length $username;
+    return $self->client->delete('/user/following/' . escape_component($username));
+}
+
+=method check_following
+
+    my $is_following = $forgejo->current_user->check_following($username);
+
+Check whether the current user follows a user (C<GET
+/user/following/{username}>). Returns true or false; the API answers this with
+its status code only.
+
+=cut
+
+sub check_following {
+    my ($self, $username) = @_;
+    croak "Username required" unless defined $username && length $username;
+    return $self->client->check('/user/following/' . escape_component($username));
 }
 
 =method block
@@ -503,18 +712,18 @@ sub times {
 
 =method set_secret
 
-    $forgejo->current_user->set_secret('MY_SECRET', { data => 'secret value' });
+    $forgejo->current_user->set_secret('MY_SECRET', data => 'secret value');
 
 Create or update an Actions secret of the current user
-(C<PUT /user/actions/secrets/{secretname}>). The hashref is sent as the JSON
-body; the API expects the value in C<data>. The API has no call to read
-secrets back.
+(C<PUT /user/actions/secrets/{secretname}>). The named arguments are sent as
+the JSON body; the API expects the value in C<data>. The API has no call to
+read secrets back.
 
 =cut
 
 sub set_secret {
-    my ($self, $secret_name, $data) = @_;
-    return $self->client->put('/user/actions/secrets/' . escape_component($secret_name), $data);
+    my ($self, $secret_name, %params) = @_;
+    return $self->client->put('/user/actions/secrets/' . escape_component($secret_name), \%params);
 }
 
 =method delete_secret
@@ -559,6 +768,199 @@ sub list_runners {
     return $self->client->get('/user/actions/runners', params => \%params);
 }
 
+=method get_runner
+
+    my $runner = $forgejo->current_user->get_runner($runner_id);
+
+Get one Actions runner of the current user (C<GET
+/user/actions/runners/{runner_id}>).
+
+=cut
+
+sub get_runner {
+    my ($self, $runner_id) = @_;
+    return $self->client->get('/user/actions/runners/' . escape_component($runner_id));
+}
+
+=method create_runner
+
+    $forgejo->current_user->create_runner(name => 'runner-1', description => 'A runner');
+
+Register an Actions runner for the current user (C<POST /user/actions/runners>).
+The named arguments are sent as the JSON body; the API takes C<name> and takes
+C<description> and C<ephemeral> as well.
+
+=cut
+
+sub create_runner {
+    my ($self, %params) = @_;
+    return $self->client->post('/user/actions/runners', \%params);
+}
+
+=method delete_runner
+
+    $forgejo->current_user->delete_runner($runner_id);
+
+Delete an Actions runner of the current user (C<DELETE
+/user/actions/runners/{runner_id}>).
+
+=cut
+
+sub delete_runner {
+    my ($self, $runner_id) = @_;
+    return $self->client->delete('/user/actions/runners/' . escape_component($runner_id));
+}
+
+=method list_runner_jobs
+
+    my $jobs = $forgejo->current_user->list_runner_jobs;
+
+List the jobs of all Actions runners of the current user (C<GET
+/user/actions/runners/jobs>). Named arguments are sent as the query string
+(C<labels>).
+
+=cut
+
+sub list_runner_jobs {
+    my ($self, %params) = @_;
+    return $self->client->get('/user/actions/runners/jobs', params => \%params);
+}
+
+=method get_runner_registration_token
+
+    my $token = $forgejo->current_user->get_runner_registration_token;
+
+Get the registration token of the Actions runners of the current user (C<GET
+/user/actions/runners/registration-token>).
+
+=cut
+
+sub get_runner_registration_token {
+    my ($self) = @_;
+    return $self->client->get('/user/actions/runners/registration-token');
+}
+
+=method get_variable
+
+    my $variable = $forgejo->current_user->get_variable('STAGE');
+
+Get an Actions variable of the current user by name (C<GET
+/user/actions/variables/{variablename}>).
+
+=cut
+
+sub get_variable {
+    my ($self, $name) = @_;
+    return $self->client->get('/user/actions/variables/' . escape_component($name));
+}
+
+=method create_variable
+
+    $forgejo->current_user->create_variable('STAGE', value => 'prod');
+
+Create an Actions variable of the current user (C<POST
+/user/actions/variables/{variablename}>). The named arguments are sent as the
+JSON body; the API expects the value in C<value>.
+
+=cut
+
+sub create_variable {
+    my ($self, $name, %params) = @_;
+    return $self->client->post('/user/actions/variables/' . escape_component($name), \%params);
+}
+
+=method set_variable
+
+    $forgejo->current_user->set_variable('STAGE', value => 'test');
+    $forgejo->current_user->set_variable('STAGE', value => 'test', name => 'ENV');
+
+Update an Actions variable of the current user (C<PUT
+/user/actions/variables/{variablename}>). The named arguments are sent as the
+JSON body; the API expects the value in C<value> and renames the variable with
+C<name>.
+
+=cut
+
+sub set_variable {
+    my ($self, $name, %params) = @_;
+    return $self->client->put('/user/actions/variables/' . escape_component($name), \%params);
+}
+
+=method delete_variable
+
+    $forgejo->current_user->delete_variable('STAGE');
+
+Delete an Actions variable of the current user (C<DELETE
+/user/actions/variables/{variablename}>).
+
+=cut
+
+sub delete_variable {
+    my ($self, $name) = @_;
+    return $self->client->delete('/user/actions/variables/' . escape_component($name));
+}
+
+=method quota_artifacts
+
+    my $artifacts = $forgejo->current_user->quota_artifacts;
+
+List the artifacts of the current user that count against the quota (C<GET
+/user/quota/artifacts>). Named arguments are sent as the query string (C<page>,
+C<limit>).
+
+=cut
+
+sub quota_artifacts {
+    my ($self, %params) = @_;
+    return $self->client->get('/user/quota/artifacts', params => \%params);
+}
+
+=method quota_attachments
+
+    my $attachments = $forgejo->current_user->quota_attachments;
+
+List the attachments of the current user that count against the quota (C<GET
+/user/quota/attachments>). Named arguments are sent as the query string
+(C<page>, C<limit>).
+
+=cut
+
+sub quota_attachments {
+    my ($self, %params) = @_;
+    return $self->client->get('/user/quota/attachments', params => \%params);
+}
+
+=method quota_packages
+
+    my $packages = $forgejo->current_user->quota_packages;
+
+List the packages of the current user that count against the quota (C<GET
+/user/quota/packages>). Named arguments are sent as the query string (C<page>,
+C<limit>).
+
+=cut
+
+sub quota_packages {
+    my ($self, %params) = @_;
+    return $self->client->get('/user/quota/packages', params => \%params);
+}
+
+=method quota_check
+
+    my $ok = $forgejo->current_user->quota_check(subject => 'size:repos:all');
+
+Check whether the current user has quota left for a subject (C<GET
+/user/quota/check>). The named arguments are sent as the query string; the API
+requires the C<subject> to check. Returns true or false.
+
+=cut
+
+sub quota_check {
+    my ($self, %params) = @_;
+    croak "Quota subject required" unless defined $params{subject} && length $params{subject};
+    return $self->client->get('/user/quota/check', params => \%params);
+}
+
 1;
 
 __END__
@@ -577,10 +979,14 @@ __END__
 
 The C</user/...> endpoints, i.e. everything about the user the API token
 belongs to: profile, settings, emails, SSH and GPG keys, webhooks, OAuth2
-applications, organizations, repositories, blocks, quota and Actions
-secrets, variables and runners. Available as C<< $forgejo->current_user >>.
+applications, organizations, repositories, blocks, stars and follows, quota and
+Actions secrets, variables and runners. Available as
+C<< $forgejo->current_user >>.
 
-All methods return the decoded JSON response as plain Perl data.
+All methods return the decoded JSON response as plain Perl data. The methods
+that star a repository or follow a user (C<star>, C<unstar>, C<follow>,
+C<unfollow>) get no data back and return true; the C<check_starred> and
+C<check_following> methods answer a question and return true or false.
 
 =head1 SEE ALSO
 

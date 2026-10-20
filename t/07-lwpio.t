@@ -247,9 +247,9 @@ subtest 'a controller list collects all pages through the default backend' => su
         io    => WWW::Forgejo::LWPIO->new(ua => $ua),
     );
     my $issues = WWW::Forgejo::API::Repo::Issues->new(client => $client, owner => 'o', repo => 'r');
-    my @issues = $issues->list(state => 'open');
+    my $all = $issues->list(state => 'open');
 
-    is_deeply([ map { $_->number } @issues ], [ 1, 2, 3 ], 'issues of both pages');
+    is_deeply([ map { $_->number } @$all ], [ 1, 2, 3 ], 'issues of both pages');
     like($ua->{requests}[1]->uri, qr{state=open}, 'filter kept on the follow-up page');
 };
 

@@ -122,6 +122,57 @@ sub rename {
     return $self->client->post("/orgs/" . escape_component($org) . "/rename", \%params);
 }
 
+=method set_avatar
+
+    $forgejo->orgs->set_avatar('my-org', image => $base64);
+
+Set the avatar of an organization (C<POST /orgs/{org}/avatar>). The named
+arguments are sent as the JSON body; the API expects the image in C<image>, as
+a base64 encoded string. Returns true.
+
+=cut
+
+sub set_avatar {
+    my ($self, $org, %params) = @_;
+    croak "Organization name required" unless defined $org && length $org;
+    croak "Avatar image required" unless defined $params{image} && length $params{image};
+    $self->client->post("/orgs/" . escape_component($org) . "/avatar", \%params);
+    return 1;
+}
+
+=method delete_avatar
+
+    $forgejo->orgs->delete_avatar('my-org');
+
+Delete the avatar of an organization (C<DELETE /orgs/{org}/avatar>); the
+organization gets the default avatar. Returns true.
+
+=cut
+
+sub delete_avatar {
+    my ($self, $org) = @_;
+    croak "Organization name required" unless defined $org && length $org;
+    $self->client->delete("/orgs/" . escape_component($org) . "/avatar");
+    return 1;
+}
+
+=method activities
+
+    my $activities = $forgejo->orgs->activities('my-org');
+
+Get the activity feed of an organization
+(C<GET /orgs/{org}/activities/feeds>). Further named arguments are sent as the
+query string of the request (C<date>, C<page>, C<limit>).
+
+=cut
+
+sub activities {
+    my ($self, $org, %params) = @_;
+    croak "Organization name required" unless defined $org && length $org;
+    return $self->client->get(
+        "/orgs/" . escape_component($org) . "/activities/feeds", params => \%params);
+}
+
 1;
 
 __END__

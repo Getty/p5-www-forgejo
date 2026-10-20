@@ -138,6 +138,37 @@ sub remove_member {
     return $self->client->delete($self->_team_path($team_id, 'members', escape_component($username)));
 }
 
+=method get_member
+
+    my $member = $forgejo->teams->get_member($team_id, $username);
+
+Get the membership of one user in a team
+(C<GET /teams/{id}/members/{username}>). The membership is returned as a plain
+structure.
+
+=cut
+
+sub get_member {
+    my ($self, $team_id, $username) = @_;
+    croak "Username required" unless $username;
+    return $self->client->get($self->_team_path($team_id, 'members', escape_component($username)));
+}
+
+=method activities
+
+    my $feed = $forgejo->teams->activities($team_id);
+
+Get the activity feed of a team (C<GET /teams/{id}/activities/feeds>). Further
+named arguments are sent as the query string of the request (C<date>, C<page>,
+C<limit>).
+
+=cut
+
+sub activities {
+    my ($self, $team_id, %params) = @_;
+    return $self->client->get($self->_team_path($team_id, 'activities', 'feeds'), params => \%params);
+}
+
 =method list_repos
 
     my $repos = $forgejo->teams->list_repos($team_id);
@@ -180,6 +211,24 @@ sub remove_repo {
     croak "Organization name required" unless $org;
     croak "Repository name required" unless $repo;
     return $self->client->delete($self->_team_path($team_id, 'repos', escape_component($org), escape_component($repo)));
+}
+
+=method get_repo
+
+    my $repo = $forgejo->teams->get_repo($team_id, $org, $repo);
+
+Get one repository a team has access to
+(C<GET /teams/{id}/repos/{org}/{repo}>). The repository is returned as a plain
+structure.
+
+=cut
+
+sub get_repo {
+    my ($self, $team_id, $org, $repo) = @_;
+    croak "Organization name required" unless $org;
+    croak "Repository name required" unless $repo;
+    return $self->client->get(
+        $self->_team_path($team_id, 'repos', escape_component($org), escape_component($repo)));
 }
 
 1;

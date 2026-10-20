@@ -8,6 +8,7 @@ package WWW::Forgejo::API::Repo::Git;
 
 use Moo;
 use WWW::Forgejo::URL qw( escape_component );
+use Carp qw(croak);
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -88,6 +89,23 @@ sub get_commit {
     return $self->client->get($self->_path_for('commits', escape_component($sha)), params => \%params);
 }
 
+=method diff
+
+    my $diff  = $repo->git->diff($sha, 'diff');
+    my $patch = $repo->git->diff($sha, 'patch');
+
+Get the diff or the patch of a commit
+(C<GET /repos/{owner}/{repo}/git/commits/{sha}.{diffType}>). The type is C<diff>
+or C<patch>. Returns the body of the response as it is, as bytes.
+
+=cut
+
+sub diff {
+    my ($self, $sha, $type) = @_;
+    return $self->client->get(
+        $self->_path_for('commits', escape_component($sha) . '.' . escape_component($type)), raw => 1);
+}
+
 =method get_tree
 
     my $tree = $repo->git->get_tree($sha);
@@ -114,6 +132,83 @@ Get a blob.
 sub get_blob {
     my ($self, $sha) = @_;
     return $self->client->get($self->_path_for('blobs', escape_component($sha)));
+}
+
+=method list_blobs
+
+    my $blobs = $repo->git->list_blobs('a1b2c3,d4e5f6');
+
+Get the blobs of the given object ids
+(C<GET /repos/{owner}/{repo}/git/blobs>). The object ids are given as one
+argument, separated by commas. The blobs are returned as plain structures in
+an arrayref.
+
+=cut
+
+sub list_blobs {
+    my ($self, $shas) = @_;
+    croak "Object ids required" unless defined $shas && length $shas;
+    my $data = $self->client->get($self->_path_for('blobs'), params => { shas => $shas });
+    return [@$data];
+}
+
+=method get_tag
+
+    my $tag = $repo->git->get_tag($sha);
+
+Get the tag object of the repository
+(C<GET /repos/{owner}/{repo}/git/tags/{sha}>).
+
+=cut
+
+sub get_tag {
+    my ($self, $sha) = @_;
+    return $self->client->get($self->_path_for('tags', escape_component($sha)));
+}
+
+=method get_note
+
+    my $note = $repo->git->get_note($sha);
+
+Get the note of a commit
+(C<GET /repos/{owner}/{repo}/git/notes/{sha}>). The commit is addressed by its
+SHA. Named arguments are sent as the query string (C<verification>, C<files>).
+
+=cut
+
+sub get_note {
+    my ($self, $sha, %params) = @_;
+    return $self->client->get($self->_path_for('notes', escape_component($sha)), params => \%params);
+}
+
+=method create_note
+
+    my $note = $repo->git->create_note($sha, message => 'A note');
+
+Add a note to a commit
+(C<POST /repos/{owner}/{repo}/git/notes/{sha}>). The named arguments are sent
+as the JSON body; the API takes the text of the note in C<message>.
+
+=cut
+
+sub create_note {
+    my ($self, $sha, %params) = @_;
+    return $self->client->post($self->_path_for('notes', escape_component($sha)), \%params);
+}
+
+=method delete_note
+
+    $repo->git->delete_note($sha);
+
+Delete the note of a commit
+(C<DELETE /repos/{owner}/{repo}/git/notes/{sha}>). Returns true.
+
+=cut
+
+sub delete_note {
+    my ($self, $sha) = @_;
+    $self->client->delete($self->_path_for('notes', escape_component($sha)));
+    return 1;
 }
 
 1;

@@ -45,24 +45,24 @@ sub _path_for {
 
 =method list
 
-    my @collaborators = $repo->collaborators->list;
+    my $collaborators = $repo->collaborators->list;
 
-List all collaborators as L<WWW::Forgejo::Entity::Collaborator> objects. Named
-arguments are sent as the query string.
+List all collaborators as L<WWW::Forgejo::Entity::Collaborator> objects, in an
+arrayref. Named arguments are sent as the query string.
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return map {
+    return [ map {
         WWW::Forgejo::Entity::Collaborator->new(
             client => $self->client,
             owner  => $self->owner,
             repo   => $self->repo,
             data   => $_,
         )
-    } @$data;
+    } @$data ];
 }
 
 =method check
@@ -81,17 +81,20 @@ sub check {
 
 =method add
 
-    $repo->collaborators->add($username, { permission => 'write' });
+    $repo->collaborators->add($username, permission => 'write');
 
 Add a collaborator, or change the permission of an existing one. C<permission>
-is one of C<read>, C<write> or C<admin>. Returns true; the API sends no data
-back.
+is one of C<read>, C<write> or C<admin>. The named arguments are sent as the
+JSON body; without them the request carries no body at all, which leaves the
+permission of a new collaborator at the default of the instance. Returns true;
+the API sends no data back.
 
 =cut
 
 sub add {
-    my ($self, $username, $data) = @_;
-    $self->client->put($self->_path_for(escape_component($username)), $data);
+    my ($self, $username, %params) = @_;
+    my $body = %params ? \%params : undef;
+    $self->client->put($self->_path_for(escape_component($username)), $body);
     return 1;
 }
 
@@ -132,11 +135,11 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @collaborators = $repo->collaborators->list;
+    my $collaborators = $repo->collaborators->list;
 
     if ($repo->collaborators->check('username')) { ... }
 
-    $repo->collaborators->add('username', { permission => 'write' });
+    $repo->collaborators->add('username', permission => 'write');
 
     my $permission = $repo->collaborators->permission('username');
 

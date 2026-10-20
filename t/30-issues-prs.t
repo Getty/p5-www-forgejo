@@ -81,13 +81,13 @@ subtest 'pulls list' => sub {
         '[{"id":10,"number":1,"title":"First PR","state":"open"},'
       . '{"id":11,"number":2,"title":"Second PR","state":"closed"}]');
 
-    my @prs = $pulls->list;
-    is(scalar @prs, 2, 'two pull requests returned as a list');
+    my $prs = $pulls->list;
+    is(scalar @$prs, 2, 'two pull requests returned as a list');
     is(scalar @Test::MockIO::requests, 1, 'single-page list => one HTTP call');
-    isa_ok($prs[0], 'WWW::Forgejo::Entity::PullRequest');
-    is($prs[0]->number, 1, 'first PR number');
-    is($prs[0]->title, 'First PR', 'first PR title');
-    is($prs[1]->state, 'closed', 'second PR state');
+    isa_ok($prs->[0], 'WWW::Forgejo::Entity::PullRequest');
+    is($prs->[0]->number, 1, 'first PR number');
+    is($prs->[0]->title, 'First PR', 'first PR title');
+    is($prs->[1]->state, 'closed', 'second PR state');
 
     my $req = last_req;
     is($req->method, 'GET', 'list => GET');
@@ -98,8 +98,8 @@ subtest 'pulls list forwards filter params to the query string' => sub {
     clear_responses;
     add_response(200, '[{"id":10,"number":1,"title":"First PR","state":"open"}]');
 
-    my @prs = $pulls->list(state => 'open');
-    is(scalar @prs, 1, 'one PR returned');
+    my $prs = $pulls->list(state => 'open');
+    is(scalar @$prs, 1, 'one PR returned');
 
     my $req = last_req;
     is($req->method, 'GET', 'filtered list => GET');
@@ -142,12 +142,12 @@ subtest 'pulls create' => sub {
         '{"id":20,"number":7,"title":"New feature","state":"open",'
       . '"head":{"ref":"feat"},"base":{"ref":"main"}}');
 
-    my $pr = $pulls->create({
+    my $pr = $pulls->create(
         title => 'New feature',
         head  => 'feat',
         base  => 'main',
         body  => 'please review',
-    });
+    );
     isa_ok($pr, 'WWW::Forgejo::Entity::PullRequest');
     is($pr->number, 7, 'created PR number');
     is($pr->title, 'New feature', 'created PR title');
@@ -164,7 +164,7 @@ subtest 'pulls edit' => sub {
     clear_responses;
     add_response(200, '{"id":20,"number":7,"title":"Updated title","state":"open"}');
 
-    my $pr = $pulls->edit(7, { title => 'Updated title' });
+    my $pr = $pulls->edit(7, title => 'Updated title');
     isa_ok($pr, 'WWW::Forgejo::Entity::PullRequest');
     is($pr->title, 'Updated title', 'edited title');
 
@@ -178,7 +178,7 @@ subtest 'pulls update (alias of edit)' => sub {
     clear_responses;
     add_response(200, '{"id":20,"number":7,"title":"Via update","state":"open"}');
 
-    my $pr = $pulls->update(7, { title => 'Via update' });
+    my $pr = $pulls->update(7, title => 'Via update');
     is($pr->title, 'Via update', 'update aliases edit');
 
     my $req = last_req;
@@ -190,7 +190,7 @@ subtest 'pulls merge' => sub {
     clear_responses;
     add_response(200, '{}');
 
-    my $r = $pulls->merge(7, { Do => 'merge' });
+    my $r = $pulls->merge(7, Do => 'merge');
     is(ref $r, 'HASH', 'merge returns raw decoded data');
 
     my $req = last_req;
@@ -230,7 +230,7 @@ subtest 'pulls are closed, not deleted' => sub {
     clear_responses;
     add_response(201, '{"number":7,"state":"closed"}');
 
-    my $pr = $pulls->edit(7, { state => 'closed' });
+    my $pr = $pulls->edit(7, state => 'closed');
     is($pr->state, 'closed', 'closed pull request returned');
 
     my $req = last_req;
@@ -245,14 +245,14 @@ subtest 'pulls reviews => Entity::PullRequestReview' => sub {
         '[{"id":100,"body":"Looks good","state":"APPROVED",'
       . '"user":{"login":"reviewer"},"submitted_at":"2024-01-01T00:00:00Z"}]');
 
-    my @reviews = $pulls->reviews(7);
-    is(scalar @reviews, 1, 'one review');
-    isa_ok($reviews[0], 'WWW::Forgejo::Entity::PullRequestReview');
-    is($reviews[0]->id, 100, 'review id');
-    is($reviews[0]->body, 'Looks good', 'review body');
-    is($reviews[0]->state, 'APPROVED', 'review state');
-    is($reviews[0]->user->{login}, 'reviewer', 'review user');
-    is($reviews[0]->submitted_at, '2024-01-01T00:00:00Z', 'submitted_at');
+    my $reviews = $pulls->reviews(7);
+    is(scalar @$reviews, 1, 'one review');
+    isa_ok($reviews->[0], 'WWW::Forgejo::Entity::PullRequestReview');
+    is($reviews->[0]->id, 100, 'review id');
+    is($reviews->[0]->body, 'Looks good', 'review body');
+    is($reviews->[0]->state, 'APPROVED', 'review state');
+    is($reviews->[0]->user->{login}, 'reviewer', 'review user');
+    is($reviews->[0]->submitted_at, '2024-01-01T00:00:00Z', 'submitted_at');
 
     my $req = last_req;
     is($req->method, 'GET', 'reviews => GET');
@@ -263,7 +263,7 @@ subtest 'pulls create_review' => sub {
     clear_responses;
     add_response(200, '{"id":101,"body":"nice","state":"COMMENT"}');
 
-    my $r = $pulls->create_review(7, { body => 'nice', event => 'COMMENT' });
+    my $r = $pulls->create_review(7, body => 'nice', event => 'COMMENT');
     is($r->{id}, 101, 'create_review returns raw data');
     is($r->{state}, 'COMMENT', 'review state in raw data');
 
@@ -328,14 +328,14 @@ subtest 'issues list' => sub {
       . '"labels":[{"id":1,"name":"bug"}]},'
       . '{"id":2,"number":2,"title":"Feature","state":"closed","labels":[]}]');
 
-    my @list = $issues->list;
-    is(scalar @list, 2, 'two issues');
+    my $list = $issues->list;
+    is(scalar @$list, 2, 'two issues');
     is(scalar @Test::MockIO::requests, 1, 'single-page list => one HTTP call');
-    isa_ok($list[0], 'WWW::Forgejo::Entity::Issue');
-    is($list[0]->number, 1, 'first issue number');
-    is($list[0]->title, 'Bug report', 'first issue title');
-    is($list[0]->labels->[0]{name}, 'bug', 'first issue label');
-    is($list[1]->state, 'closed', 'second issue state');
+    isa_ok($list->[0], 'WWW::Forgejo::Entity::Issue');
+    is($list->[0]->number, 1, 'first issue number');
+    is($list->[0]->title, 'Bug report', 'first issue title');
+    is($list->[0]->labels->[0]{name}, 'bug', 'first issue label');
+    is($list->[1]->state, 'closed', 'second issue state');
 
     my $req = last_req;
     is($req->method, 'GET', 'list => GET');
@@ -346,8 +346,8 @@ subtest 'issues list forwards filter params to the query string' => sub {
     clear_responses;
     add_response(200, '[{"id":1,"number":1,"title":"Bug","state":"open","labels":[]}]');
 
-    my @list = $issues->list(state => 'open');
-    is(scalar @list, 1, 'one issue returned');
+    my $list = $issues->list(state => 'open');
+    is(scalar @$list, 1, 'one issue returned');
 
     my $req = last_req;
     is($req->method, 'GET', 'filtered list => GET');
@@ -379,7 +379,7 @@ subtest 'issues create' => sub {
     clear_responses;
     add_response(201, '{"id":51,"number":4,"title":"New issue","state":"open"}');
 
-    my $issue = $issues->create({ title => 'New issue', body => 'text', labels => [1] });
+    my $issue = $issues->create(title => 'New issue', body => 'text', labels => [1]);
     isa_ok($issue, 'WWW::Forgejo::Entity::Issue');
     is($issue->number, 4, 'created number');
     is($issue->title, 'New issue', 'created title');
@@ -394,7 +394,7 @@ subtest 'issues edit' => sub {
     clear_responses;
     add_response(200, '{"id":51,"number":4,"title":"Edited","state":"closed"}');
 
-    my $issue = $issues->edit(4, { title => 'Edited', state => 'closed' });
+    my $issue = $issues->edit(4, title => 'Edited', state => 'closed');
     is($issue->title, 'Edited', 'edited title');
     is($issue->state, 'closed', 'edited state');
 
@@ -408,7 +408,7 @@ subtest 'issues update (alias of edit)' => sub {
     clear_responses;
     add_response(200, '{"id":51,"number":4,"title":"Upd","state":"open"}');
 
-    my $issue = $issues->update(4, { title => 'Upd' });
+    my $issue = $issues->update(4, title => 'Upd');
     is($issue->title, 'Upd', 'update aliases edit');
 
     my $req = last_req;
@@ -422,14 +422,14 @@ subtest 'issues list_comments => Entity::IssueComment' => sub {
         '[{"id":5,"body":"first comment","user":{"login":"a"},'
       . '"created_at":"2024-01-01T00:00:00Z","updated_at":"2024-01-02T00:00:00Z"}]');
 
-    my @comments = $issues->list_comments(4);
-    is(scalar @comments, 1, 'one comment');
-    isa_ok($comments[0], 'WWW::Forgejo::Entity::IssueComment');
-    is($comments[0]->id, 5, 'comment id');
-    is($comments[0]->body, 'first comment', 'comment body');
-    is($comments[0]->user->{login}, 'a', 'comment user');
-    is($comments[0]->created_at, '2024-01-01T00:00:00Z', 'created_at');
-    is($comments[0]->updated_at, '2024-01-02T00:00:00Z', 'updated_at');
+    my $comments = $issues->list_comments(4);
+    is(scalar @$comments, 1, 'one comment');
+    isa_ok($comments->[0], 'WWW::Forgejo::Entity::IssueComment');
+    is($comments->[0]->id, 5, 'comment id');
+    is($comments->[0]->body, 'first comment', 'comment body');
+    is($comments->[0]->user->{login}, 'a', 'comment user');
+    is($comments->[0]->created_at, '2024-01-01T00:00:00Z', 'created_at');
+    is($comments->[0]->updated_at, '2024-01-02T00:00:00Z', 'updated_at');
 
     my $req = last_req;
     is($req->method, 'GET', 'list_comments => GET');
@@ -440,9 +440,9 @@ subtest 'issues comments (alias of list_comments)' => sub {
     clear_responses;
     add_response(200, '[{"id":6,"body":"aliased"}]');
 
-    my @comments = $issues->comments(4);
-    is(scalar @comments, 1, 'alias works');
-    is($comments[0]->body, 'aliased', 'alias returns comment');
+    my $comments = $issues->comments(4);
+    is(scalar @$comments, 1, 'alias works');
+    is($comments->[0]->body, 'aliased', 'alias returns comment');
 
     my $req = last_req;
     is($req->method, 'GET', 'comments alias => GET');
@@ -453,7 +453,7 @@ subtest 'issues add_comment' => sub {
     clear_responses;
     add_response(201, '{"id":6,"body":"my reply"}');
 
-    my $r = $issues->add_comment(4, { body => 'my reply' });
+    my $r = $issues->add_comment(4, body => 'my reply');
     is($r->{id}, 6, 'add_comment returns raw data');
     is($r->{body}, 'my reply', 'raw body');
 
@@ -467,9 +467,9 @@ subtest 'issues list_labels' => sub {
     clear_responses;
     add_response(200, '[{"id":1,"name":"bug"},{"id":2,"name":"wip"}]');
 
-    my @labels = $issues->list_labels(4);
-    is(scalar @labels, 2, 'two labels (returned as plain list)');
-    is($labels[0]{name}, 'bug', 'first label');
+    my $labels = $issues->list_labels(4);
+    is(scalar @$labels, 2, 'two labels (returned as plain list)');
+    is($labels->[0]{name}, 'bug', 'first label');
 
     my $req = last_req;
     is($req->method, 'GET', 'list_labels => GET');
@@ -480,7 +480,7 @@ subtest 'issues add_label' => sub {
     clear_responses;
     add_response(200, '[{"id":1,"name":"bug"}]');
 
-    my $r = $issues->add_label(4, { labels => [1] });
+    my $r = $issues->add_label(4, labels => [1]);
     ok($r, 'add_label returns data');
 
     my $req = last_req;

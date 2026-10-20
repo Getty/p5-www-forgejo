@@ -66,19 +66,19 @@ sub _asset {
 
 =method list
 
-    my @releases = $repo->releases->list;
-    my @drafts   = $repo->releases->list(draft => 'true');
+    my $releases = $repo->releases->list;
+    my $drafts   = $repo->releases->list(draft => 'true');
 
-List the releases as L<WWW::Forgejo::Entity::Release> objects. Named arguments
-are sent as the query string (C<draft>, C<pre-release>, C<q>, C<page>,
-C<limit>).
+List the releases as L<WWW::Forgejo::Entity::Release> objects, in an arrayref.
+Named arguments are sent as the query string (C<draft>, C<pre-release>, C<q>,
+C<page>, C<limit>).
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return map { $self->_release($_) } @$data;
+    return [ map { $self->_release($_) } @$data ];
 }
 
 =method get
@@ -123,28 +123,29 @@ sub latest {
 
 =method create
 
-    my $release = $repo->releases->create({ tag_name => 'v1.0.0', name => 'First release' });
+    my $release = $repo->releases->create(tag_name => 'v1.0.0', name => 'First release');
 
-Create a release; the API requires C<tag_name>.
+Create a release; the API requires C<tag_name>. The named arguments are sent as
+the JSON body.
 
 =cut
 
 sub create {
-    my ($self, $data) = @_;
-    return $self->_release($self->client->post($self->_path_for, $data));
+    my ($self, %params) = @_;
+    return $self->_release($self->client->post($self->_path_for, \%params));
 }
 
 =method edit
 
-    my $release = $repo->releases->edit($id, { draft => \0 });
+    my $release = $repo->releases->edit($id, draft => \0);
 
-Edit a release.
+Edit a release. The named arguments are sent as the JSON body.
 
 =cut
 
 sub edit {
-    my ($self, $id, $data) = @_;
-    return $self->_release($self->client->patch($self->_path_for(escape_component($id)), $data));
+    my ($self, $id, %params) = @_;
+    return $self->_release($self->client->patch($self->_path_for(escape_component($id)), \%params));
 }
 
 =method update
@@ -185,17 +186,17 @@ sub delete_by_tag {
 
 =method assets
 
-    my @assets = $repo->releases->assets($id);
+    my $assets = $repo->releases->assets($id);
 
 List the attachments of a release as L<WWW::Forgejo::Entity::ReleaseAsset>
-objects.
+objects, in an arrayref.
 
 =cut
 
 sub assets {
     my ($self, $id) = @_;
     my $data = $self->client->get($self->_path_for(escape_component($id), 'assets'));
-    return map { $self->_asset($_) } @$data;
+    return [ map { $self->_asset($_) } @$data ];
 }
 
 =method upload_asset
@@ -245,18 +246,18 @@ sub get_asset {
 
 =method edit_asset
 
-    my $asset = $repo->releases->edit_asset($id, $asset_id, { name => 'app-1.0.tar.gz' });
+    my $asset = $repo->releases->edit_asset($id, $asset_id, name => 'app-1.0.tar.gz');
 
 Edit an attachment of a release; the API takes C<name> and, for an external
-attachment, C<browser_download_url>. Returns the
-L<WWW::Forgejo::Entity::ReleaseAsset>.
+attachment, C<browser_download_url>. The named arguments are sent as the JSON
+body. Returns the L<WWW::Forgejo::Entity::ReleaseAsset>.
 
 =cut
 
 sub edit_asset {
-    my ($self, $id, $asset_id, $data) = @_;
+    my ($self, $id, $asset_id, %params) = @_;
     return $self->_asset(
-        $self->client->patch($self->_path_for(escape_component($id), 'assets', escape_component($asset_id)), $data));
+        $self->client->patch($self->_path_for(escape_component($id), 'assets', escape_component($asset_id)), \%params));
 }
 
 =method delete_asset
@@ -282,11 +283,11 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @releases = $repo->releases->list;
+    my $releases = $repo->releases->list;
 
     my $release = $repo->releases->get_by_tag('v1.0.0');
     $release    = $repo->releases->latest;
-    $release    = $repo->releases->edit($release->id, { name => 'First release' });
+    $release    = $repo->releases->edit($release->id, name => 'First release');
 
     my $asset = $repo->releases->upload_asset($release->id, file => 'dist/app.tar.gz');
     $repo->releases->delete_asset($release->id, $asset->id);

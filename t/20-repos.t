@@ -261,7 +261,7 @@ subtest 'Entity::Repo update (PATCH)' => sub {
         client => $client, owner => 'testorg', repo => 'test-repo',
         data => { name => 'test-repo', description => 'old' },
     );
-    my $updated = $repo->update({ description => 'updated' });
+    my $updated = $repo->update(description => 'updated');
     isa_ok($updated, 'WWW::Forgejo::Entity::Repo');
     is($updated->data->{description}, 'updated', 'updated description in returned entity');
 

@@ -200,18 +200,18 @@ __END__
   print $repo->data->{full_name}, "\n";
 
   # Issues
-  for my $issue ($repo->issues->list(state => 'open')) {
+  for my $issue (@{ $repo->issues->list(state => 'open') }) {
     printf "#%d %s\n", $issue->number, $issue->title;
   }
-  my $issue = $repo->issues->create({ title => 'Something is broken', body => '...' });
-  $repo->issues->add_comment($issue->number, { body => 'On it.' });
-  $repo->issues->edit($issue->number, { title => 'Something was broken' });
+  my $issue = $repo->issues->create(title => 'Something is broken', body => '...');
+  $repo->issues->add_comment($issue->number, body => 'On it.');
+  $repo->issues->edit($issue->number, title => 'Something was broken');
 
   # Pull requests
-  my $pr = $repo->pulls->create({
+  my $pr = $repo->pulls->create(
     title => 'Add the thing', head => 'feature-branch', base => 'main',
-  });
-  $repo->pulls->merge($pr->number, \%merge_options);
+  );
+  $repo->pulls->merge($pr->number, %merge_options);
 
   # Organizations
   my $org   = $forgejo->orgs->get('my-org');

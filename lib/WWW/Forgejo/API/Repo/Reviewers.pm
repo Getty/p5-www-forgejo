@@ -44,62 +44,65 @@ sub _path_for {
 
 =method list
 
-    my @reviewers = $repo->reviewers->list;
+    my $reviewers = $repo->reviewers->list;
 
 List the users that can be asked to review a pull request of this repository,
-as plain user structures.
+as plain user structures in an arrayref.
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return @$data;
+    return [@$data];
 }
 
 # requested_reviewers body: usernames and team names, each a name or a list.
 sub _request_body {
-    my ($self, $reviewers, $team_reviewers) = @_;
+    my ($self, %params) = @_;
     my %body;
-    $body{reviewers}      = ref $reviewers      ? $reviewers      : [$reviewers]      if defined $reviewers;
-    $body{team_reviewers} = ref $team_reviewers ? $team_reviewers : [$team_reviewers] if defined $team_reviewers;
+    for my $key (qw(reviewers team_reviewers)) {
+        next unless defined $params{$key};
+        $body{$key} = ref $params{$key} ? $params{$key} : [ $params{$key} ];
+    }
     return \%body;
 }
 
 =method add
 
-    my $reviews = $repo->reviewers->add($index, ['user1', 'user2']);
-    my $reviews = $repo->reviewers->add($index, 'user1', ['team1']);
+    my $reviews = $repo->reviewers->add($index, reviewers => ['user1', 'user2']);
+    my $reviews = $repo->reviewers->add($index, reviewers => 'user1', team_reviewers => ['team1']);
 
-Request reviews for a pull request from users and, as optional third argument,
-from teams. Each is a single name or an arrayref of names. Returns the
+Request reviews for a pull request from users (C<reviewers>) and, as optional
+named argument, from teams (C<team_reviewers>). Each is a single name or an
+arrayref of names. The named arguments are sent as the JSON body. Returns the
 resulting review structures.
 
 =cut
 
 sub add {
-    my ($self, $index, $reviewers, $team_reviewers) = @_;
+    my ($self, $index, %params) = @_;
     return $self->client->post(
         $self->_repo_path('pulls', escape_component($index), 'requested_reviewers'),
-        $self->_request_body($reviewers, $team_reviewers),
+        $self->_request_body(%params),
     );
 }
 
 =method remove
 
-    $repo->reviewers->remove($index, 'user1');
-    $repo->reviewers->remove($index, ['user1', 'user2'], ['team1']);
+    $repo->reviewers->remove($index, reviewers => 'user1');
+    $repo->reviewers->remove($index, reviewers => ['user1', 'user2'], team_reviewers => ['team1']);
 
-Cancel review requests for a pull request. Takes the same arguments as
+Cancel review requests for a pull request. Takes the same named arguments as
 L</add>; they are sent as the JSON body of the request.
 
 =cut
 
 sub remove {
-    my ($self, $index, $reviewers, $team_reviewers) = @_;
+    my ($self, $index, %params) = @_;
     $self->client->delete(
         $self->_repo_path('pulls', escape_component($index), 'requested_reviewers'),
-        $self->_request_body($reviewers, $team_reviewers),
+        $self->_request_body(%params),
     );
     return;
 }
@@ -113,11 +116,11 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @reviewers = $repo->reviewers->list;
+    my $reviewers = $repo->reviewers->list;
 
-    $repo->reviewers->add(1, ['user1', 'user2']);
+    $repo->reviewers->add(1, reviewers => ['user1', 'user2']);
 
-    $repo->reviewers->remove(1, 'user1');
+    $repo->reviewers->remove(1, reviewers => 'user1');
 
 =head1 DESCRIPTION
 

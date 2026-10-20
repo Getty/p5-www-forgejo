@@ -20,10 +20,11 @@ repeated here.
 
 ## Moo, not Moose
 
-Every class is `use Moo;` (roles `use Moo::Role;`), `namespace::clean`, `Log::Any
-qw($log)`, `# ABSTRACT:` + `PODNAME`, PodWeaver `@Author::GETTY` (inline `=method` /
-`=attr`, no NAME/AUTHOR sections). `our $VERSION = '0.001'` in every module — never
-released.
+Every class is `use Moo;` (roles `use Moo::Role;`), `namespace::clean`, `# ABSTRACT:` +
+`PODNAME`, PodWeaver `@Author::GETTY` (inline `=method` / `=attr`, no NAME/AUTHOR
+sections). `our $VERSION = '0.001'` in every module — never released. `Log::Any
+qw($log)` is imported only where the module really logs — that is `Role::HTTP`; the
+entities and the controllers do not log and do not import it.
 
 ## The transport seam — the reusable part
 
@@ -33,14 +34,22 @@ exist:
 - **`WWW::Forgejo::Role::HTTP`** — the Forgejo brain. Consumed by the main client;
   `requires 'token'` and `requires 'base_url'`. It owns:
   - the verb methods `get/post/put/patch/delete`, which all funnel through `_request`;
+  - **`check($path)`** — a yes/no question asked with the status code: true for a 2xx
+    response, false for a 404, croak for anything else. The rule itself lives in
+    **`_check_response($response, $method, $path)`**, so a transport that is not `io` —
+    the async sibling — can ask the same question of a response it fetched itself;
   - **`_build_request($method, $path, %opts)`** → a `WWW::Forgejo::HTTPRequest` (URL =
     `base_url . $path`, GET query params appended, `Authorization: token <token>` +
     `Content-Type: application/json` headers, JSON-encoded body). Builds but does **not**
-    execute — this split is intentional.
+    execute — this split is intentional. The options it understands: `params` (query
+    string), `body` (JSON body), `content`/`content_type` (a raw body), `upload`
+    (multipart), `auth` (basic authentication instead of the token) and `base_url` (a
+    base URL of its own, for the paths of Forgejo that live outside `/api/v1`).
   - **`_parse_response($response, $method, $path)`** → decodes JSON when the body looks
     like JSON, `croak`s `"Forgejo API error: ..."` on non-2xx (message pulled from the
     decoded `{message}`), returns the decoded data.
-  - `_request` glues them: `croak` if no token, build, `$self->io->call($req)`, parse.
+  - `_request` glues them: `croak` if there is no token (and no basic authentication was
+    asked for), build, `$self->io->call($req)`, parse.
 - **`WWW::Forgejo::Role::IO`** — a one-method interface: `requires 'call'`. `call($req)`
   takes a `HTTPRequest`, returns a `HTTPResponse`. This is the swappable transport.
 - **`WWW::Forgejo::LWPIO`** — the default `Role::IO` backend (synchronous `LWP::UserAgent`,
@@ -54,23 +63,21 @@ directly. To add an async/alternative transport you implement `Role::IO`, not to
 ### The bridge value objects
 
 `WWW::Forgejo::HTTPRequest` (`method`, `url`, `headers`, `content` + `has_content`
-predicate) and `WWW::Forgejo::HTTPResponse` (`status`, `content`) are transport-neutral
-Moo objects. They are the exact types that cross the `Role::IO` seam, and the async
-sibling produces/consumes the **same** types so both share one `_build_request` /
-`_parse_response` path. When you touch transport you produce a `HTTPResponse`, never a
-raw `HTTP::Response`.
-
-> Known gap (ticketed): `HTTPResponse` has no `headers` attribute yet, though the async
-> bridge and `t/02-http-mock.t` already pass `headers` (silently dropped by Moo). Adding
-> `headers` with lower-cased keys is the agreed shape — coordinate it as a paired change
-> with the sibling, do not invent a different one.
+predicate) and `WWW::Forgejo::HTTPResponse` (`status`, `content`, `headers`) are
+transport-neutral Moo objects. They are the exact types that cross the `Role::IO` seam,
+and the async sibling produces/consumes the **same** types so both share one
+`_build_request` / `_parse_response` path. When you touch transport you produce a
+`HTTPResponse`, never a raw `HTTP::Response`. `HTTPResponse` lower-cases the header
+keys at construction, so a header that came in as `X-Total-Count` is read as
+`x-total-count` — `_check_response` relies on that for the `content-type`.
 
 ## The API object tree
 
-`WWW::Forgejo` (the main client) `with 'WWW::Forgejo::Role::HTTP'`, holds `token` and
-`base_url` (`init_arg => 'url'`), and exposes a lazy accessor per top-level API group:
-`misc`, `users`, `orgs`, `teams`, `notifications`, `packages`, `repos`, `current_user`,
-`admin`. Each builds a `WWW::Forgejo::API::<Group>->new(client => $self)`.
+`WWW::Forgejo` (the main client) `with 'WWW::Forgejo::Role::HTTP'`, holds `token`, `url` and
+`base_url` (the last two derived in `BUILDARGS`), and exposes a lazy accessor per
+top-level API group: `misc`, `users`, `orgs`, `teams`, `notifications`, `packages`,
+`repos`, `current_user`, `admin`, `activitypub`. Each builds a
+`WWW::Forgejo::API::<Group>->new(client => $self)`.
 
 - **`WWW::Forgejo::API::<Group>`** — a controller holding a (non-weak) `client`. Its
   methods call `$self->{client}->get/post/...` and wrap the raw data into Entities.
@@ -78,27 +85,37 @@ raw `HTTP::Response`.
   carry `owner`/`repo` (or `org`), with a `_path_for(@parts)` helper.
 - **`WWW::Forgejo::Entity::<Thing>`** — a model wrapping `client` + `data` (the raw
   hashref), plus `owner`/`repo` on repo-scoped entities. Field accessors read
-  `data->{...}`; `data_json` serialises. `Entity::Repo` is the hub: it lazily builds its
-  sub-resource controllers (`$repo->branches`, `->releases`, `->issues`, `->pulls`, …),
-  each `require`d on first use and constructed with `client/owner/repo`.
+  `data->{...}`; `data_json` serialises. `Entity::Repo` is the hub: it builds its
+  sub-resource controllers (`$repo->branches`, `->releases`, `->issues`, `->pulls`, …)
+  lazily, each with `client/owner/repo`.
 
 The flow is always: `$client->repos->get($owner,$repo)` → `Entity::Repo` →
 `$repo->releases` → `API::Repo::Releases` → `->list` → `Entity::Release` objects.
 
-> Inconsistencies present in the tree (ticketed, do not "tidy" mid-task): the base
-> `WWW::Forgejo::Entity` (weak_ref `client`, `update`/`delete` croak stubs) is **not**
-> actually `extends`-ed by the concrete entities — they redefine attributes standalone
-> and use a plain `required` client, not `weak_ref`. Treat the base as aspirational until
-> a deliberate refactor unifies it.
+Every concrete entity `extends 'WWW::Forgejo::Entity'` and inherits its `client` and
+`data` attributes (a plain `required` one — not a weak reference) and the
+`update`/`delete` croak stubs; the classes that can do more override them.
+
+### The style of a controller method
+
+Query parameters and the body of a request are **named arguments** — never a hashref as
+a positional argument: `$repo->issues->list(state => 'open')`,
+`$repo->issues->create(title => 'Broken', body => '...')`. The parameters that are part
+of the path (owner, repo, index, org, name) stay positional. A method that returns a
+collection returns an **arrayref**, not a list. Every part of a path is escaped with
+`escape_component`, so a name with a slash or an umlaut survives the round trip.
 
 ## Auth and config
 
-Auth is `Authorization: token <token>` (a Forgejo PAT) — not `Bearer`. `base_url` is the
-full API base the caller passes as `url` (e.g. `https://src.ci/api/v1`); it is used
-verbatim, there is currently **no** `/api/v1` auto-append and **no** `FORGEJO_URL` /
-`FORGEJO_TOKEN` ENV fallback despite the plan calling for them — that is unbuilt work, not
-a convention to assume. `_request` croaks `"No API token configured"` when `token` is
-empty.
+Auth is `Authorization: token <token>` (a Forgejo PAT) — not `Bearer`. A request may ask
+for basic authentication instead, with the `auth` option (`{ user => ..., password =>
+... }`); a few endpoints of Forgejo want that. `base_url` is derived from the `url`
+option — else from `FORGEJO_URL` — and normalised to end in `/api/v1` (idempotent: an
+already-suffixed URL is left unchanged); a missing URL croaks at construction. The
+token comes from the `token` option, else from `FORGEJO_TOKEN`, else it is the empty
+string — a missing token does not croak at construction, but `_request` croaks
+`"No API token configured"` when a request goes out without one (and without basic
+authentication).
 
 ## The twin — Net::Async::Forgejo (`../p5-net-async-forgejo`)
 
@@ -121,3 +138,16 @@ on the *other* repo's board, never a direct edit.
 implements `Role::IO`). The `t/9x-live-*.t` files self-skip unless `TEST_FORGEJO_URL` +
 `TEST_FORGEJO_TOKEN` are set (keep the `TEST_` prefix). `dzil test` / `dzil build` for the
 full `[@Author::GETTY]` distribution.
+
+A new endpoint is not done before it passes the guard rails:
+
+- `t/40-spec-conformance.t` calls every public method of every controller against the
+  mock and wants the request it sends to be an operation of the API — the paths are
+  listed in `t/fixtures/forgejo-api-paths.txt`, extracted from the official Swagger
+  document. A new path belongs in that file as well.
+- `t/41-pod-coverage.t` wants every public method and attribute documented and a
+  SYNOPSIS that compiles and calls only existing methods.
+- `t/42-live-tests-static.t` wants every method call in the live tests to exist.
+- `t/13-quota-and-stars.t` shows the shape of a focused offline test for a group of
+  new endpoints: the mock answers with a canned body, the test asserts the request
+  that went out and the entity that came back.

@@ -55,32 +55,33 @@ sub _status {
 
 =method list
 
-    my @statuses = $repo->statuses->list($sha);
-    my @failed   = $repo->statuses->list($sha, state => 'failure');
+    my $statuses = $repo->statuses->list($sha);
+    my $failed   = $repo->statuses->list($sha, state => 'failure');
 
-List the statuses of a commit as L<WWW::Forgejo::Entity::CommitStatus> objects.
-Named arguments are sent as the query string (C<sort>, C<state>, C<page>,
-C<limit>).
+List the statuses of a commit as L<WWW::Forgejo::Entity::CommitStatus> objects,
+in an arrayref. Named arguments are sent as the query string (C<sort>, C<state>,
+C<page>, C<limit>).
 
 =cut
 
 sub list {
     my ($self, $sha, %params) = @_;
     my $data = $self->client->get($self->_path_for(escape_component($sha)), params => \%params);
-    return map { $self->_status($_) } @$data;
+    return [ map { $self->_status($_) } @$data ];
 }
 
 =method create
 
-    my $status = $repo->statuses->create($sha, { state => 'success', context => 'ci/build' });
+    my $status = $repo->statuses->create($sha, state => 'success', context => 'ci/build');
 
-Create a status for a commit. Returns the L<WWW::Forgejo::Entity::CommitStatus>.
+Create a status for a commit. The named arguments are sent as the JSON body.
+Returns the L<WWW::Forgejo::Entity::CommitStatus>.
 
 =cut
 
 sub create {
-    my ($self, $sha, $data) = @_;
-    return $self->_status($self->client->post($self->_path_for(escape_component($sha)), $data));
+    my ($self, $sha, %params) = @_;
+    return $self->_status($self->client->post($self->_path_for(escape_component($sha)), \%params));
 }
 
 =method combined
@@ -114,14 +115,14 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @statuses = $repo->statuses->list($sha);
+    my $statuses = $repo->statuses->list($sha);
 
-    my $status = $repo->statuses->create($sha, {
+    my $status = $repo->statuses->create($sha,
         state       => 'success',
         target_url  => 'https://ci.example.com/build/123',
         description => 'Build passed',
         context     => 'ci/build',
-    });
+    );
 
     my $combined = $repo->statuses->combined('main');
 

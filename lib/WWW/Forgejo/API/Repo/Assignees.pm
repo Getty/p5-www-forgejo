@@ -44,21 +44,21 @@ sub _path_for {
 
 =method list
 
-    my @assignees = $repo->assignees->list;
+    my $assignees = $repo->assignees->list;
 
 List the users an issue of this repository can be assigned to, as plain user
-structures. Named arguments are sent as the query string.
+structures in an arrayref. Named arguments are sent as the query string.
 
 The API has no endpoints to add or remove a single assignee: the assignees of
 an issue are set as a whole through L<WWW::Forgejo::API::Repo::Issues/edit>
-(C<< { assignees => [...] } >>).
+(C<< assignees => [...] >>).
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return @$data;
+    return [@$data];
 }
 
 1;
@@ -70,10 +70,10 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @assignees = $repo->assignees->list;
+    my $assignees = $repo->assignees->list;
 
     # assigning happens on the issue itself
-    $repo->issues->edit(1, { assignees => ['username'] });
+    $repo->issues->edit(1, assignees => ['username']);
 
 =head1 DESCRIPTION
 

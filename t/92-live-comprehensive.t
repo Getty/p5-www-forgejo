@@ -171,7 +171,7 @@ subtest 'orgs' => sub {
     is(ref $org->hooks->list,   'ARRAY', 'hooks list');
     is(ref $org->labels->list,  'ARRAY', 'labels list');
     is(ref $org->repos,         'ARRAY', 'repos');
-    ok(defined $org->members->check(undef, $TEST_USER), "members check answers yes or no");
+    ok(defined $org->members->check($TEST_USER), "members check answers yes or no");
 };
 
 subtest 'teams' => sub {
@@ -212,22 +212,22 @@ subtest 'repository controllers: lists' => sub {
     ensure_repo($TEST_ORG, $TEST_REPO);
     my $repo = $client->repos->get($TEST_ORG, $TEST_REPO);
 
-    my @branches = $repo->branches->list;
-    ok(scalar @branches, 'an initialised repository has a branch');
-    for my $branch (@branches) {
+    my $branches = $repo->branches->list;
+    ok(scalar @$branches, 'an initialised repository has a branch');
+    for my $branch (@$branches) {
         isa_ok($branch, 'WWW::Forgejo::Entity::Branch');
         ok($branch->name, 'branch has a name');
     }
 
-    is(eval { my @list = $repo->collaborators->list; 1 }, 1, 'collaborators list') or diag $@;
-    is(eval { my @list = $repo->hooks->list;         1 }, 1, 'hooks list')         or diag $@;
-    is(eval { my @list = $repo->labels->list;        1 }, 1, 'labels list')        or diag $@;
-    is(eval { my @list = $repo->milestones->list;    1 }, 1, 'milestones list')    or diag $@;
-    is(eval { my @list = $repo->issues->list;        1 }, 1, 'issues list')        or diag $@;
-    is(eval { my @list = $repo->pulls->list;         1 }, 1, 'pulls list')         or diag $@;
-    is(eval { my @list = $repo->releases->list;      1 }, 1, 'releases list')      or diag $@;
-    is(eval { my @list = $repo->tags->list;          1 }, 1, 'tags list')          or diag $@;
-    is(eval { my @list = $repo->keys->list;          1 }, 1, 'keys list')          or diag $@;
+    is(eval { $repo->collaborators->list; 1 }, 1, 'collaborators list') or diag $@;
+    is(eval { $repo->hooks->list;         1 }, 1, 'hooks list')         or diag $@;
+    is(eval { $repo->labels->list;        1 }, 1, 'labels list')        or diag $@;
+    is(eval { $repo->milestones->list;    1 }, 1, 'milestones list')    or diag $@;
+    is(eval { $repo->issues->list;        1 }, 1, 'issues list')        or diag $@;
+    is(eval { $repo->pulls->list;         1 }, 1, 'pulls list')         or diag $@;
+    is(eval { $repo->releases->list;      1 }, 1, 'releases list')      or diag $@;
+    is(eval { $repo->tags->list;          1 }, 1, 'tags list')          or diag $@;
+    is(eval { $repo->keys->list;          1 }, 1, 'keys list')          or diag $@;
     is(ref $repo->topics->list, 'ARRAY', 'topics list');
 };
 
@@ -235,24 +235,24 @@ subtest 'repository controllers: issue, label and milestone round trip' => sub {
     ensure_repo($TEST_ORG, $TEST_REPO);
     my $repo = $client->repos->get($TEST_ORG, $TEST_REPO);
 
-    my $label = $repo->labels->create({ name => 'live-test', color => '#00aabb' });
+    my $label = $repo->labels->create(name => 'live-test', color => '#00aabb');
     ok($label->{id}, 'label created');
 
-    my $milestone = $repo->milestones->create({ title => 'live test milestone' });
+    my $milestone = $repo->milestones->create(title => 'live test milestone');
     isa_ok($milestone, 'WWW::Forgejo::Entity::Milestone');
     is($milestone->title, 'live test milestone', 'milestone created');
 
-    my $issue = $repo->issues->create({ title => 'live test issue', body => 'created by t/92' });
+    my $issue = $repo->issues->create(title => 'live test issue', body => 'created by t/92');
     isa_ok($issue, 'WWW::Forgejo::Entity::Issue');
     ok($issue->number, 'issue has a number');
 
-    my $edited = $repo->issues->edit($issue->number, { title => 'live test issue (edited)' });
+    my $edited = $repo->issues->edit($issue->number, title => 'live test issue (edited)');
     is($edited->title, 'live test issue (edited)', 'issue edited');
 
-    $repo->issues->add_comment($issue->number, { body => 'a comment' });
-    my @comments = $repo->issues->list_comments($issue->number);
-    is(scalar @comments, 1, 'one comment');
-    for my $comment (@comments) {
+    $repo->issues->add_comment($issue->number, body => 'a comment');
+    my $comments = $repo->issues->list_comments($issue->number);
+    is(scalar @$comments, 1, 'one comment');
+    for my $comment (@$comments) {
         is($comment->body, 'a comment', 'comment body');
     }
 
@@ -320,7 +320,8 @@ subtest 'admin runners list' => sub {
 
 subtest 'admin quota list_groups' => sub {
     my $groups = optional(quota => sub { $client->admin->quota->list_groups }) or return;
-    ok(ref $groups, 'list_groups returns a structure');
+    is(ref $groups, 'ARRAY', 'list_groups returns an arrayref');
+    isa_ok($groups->[0], 'WWW::Forgejo::Entity::QuotaGroup') if @$groups;
 };
 
 done_testing;

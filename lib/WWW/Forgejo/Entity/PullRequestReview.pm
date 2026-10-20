@@ -72,7 +72,7 @@ __END__
 
 =head1 SYNOPSIS
 
-    for my $review ($repo->pulls->reviews(1)) {
+    for my $review (@{ $repo->pulls->reviews(1) }) {
         print $review->state, "\n";
     }
 

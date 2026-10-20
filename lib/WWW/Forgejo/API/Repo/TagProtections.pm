@@ -44,17 +44,17 @@ sub _path_for {
 
 =method list
 
-    my @protections = $repo->tag_protections->list;
+    my $protections = $repo->tag_protections->list;
 
-List the tag protections of the repository, as plain structures. Named
-arguments are sent as the query string.
+List the tag protections of the repository, as plain structures in an
+arrayref. Named arguments are sent as the query string.
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return @$data;
+    return [@$data];
 }
 
 =method get
@@ -72,31 +72,32 @@ sub get {
 
 =method create
 
-    my $protection = $repo->tag_protections->create({
+    my $protection = $repo->tag_protections->create(
         name_pattern        => 'v*',
         whitelist_usernames => ['releaser'],
-    });
+    );
 
-Create a tag protection.
+Create a tag protection. The named arguments are sent as the JSON body.
 
 =cut
 
 sub create {
-    my ($self, $data) = @_;
-    return $self->client->post($self->_path_for, $data);
+    my ($self, %params) = @_;
+    return $self->client->post($self->_path_for, \%params);
 }
 
 =method edit
 
-    my $protection = $repo->tag_protections->edit($id, { name_pattern => 'release-*' });
+    my $protection = $repo->tag_protections->edit($id, name_pattern => 'release-*');
 
-Edit a tag protection; only the fields that are given are changed.
+Edit a tag protection; only the fields that are given are changed. The named
+arguments are sent as the JSON body.
 
 =cut
 
 sub edit {
-    my ($self, $id, $data) = @_;
-    return $self->client->patch($self->_path_for(escape_component($id)), $data);
+    my ($self, $id, %params) = @_;
+    return $self->client->patch($self->_path_for(escape_component($id)), \%params);
 }
 
 =method update
@@ -129,15 +130,15 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @protections = $repo->tag_protections->list;
+    my $protections = $repo->tag_protections->list;
 
-    my $protection = $repo->tag_protections->create({
+    my $protection = $repo->tag_protections->create(
         name_pattern => 'v*',
-    });
+    );
 
     $protection = $repo->tag_protections->get($protection->{id});
 
-    $protection = $repo->tag_protections->edit($protection->{id}, { name_pattern => 'release-*' });
+    $protection = $repo->tag_protections->edit($protection->{id}, name_pattern => 'release-*');
 
     $repo->tag_protections->delete($protection->{id});
 

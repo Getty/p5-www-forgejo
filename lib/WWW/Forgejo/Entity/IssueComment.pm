@@ -72,7 +72,7 @@ __END__
 
 =head1 SYNOPSIS
 
-    for my $comment ($repo->issues->list_comments(1)) {
+    for my $comment (@{ $repo->issues->list_comments(1) }) {
         print $comment->body, "\n";
     }
 

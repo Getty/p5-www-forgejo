@@ -44,18 +44,18 @@ sub _path_for {
 
 =method list
 
-    my @stargazers = $repo->stargazers->list;
-    my @stargazers = $repo->stargazers->list(page => 2, limit => 50);
+    my $stargazers = $repo->stargazers->list;
+    my $stargazers = $repo->stargazers->list(page => 2, limit => 50);
 
-List the users who starred the repository, as plain user structures. Named
-arguments are sent as the query string.
+List the users who starred the repository, as plain user structures in an
+arrayref. Named arguments are sent as the query string.
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return @$data;
+    return [@$data];
 }
 
 1;
@@ -67,7 +67,7 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @stargazers = $repo->stargazers->list;
+    my $stargazers = $repo->stargazers->list;
 
 =head1 DESCRIPTION
 

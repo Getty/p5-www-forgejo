@@ -19,6 +19,9 @@ my %operation;
         next if $line =~ /^#/ || $line !~ /\S/;
         chomp $line;
         my ($verb, $path) = split ' ', $line;
+        # A path segment may carry an extension: /pulls/{index}.{diffType}.
+        # Such a segment counts as one placeholder, on both sides.
+        $path =~ s/\{[^}]+\}\.\{[^}]+\}/{}/g;
         $path =~ s/\{[^}]+\}/{}/g;
         $operation{"$verb $path"} = 1;
     }
@@ -28,20 +31,42 @@ cmp_ok(scalar keys %operation, '>', 400, 'API operation list loaded');
 # Methods that need specific named arguments instead of the positional
 # placeholders.
 my %args = (
+    'Admin::Quota::create_group' => [ name => 'ARG1' ],
+    'Admin::Quota::create_rule'  => [ name => 'ARG1' ],
+    'Admin::Quota::edit_rule'    => [ 'ARG1', limit => 10 ],
+    'Admin::Runners::create'     => [ name => 'ARG1' ],
+    'Admin::Users::create_token' => [ 'ARG1', name => 'ARG2' ],
+    'CurrentUser::activitypub_follow' => [ target => 'ARG1' ],
+    'CurrentUser::quota_check'   => [ subject => 'ARG1' ],
+    'CurrentUser::set_avatar'    => [ image => 'ARG1' ],
+    'CurrentUser::verify_gpg_key' => [ armored_signature => 'ARG1', key_id => 'ARG2' ],
     'Orgs::create'            => [ username => 'ARG1' ],
     'Orgs::rename'            => [ 'ARG1', new_name => 'ARG2' ],
+    'Orgs::set_avatar'        => [ 'ARG1', image => 'ARG2' ],
+    'Org::Quota::check'       => [ subject => 'ARG1' ],
     'Teams::create'           => [ org => 'ARG1', name => 'ARG2' ],
     'Users::search'           => [ q => 'ARG1' ],
     'Misc::topics_search'     => [ q => 'ARG1' ],
     'Misc::settings'          => [ 'api' ],
-    'Org::Hooks::create'      => [ 'ARG1', type => 'forgejo', config => {} ],
-    'Org::Labels::create'     => [ 'ARG1', name => 'bug', color => 'ff0000' ],
-    'Org::Teams::create'      => [ 'ARG1', name => 'ARG2' ],
-    'Org::Teams::search'      => [ 'ARG1', q => 'ARG2' ],
+    'Org::Hooks::create'      => [ type => 'forgejo', config => {} ],
+    'Org::Labels::create'     => [ name => 'bug', color => 'ff0000' ],
+    'Org::Teams::create'      => [ name => 'ARG2' ],
+    'Org::Teams::search'      => [ q => 'ARG2' ],
     'Repo::Releases::upload_asset' => [ 'ARG1', filename => 'a.txt', content => 'x' ],
     'Repo::Contents::get'     => [ 'ARG1' ],
-    'Repo::Contents::delete'  => [ 'ARG1', { sha => 'ARG2' } ],
+    'Repo::Contents::delete'  => [ 'ARG1', sha => 'ARG2' ],
+    'Repo::Issues::create_asset'        => [ 'ARG1', name => 'a.png', content => 'x', filename => 'a.png' ],
+    'Repo::Issues::create_comment_asset' => [ 'ARG1', name => 'a.png', content => 'x', filename => 'a.png' ],
     'Repos::search'           => [ q => 'ARG1' ],
+    'Repos::set_avatar'       => [ 'ARG1', 'ARG2', image => 'ARG3' ],
+    'Packages::upload'        => [ 'ARG1', 'ARG2', 'ARG3', 'ARG4', 'ARG5', content => 'x' ],
+);
+
+# Methods that talk to a path outside the /api/v1 of the API: the Swagger
+# document does not cover them. The package upload lives at /api/packages, the
+# packages router of Forgejo is mounted on the instance.
+my %outside_api = (
+    'Packages::upload' => 'PUT /api/packages/ARG1/ARG2/ARG3/ARG4/ARG5',
 );
 
 # Methods that only hand out another controller and send no request.
@@ -87,8 +112,13 @@ for my $file (sort @files) {
         for my $req (@{ $io->requests }) {
             (my $path = $req->url) =~ s{^https://forgejo\.test/api/v1}{};
             $path =~ s/\?.*//;
-            (my $norm = $path) =~ s{(?<=/)(?:OWNER|REPO|ARG\d)(?=/|\z)}{{}}g;
+            (my $norm = $path) =~ s{(?<=/)(?:OWNER|REPO|ARG\d)(?:\.[^/.]+)?(?=/|\z)}{{}}g;
             my $op = $req->method . ' ' . $norm;
+            if (my $expected = $outside_api{$name}) {
+                (my $url = $req->url) =~ s{^https://forgejo\.test}{};
+                is($req->method . ' ' . $url, $expected, "$name: $expected");
+                next;
+            }
             ok($operation{$op}, "$name: " . $req->method . " $path is an API operation");
         }
     }

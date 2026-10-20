@@ -114,6 +114,24 @@ sub following {
     return $self->client->get($self->_user_path($username, 'following'), params => \%params);
 }
 
+=method following_check
+
+    my $follows = $forgejo->users->following_check('user', 'other');
+
+Tell whether a user follows another one
+(C<GET /users/{username}/following/{target}>). The answer of the API is the
+plain structure of the relation.
+
+=cut
+
+sub following_check {
+    my ($self, $username, $target) = @_;
+    croak "User name required" unless defined $username && length $username;
+    croak "Target user required" unless defined $target && length $target;
+    return $self->client->get(
+        $self->_user_path($username, 'following', escape_component($target)));
+}
+
 =method starred
 
     my $starred = $forgejo->users->starred($username);
@@ -170,18 +188,96 @@ sub orgs {
     return $self->client->get($self->_user_path($username, 'orgs'), params => \%params);
 }
 
+=method org_permissions
+
+    my $permissions = $forgejo->users->org_permissions('user', 'my-org');
+
+Get the permissions a user has in an organization
+(C<GET /users/{username}/orgs/{org}/permissions>). The permissions are returned
+as a plain structure.
+
+=cut
+
+sub org_permissions {
+    my ($self, $username, $org) = @_;
+    croak "User name required" unless defined $username && length $username;
+    croak "Organization name required" unless defined $org && length $org;
+    return $self->client->get(
+        $self->_user_path($username, 'orgs', escape_component($org), 'permissions'));
+}
+
 =method tokens
 
     my $tokens = $forgejo->users->tokens($username);
+    my $tokens = $forgejo->users->tokens($username,
+        auth => { user => $username, password => $password });
 
 List access tokens for a user (C<GET /users/{username}/tokens>). Further named
 arguments are sent as the query string of the request.
+
+C<auth> is not a query parameter: it holds the credentials (C<user> and
+C<password>) the request is authenticated with, in place of the token of the
+client (see L<WWW::Forgejo::Role::HTTP>).
 
 =cut
 
 sub tokens {
     my ($self, $username, %params) = @_;
-    return $self->client->get($self->_user_path($username, 'tokens'), params => \%params);
+    my $auth = delete $params{auth};
+    return $self->client->get($self->_user_path($username, 'tokens'),
+        params => \%params, (defined $auth ? (auth => $auth) : ()));
+}
+
+=method create_token
+
+    my $token = $forgejo->users->create_token('getty',
+        name => 'ci', scopes => ['all'],
+        auth => { user => 'getty', password => $password });
+
+Create an access token for a user (C<POST /users/{username}/tokens>). The named
+arguments C<name> and C<scopes> are sent as the JSON body of the request.
+
+Forgejo wants basic authentication for this: the token of the client may not
+create a token for another user (it answers with C<auth method not allowed>).
+The credentials of the user go into C<auth>:
+
+    my $token = $forgejo->users->create_token('getty',
+        name => 'ci', scopes => ['all'],
+        auth => { user => 'getty', password => $password });
+
+The answer holds the new token in C<sha1>; it is shown only this once.
+
+=cut
+
+sub create_token {
+    my ($self, $username, %params) = @_;
+    my $auth = delete $params{auth};
+    return $self->client->post($self->_user_path($username, 'tokens'), \%params,
+        (defined $auth ? (auth => $auth) : ()));
+}
+
+=method delete_token
+
+    $forgejo->users->delete_token('getty', 'ci',
+        auth => { user => 'getty', password => $password });
+
+Delete an access token of a user
+(C<DELETE /users/{username}/tokens/{token}>).
+
+The C<token> is the B<name> of the token, not the secret it holds: Forgejo
+answers with C<404> for a secret. Like the creation of a token, the deletion
+wants basic authentication - the C<auth> option holds the credentials of the
+user.
+
+=cut
+
+sub delete_token {
+    my ($self, $username, $token, %params) = @_;
+    my $auth = delete $params{auth};
+    croak "Token name required" unless defined $token && length $token;
+    return $self->client->delete(
+        $self->_user_path($username, 'tokens', escape_component($token)), undef,
+        (defined $auth ? (auth => $auth) : ()));
 }
 
 =method heatmap
@@ -225,9 +321,9 @@ __END__
 
 =head1 DESCRIPTION
 
-The C</users/...> endpoints: look up and search users and read their public
-keys, followers, repositories and activity. Available as
-C<< $forgejo->users >>. For the user the token belongs to see
+The C</users/...> endpoints: look up and search users, read their public
+keys, followers, repositories and activity and manage their access tokens.
+Available as C<< $forgejo->users >>. For the user the token belongs to see
 L<WWW::Forgejo::API::CurrentUser>.
 
 All methods return the decoded JSON response as plain Perl data.

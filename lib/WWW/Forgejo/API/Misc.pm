@@ -117,6 +117,22 @@ sub gitignore_templates {
     return $self->client->get('/gitignore/templates');
 }
 
+=method gitignore_template
+
+    my $template = $forgejo->misc->gitignore_template('Go');
+
+Get one .gitignore template (C<GET /gitignore/templates/{name}>). The name of
+the template is the name of its file, C<Go> say. The template is returned as
+a plain structure.
+
+=cut
+
+sub gitignore_template {
+    my ($self, $name) = @_;
+    croak "Template name required" unless defined $name && length $name;
+    return $self->client->get('/gitignore/templates/' . escape_component($name));
+}
+
 =method license_templates
 
     my $templates = $forgejo->misc->license_templates;
@@ -130,6 +146,21 @@ sub license_templates {
     return $self->client->get('/licenses');
 }
 
+=method license
+
+    my $license = $forgejo->misc->license('mit');
+
+Get one license template (C<GET /licenses/{name}>). The name of the license is
+its SPDX id, C<mit> say. The license is returned as a plain structure.
+
+=cut
+
+sub license {
+    my ($self, $name) = @_;
+    croak "License name required" unless defined $name && length $name;
+    return $self->client->get('/licenses/' . escape_component($name));
+}
+
 =method label_templates
 
     my $templates = $forgejo->misc->label_templates;
@@ -141,6 +172,53 @@ List available label templates (C<GET /label/templates>).
 sub label_templates {
     my ($self) = @_;
     return $self->client->get('/label/templates');
+}
+
+=method label_template
+
+    my $template = $forgejo->misc->label_template('bug');
+
+Get one label template (C<GET /label/templates/{name}>). The name of the
+template is the name of its file, C<bug> say. The template is returned as a
+plain structure.
+
+=cut
+
+sub label_template {
+    my ($self, $name) = @_;
+    croak "Template name required" unless defined $name && length $name;
+    return $self->client->get('/label/templates/' . escape_component($name));
+}
+
+=method markdown_raw
+
+    my $html = $forgejo->misc->markdown_raw('# Hello');
+
+Render raw markdown to HTML (C<POST /markdown/raw>). The markdown is sent as
+the body of the request, as plain text - the API takes no JSON here. Returns
+the HTML as a string.
+
+=cut
+
+sub markdown_raw {
+    my ($self, $text) = @_;
+    croak "Markdown text required" unless defined $text && length $text;
+    return $self->client->post('/markdown/raw', undef, content => $text, content_type => 'text/plain');
+}
+
+=method action_run
+
+    my $run = $forgejo->misc->action_run;
+
+Get the workflow run that belongs to the token of the client
+(C<GET /actions/run>). Only the automatic token of an Actions job may ask
+this; any other token is refused by the API.
+
+=cut
+
+sub action_run {
+    my ($self) = @_;
+    return $self->client->get('/actions/run');
 }
 
 =method settings

@@ -44,16 +44,16 @@ sub _path_for {
 
 =method list
 
-    my @flags = $repo->flags->list;
+    my $flags = $repo->flags->list;
 
-List the flags of the repository, as strings.
+List the flags of the repository, as strings in an arrayref.
 
 =cut
 
 sub list {
     my ($self) = @_;
     my $data = $self->client->get($self->_path_for);
-    return @$data;
+    return [@$data];
 }
 
 =method add
@@ -99,15 +99,16 @@ sub check {
 
 =method replace
 
-    $repo->flags->replace([ 'flag-one', 'flag-two' ]);
+    $repo->flags->replace(flags => [ 'flag-one', 'flag-two' ]);
 
-Replace all flags of the repository with the given list.
+Replace all flags of the repository with the given list. The named arguments
+are sent as the JSON body.
 
 =cut
 
 sub replace {
-    my ($self, $flags) = @_;
-    $self->client->put($self->_path_for, { flags => $flags });
+    my ($self, %params) = @_;
+    $self->client->put($self->_path_for, \%params);
     return;
 }
 
@@ -134,7 +135,7 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @flags = $repo->flags->list;
+    my $flags = $repo->flags->list;
 
     $repo->flags->add('flag-name');
 
@@ -142,7 +143,7 @@ __END__
 
     if ($repo->flags->check('flag-name')) { ... }
 
-    $repo->flags->replace([ 'flag-one', 'flag-two' ]);
+    $repo->flags->replace(flags => [ 'flag-one', 'flag-two' ]);
 
     $repo->flags->remove_all;
 

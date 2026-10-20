@@ -6,6 +6,7 @@ requires 'HTTP::Request::Common';
 requires 'JSON::MaybeXS';
 requires 'LWP::UserAgent';
 requires 'Log::Any';
+requires 'MIME::Base64';
 requires 'Moo';
 requires 'URI::Escape';
 requires 'namespace::clean';

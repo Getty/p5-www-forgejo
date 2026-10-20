@@ -60,8 +60,8 @@ for my $login (@USERS) {
 }
 
 my $repo = $client->repos->get($OWNER, $REPOS[0]);
-$repo->labels->create({ name => "label-$_", color => '00aa00' }) for 1 .. 5;
-$repo->issues->create({ title => "issue $_" }) for 1 .. 5;
+$repo->labels->create(name => "label-$_", color => '00aa00') for 1 .. 5;
+$repo->issues->create(title => "issue $_") for 1 .. 5;
 
 # =============================================================================
 # Pagination
@@ -72,15 +72,15 @@ $repo->issues->create({ title => "issue $_" }) for 1 .. 5;
 # the rest, which it only can when X-Total-Count reaches it.
 
 subtest 'a bare array over three pages' => sub {
-    is(scalar(my @first = $repo->issues->list(limit => 2, page => 1, state => 'all', type => 'issues')), 2,
+    is(scalar @{ $repo->issues->list(limit => 2, page => 1, state => 'all', type => 'issues') }, 2,
         'issues: the server pages by two');
-    my @issues = $repo->issues->list(limit => 2, state => 'all', type => 'issues');
-    is(scalar @issues, 5, 'issues: all five collected');
+    my $issues = $repo->issues->list(limit => 2, state => 'all', type => 'issues');
+    is(scalar @$issues, 5, 'issues: all five collected');
     my %numbers;
-    for my $issue (@issues) { $numbers{ $issue->number }++ }
+    for my $issue (@$issues) { $numbers{ $issue->number }++ }
     is(scalar keys %numbers, 5, 'no issue twice');
-    my @third = $repo->issues->list(limit => 2, page => 3, state => 'all', type => 'issues');
-    is(scalar @third, 1, 'an explicit page is not paginated: page 3 holds the last one');
+    my $third = $repo->issues->list(limit => 2, page => 3, state => 'all', type => 'issues');
+    is(scalar @$third, 1, 'an explicit page is not paginated: page 3 holds the last one');
 
     my $users = $client->admin->users->list(limit => 1);
     is(scalar @$users, scalar @{ $client->admin->users->list }, 'admin users: the same with and without a page size');
@@ -90,19 +90,19 @@ subtest "without a limit: the server's own page size" => sub {
     my $per_page = $client->misc->settings('api')->{default_paging_num};
     ok($per_page, "default_paging_num $per_page");
     my $wanted = $per_page + 2;
-    $repo->issues->create({ title => "more $_" }) for 6 .. $wanted;
-    is(scalar(my @first = $repo->issues->list(state => 'all', type => 'issues', page => 1)), $per_page,
+    $repo->issues->create(title => "more $_") for 6 .. $wanted;
+    is(scalar @{ $repo->issues->list(state => 'all', type => 'issues', page => 1) }, $per_page,
         'page 1 holds one page');
-    my @all = $repo->issues->list(state => 'all', type => 'issues');
-    is(scalar @all, $wanted, 'all collected, the following pages with the size of the first');
+    my $all = $repo->issues->list(state => 'all', type => 'issues');
+    is(scalar @$all, $wanted, 'all collected, the following pages with the size of the first');
 };
 
 subtest 'endpoints that page only with an explicit page' => sub {
     # Forgejo 15 answers the labels and orgs lists with everything unless a
     # page is given; limit alone changes nothing, and nothing is left to
     # collect.
-    is(scalar(my @first = $repo->labels->list(limit => 2, page => 1)), 2, 'labels: page 1 of two');
-    is(scalar(my @labels = $repo->labels->list(limit => 2)), 5, 'labels: limit alone, all five');
+    is(scalar @{ $repo->labels->list(limit => 2, page => 1) }, 2, 'labels: page 1 of two');
+    is(scalar @{ $repo->labels->list(limit => 2) }, 5, 'labels: limit alone, all five');
     my $orgs = $client->orgs->list(limit => 1);
     my %org_names;
     for my $listed_org (@$orgs) { $org_names{ $listed_org->name } = 1 }
@@ -112,7 +112,7 @@ subtest 'endpoints that page only with an explicit page' => sub {
 subtest 'page_size and max_pages of the plain get' => sub {
     my $path   = "/repos/$OWNER/$REPOS[0]/issues";
     my %filter = (state => 'all', type => 'issues');
-    my $total  = scalar(my @all = $repo->issues->list(%filter));
+    my $total  = scalar @{ $repo->issues->list(%filter) };
     is(scalar @{ $client->get($path, params => \%filter, page_size => 2) }, $total, "page_size: all $total");
     is(scalar @{ $client->get($path, params => \%filter, page_size => 2, max_pages => 2) }, 4, 'max_pages caps it');
 };
@@ -153,7 +153,7 @@ subtest '409 and 422 carry the message of the server' => sub {
     like($@, qr/^Forgejo API error: \S/, '422: an invalid name: ' . ($@ =~ /^(.*?) at /)[0]);
     unlike($@, qr/^Forgejo API error: 422 at /, 'the message, not only the status');
 
-    eval { $repo->labels->create({ name => 'no-color' }) };
+    eval { $repo->labels->create(name => 'no-color') };
     like($@, qr/^Forgejo API error: \S/, '422: a missing required field: ' . ($@ =~ /^(.*?) at /)[0]);
 };
 

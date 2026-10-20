@@ -72,20 +72,20 @@ subtest 'the checker itself notices what it is there for' => sub {
     my $r = $check->(<<'EOT');
 my $user  = $client->users->get('x');           # plain data
 my $repo  = eval { $client->repos->get('o', 'r') };
-my @list  = $repo->issues->list(state => 'open');
-for my $issue ($repo->issues->list) { print $issue->number, $issue->title }
-my ($pr)  = $repo->pulls->list;
-print $pr->number;
+my $list  = $repo->issues->list(state => 'open');
+for my $issue (@$list) { print $issue->number, $issue->title }
+my $prs   = $repo->pulls->list;
+print $prs->[0]->number;
 my $orgs = $client->orgs->list;
 for my $org (@$orgs) { $org->teams->list }
 print $orgs->[0]->name;
-my @comments = $repo->issues->list_comments(1);
-for my $comment (@comments) { print $comment->body }
+my $comments = $repo->issues->list_comments(1);
+for my $comment (@$comments) { print $comment->body }
 my $new = WWW::Forgejo->new(url => 'x')->admin->cron->list;   # a comment with $client->nope
 EOT
     is_deeply($r->{errors},     [], 'valid chains: no errors')        or diag explain $r->{errors};
     is_deeply($r->{unverified}, [], 'valid chains: all attributable') or diag explain $r->{unverified};
-    is($r->{checked}, 25, 'valid chains: every link counted');
+    is($r->{checked}, 23, 'valid chains: every link counted');
 
     $r = $check->('$client->admin->users->get($name);');
     is_deeply($r->{errors}, ['line 1: WWW::Forgejo::API::Admin::Users has no method get'], 'removed controller method');
@@ -93,14 +93,15 @@ EOT
     $r = $check->("my \$repo = \$client->repos->get('o', 'r');\n\$repo->branches->protect('main');");
     is_deeply($r->{errors}, ['line 2: WWW::Forgejo::API::Repo::Branches has no method protect'], 'through a variable');
 
-    $r = $check->("for my \$m (\$client->repos->get('o', 'r')->milestones->list) {\n  \$m->due_date;\n}");
+    $r = $check->("for my \$m (\@{ \$client->repos->get('o', 'r')->milestones->list }) {\n  \$m->due_date;\n}");
     is_deeply($r->{errors}, ['line 2: WWW::Forgejo::Entity::Milestone has no method due_date'], 'renamed entity accessor');
 
     $r = $check->('$client->users->get("x")->login;');
     is_deeply($r->{unverified}, ['line 1: ->login'], 'a method call on plain data cannot be attributed');
 
     $r = $check->('my $x = $client->repos->get("o", "r")->issues->list; $x->number;');
-    is_deeply($r->{unverified}, ['line 1: ->number'], 'neither can one on a list squeezed into a scalar');
+    is_deeply($r->{errors}, ['line 1: ->number called on a collection, not on an object'],
+        'a method call on a collection is a mistake, not an unverified call');
 
     $r = $check->('$thing->frobnicate;');
     is_deeply($r->{unverified}, ['line 1: ->frobnicate'], 'nor one on an unknown variable');

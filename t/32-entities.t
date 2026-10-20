@@ -131,7 +131,7 @@ my %controller = (
     labels => 'Labels', milestones => 'Milestones', topics => 'Topics', keys => 'Keys',
     forks => 'Forks', stargazers => 'Stargazers', subscribers => 'Subscribers',
     subscription => 'Subscription', assignees => 'Assignees', reviewers => 'Reviewers',
-    flags => 'Flags', statuses => 'Statuses',
+    flags => 'Flags', statuses => 'Statuses', teams => 'Teams',
 );
 
 sub repo_entity {
@@ -161,17 +161,17 @@ subtest 'no controller module is left without an accessor' => sub {
 
 subtest 'statuses accessor works end to end' => sub {
     $io->reset->add(200, '[{"id":1,"status":"success","context":"ci"}]');
-    my @statuses = repo_entity()->statuses->list('abc123');
+    my $statuses = repo_entity()->statuses->list('abc123');
     is($io->last->url, "$base/repos/o/r/statuses/abc123", 'request');
-    isa_ok($statuses[0], 'WWW::Forgejo::Entity::CommitStatus');
-    is($statuses[0]->status, 'success', 'data');
+    isa_ok($statuses->[0], 'WWW::Forgejo::Entity::CommitStatus');
+    is($statuses->[0]->status, 'success', 'data');
 };
 
 subtest 'update and delete escape owner and repository name' => sub {
     my $repo = repo_entity(owner => 'my org', repo => 'a/b');
 
     $io->reset->add(200, '{"name":"a/b","description":"new"}');
-    my $updated = $repo->update({ description => 'new' });
+    my $updated = $repo->update(description => 'new');
     is($io->last->method . ' ' . $io->last->url, "PATCH $base/repos/my%20org/a%2Fb", 'update request');
     is_deeply(decode_json($io->last->content), { description => 'new' }, 'update body');
 
@@ -192,7 +192,7 @@ subtest 'an updated entity builds its own controllers' => sub {
     my $repo = repo_entity();
     my $issues = $repo->issues;
     $io->reset->add(200, '{"name":"r"}');
-    my $updated = $repo->update({ description => 'x' });
+    my $updated = $repo->update(description => 'x');
     isnt($updated->issues, $issues, 'controllers are not carried over');
     is($updated->issues->owner, 'o', 'but bound alike');
 };

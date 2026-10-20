@@ -40,6 +40,9 @@ my @DUMMY_ARGS = (
     [], ['a'], [ {} ], [ 'a', {} ], [ 'a', 'b' ], [ 'a', 'b', {} ],
     [ "a", "b", "c" ], [ "a", "b", "c", "d" ], [ k => "v" ], [ "a", k => "v" ],
     [ "a", filename => "f", content => "c" ],
+    # Named arguments: methods that take the body of the request as named
+    # arguments (and insist on one of them) need it under its own key.
+    [ name => "a" ],
 );
 # The last one is the envelope of the Actions run list.
 my @ANSWERS = ('{}', '[{}]', '{"workflow_runs":[{}],"total_count":1}');
@@ -206,26 +209,33 @@ sub _assign {
     my ($self, $before, $value) = @_;
     my $eval = qr/(?:eval\s*\{\s*)?/;
 
+    # The representative element of a collection: the first one stands in for
+    # all of them.
+    my $item = $value && ($value->{elems} || $value->{list} || $value->{object});
+
     if ($before =~ /\$(\w+)\s*=\s*$eval\z/) {
         $self->{vars}{$1} = $value && ($value->{object} || $value->{elems}) ? $value : undef;
     }
     elsif ($before =~ /\@(\w+)\s*=\s*$eval\z/) {
-        my $item = $value && ($value->{list} || $value->{object});
         $self->{vars}{"\@$1"} = $item ? { elems => $item } : undef;
     }
-    elsif ($before =~ /\(\s*\$(\w+)\s*\)\s*=\s*$eval\z/ || $before =~ /\bfor(?:each)?\s+my\s+\$(\w+)\s*\(\s*\z/) {
-        my $item = $value && ($value->{list} || $value->{object});
+    elsif ($before =~ /\(\s*\$(\w+)\s*\)\s*=\s*$eval\z/
+        || $before =~ /\bfor(?:each)?\s+my\s+\$(\w+)\s*\(\s*\z/
+        || $before =~ /\bfor(?:each)?\s+my\s+\$(\w+)\s*\(\s*\@\{\s*\z/) {
         $self->{vars}{$1} = $item ? { object => $item } : undef;
     }
     return;
 }
 
 # for my $x (@$list) / (@{$list}) / (@list): $x is an element of the list.
+# @$list and @{$list} name a scalar variable that holds an arrayref, @list an
+# array variable.
 sub _loop_variables {
     my ($self, $before) = @_;
-    while ($before =~ /\bfor(?:each)?\s+my\s+\$(\w+)\s*\(\s*\@(\{?\s*\$)?(\w+)\s*\}?\s*\)/g) {
-        my $list = $self->{vars}{ defined $2 ? $3 : "\@$3" };
-        $self->{vars}{$1} = $list && $list->{elems} ? { object => $list->{elems} } : undef
+    while ($before =~ /\bfor(?:each)?\s+my\s+\$(\w+)\s*\(\s*(?:@\{?\s*\$(\w+)\s*\}?|@(\w+))\s*\)/g) {
+        my ($loop, $scalar, $array) = ($1, $2, $3);
+        my $list = defined $scalar ? $self->{vars}{$scalar} : $self->{vars}{"\@$array"};
+        $self->{vars}{$loop} = $list && $list->{elems} ? { object => $list->{elems} } : undef
             unless $self->{loops}{ $-[0] }++;
     }
     return;

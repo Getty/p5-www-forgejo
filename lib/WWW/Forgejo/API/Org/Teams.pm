@@ -22,10 +22,10 @@ The L<WWW::Forgejo> client the requests are sent through. Required.
 
 =attr owner
 
-Name of the organization this controller was created for. Optional; when the
-controller comes from a L<WWW::Forgejo::Entity::Org> it is the
-L<name|WWW::Forgejo::Entity::Org/name> of that organization. It is used whenever a method is called without an
-organization name (C<undef> as first argument, or no arguments at all).
+Name of the organization this controller addresses. It is the
+L<name|WWW::Forgejo::Entity::Org/name> of the organization the controller was
+obtained from, and every method sends its request to it. A controller without
+an owner croaks with C<Organization name required> when a method is called.
 L</has_owner> tells whether it was passed to the constructor.
 
 =method has_owner
@@ -36,18 +36,17 @@ True when an L</owner> was passed to the constructor.
 
 =cut
 
-# /orgs/{org}/... for the given organization, falling back to the owner.
+# /orgs/{org}/... for the organization this controller is bound to.
 sub _org_path {
-    my ($self, $org, @path) = @_;
-    $org = $self->owner unless defined $org && length $org;
+    my ($self, @path) = @_;
+    my $org = $self->owner;
     croak "Organization name required" unless defined $org && length $org;
     return join '/', '/orgs', escape_component($org), @path;
 }
 
 =method list
 
-    my $teams = $org->teams->list($org_name);
-    my $teams = $org->teams->list;    # organization taken from $org
+    my $teams = $org->teams->list;
 
 List all teams of an organization. Further named arguments are sent as the
 query string of the request.
@@ -55,13 +54,13 @@ query string of the request.
 =cut
 
 sub list {
-    my ($self, $org, %params) = @_;
-    return $self->client->get($self->_org_path($org, 'teams'), params => \%params);
+    my ($self, %params) = @_;
+    return $self->client->get($self->_org_path('teams'), params => \%params);
 }
 
 =method search
 
-    my $result = $org->teams->search($org_name, q => 'dev');
+    my $result = $org->teams->search(q => 'dev');
 
 Search the teams of an organization (C<GET /orgs/{org}/teams/search>); C<q>
 is the search term. Returns the decoded response. Further named arguments
@@ -70,13 +69,13 @@ are sent as the query string of the request.
 =cut
 
 sub search {
-    my ($self, $org, %params) = @_;
-    return $self->client->get($self->_org_path($org, 'teams', 'search'), params => \%params);
+    my ($self, %params) = @_;
+    return $self->client->get($self->_org_path('teams', 'search'), params => \%params);
 }
 
 =method create
 
-    my $team = $org->teams->create($org_name, name => 'Developers');
+    my $team = $org->teams->create(name => 'Developers');
 
 Create a new team in the organization; the API requires C<name>. The
 key/value pairs are sent as the JSON body.
@@ -84,8 +83,8 @@ key/value pairs are sent as the JSON body.
 =cut
 
 sub create {
-    my ($self, $org, %params) = @_;
-    return $self->client->post($self->_org_path($org, 'teams'), \%params);
+    my ($self, %params) = @_;
+    return $self->client->post($self->_org_path('teams'), \%params);
 }
 
 1;
@@ -98,21 +97,20 @@ __END__
     my $org_name = 'my-org';
     my $org      = $forgejo->orgs->get($org_name);
 
-    my $teams = $org->teams->list($org_name);
-    $teams = $org->teams->list;    # organization taken from $org
+    my $teams = $org->teams->list;
 
-    my $result = $org->teams->search($org_name, q => 'dev');
+    my $result = $org->teams->search(q => 'dev');
 
-    my $team = $org->teams->create($org_name, name => 'Developers');
+    my $team = $org->teams->create(name => 'Developers');
 
 =head1 DESCRIPTION
 
 Controller for the C</orgs/{org}/teams> endpoints. It is obtained
 through L<WWW::Forgejo::Entity::Org/teams>.
 
-The methods take the organization name as their first argument. When it is
-left out or undefined, the organization the controller was obtained from
-(L</owner>) is used.
+The controller is bound to one organization: every method sends its request to
+the organization the controller was obtained from (L</owner>). There is no
+organization argument to pass.
 
 A single team is addressed by its numeric ID, independent of the organization:
 see L<WWW::Forgejo::API::Teams> for reading, editing and deleting a team and for

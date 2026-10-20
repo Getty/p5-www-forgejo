@@ -73,7 +73,7 @@ __END__
 =head1 SYNOPSIS
 
     my $repo = $forgejo->repos->get('owner', 'repo-name');
-    for my $status ($repo->statuses->list($sha)) {
+    for my $status (@{ $repo->statuses->list($sha) }) {
         printf "%s: %s\n", $status->context, $status->status;
     }
 

@@ -20,16 +20,18 @@ __END__
 
     my $rule = WWW::Forgejo::Entity::QuotaRule->new(
         client => $forgejo,
-        data   => \%rule,      # one decoded quota rule object
+        data   => $forgejo->admin->quota->get_rule($name)->data,
     );
     print $rule->name, "\n";
 
 =head1 DESCRIPTION
 
-Wraps the decoded JSON object of a quota rule. None of the controllers returns this class
-yet; they hand out the plain decoded data, which can be wrapped as shown in the
-L</SYNOPSIS>. The accessors read single fields from
-L<data|WWW::Forgejo::Entity/data>, which always holds the complete structure.
+A quota rule as returned by L<WWW::Forgejo::API::Admin::Quota>. It gives the
+name of the rule (L</name>), the limit it sets (L</limit>) and the subjects it
+applies to (L</subjects>).
+
+The accessors read single fields from L<data|WWW::Forgejo::Entity/data>, which
+always holds the complete structure.
 
 Inherits from L<WWW::Forgejo::Entity>.
 
@@ -47,6 +49,6 @@ Arrayref of the subjects the limit applies to.
 
 =head1 SEE ALSO
 
-L<WWW::Forgejo::Entity>
+L<WWW::Forgejo::API::Admin::Quota>, L<WWW::Forgejo::Entity>
 
 =cut

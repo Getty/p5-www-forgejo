@@ -22,10 +22,10 @@ The L<WWW::Forgejo> client the requests are sent through. Required.
 
 =attr owner
 
-Name of the organization this controller was created for. Optional; when the
-controller comes from a L<WWW::Forgejo::Entity::Org> it is the
-L<name|WWW::Forgejo::Entity::Org/name> of that organization. It is used whenever a method is called without an
-organization name (C<undef> as first argument, or no arguments at all).
+Name of the organization this controller addresses. It is the
+L<name|WWW::Forgejo::Entity::Org/name> of the organization the controller was
+obtained from, and every method sends its request to it. A controller without
+an owner croaks with C<Organization name required> when a method is called.
 L</has_owner> tells whether it was passed to the constructor.
 
 =method has_owner
@@ -36,26 +36,86 @@ True when an L</owner> was passed to the constructor.
 
 =cut
 
-# /orgs/{org}/... for the given organization, falling back to the owner.
+# /orgs/{org}/... for the organization this controller is bound to.
 sub _org_path {
-    my ($self, $org, @path) = @_;
-    $org = $self->owner unless defined $org && length $org;
+    my ($self, @path) = @_;
+    my $org = $self->owner;
     croak "Organization name required" unless defined $org && length $org;
     return join '/', '/orgs', escape_component($org), @path;
 }
 
 =method get
 
-    my $quota = $org->quota->get($org_name);
-    my $quota = $org->quota->get;    # organization taken from $org
+    my $quota = $org->quota->get;
 
 Get the quota information of an organization.
 
 =cut
 
 sub get {
-    my ($self, $org) = @_;
-    return $self->client->get($self->_org_path($org, 'quota'));
+    my ($self) = @_;
+    return $self->client->get($self->_org_path('quota'));
+}
+
+=method artifacts
+
+    my $artifacts = $org->quota->artifacts;
+
+List the artifacts of the organization that count against the quota
+(C<GET /orgs/{org}/quota/artifacts>). Further named arguments are sent as the
+query string of the request (C<page>, C<limit>).
+
+=cut
+
+sub artifacts {
+    my ($self, %params) = @_;
+    return $self->client->get($self->_org_path('quota', 'artifacts'), params => \%params);
+}
+
+=method attachments
+
+    my $attachments = $org->quota->attachments;
+
+List the attachments of the organization that count against the quota
+(C<GET /orgs/{org}/quota/attachments>). Further named arguments are sent as the
+query string of the request (C<page>, C<limit>).
+
+=cut
+
+sub attachments {
+    my ($self, %params) = @_;
+    return $self->client->get($self->_org_path('quota', 'attachments'), params => \%params);
+}
+
+=method packages
+
+    my $packages = $org->quota->packages;
+
+List the packages of the organization that count against the quota
+(C<GET /orgs/{org}/quota/packages>). Further named arguments are sent as the
+query string of the request (C<page>, C<limit>).
+
+=cut
+
+sub packages {
+    my ($self, %params) = @_;
+    return $self->client->get($self->_org_path('quota', 'packages'), params => \%params);
+}
+
+=method check
+
+    my $ok = $org->quota->check(subject => 'size:repos:all');
+
+Check whether the organization has quota left for a subject
+(C<GET /orgs/{org}/quota/check>). The named arguments are sent as the query
+string; the API requires the C<subject> to check. Returns true or false.
+
+=cut
+
+sub check {
+    my ($self, %params) = @_;
+    croak "Quota subject required" unless defined $params{subject} && length $params{subject};
+    return $self->client->get($self->_org_path('quota', 'check'), params => \%params);
 }
 
 1;
@@ -68,17 +128,16 @@ __END__
     my $org_name = 'my-org';
     my $org      = $forgejo->orgs->get($org_name);
 
-    my $quota = $org->quota->get($org_name);
-    $quota = $org->quota->get;    # organization taken from $org
+    my $quota = $org->quota->get;
 
 =head1 DESCRIPTION
 
 Controller for the C</orgs/{org}/quota> endpoints. It is obtained
 through L<WWW::Forgejo::Entity::Org/quota>.
 
-The methods take the organization name as their first argument. When it is
-left out or undefined, the organization the controller was obtained from
-(L</owner>) is used.
+The controller is bound to one organization: every method sends its request to
+the organization the controller was obtained from (L</owner>). There is no
+organization argument to pass.
 
 The API offers no call to change the quota of an organization here; quota
 groups are managed through L<WWW::Forgejo::API::Admin::Quota>.

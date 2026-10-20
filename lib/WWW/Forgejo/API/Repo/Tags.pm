@@ -44,18 +44,18 @@ sub _path_for {
 
 =method list
 
-    my @tags = $repo->tags->list;
-    my @tags = $repo->tags->list(page => 2, limit => 50);
+    my $tags = $repo->tags->list;
+    my $tags = $repo->tags->list(page => 2, limit => 50);
 
-List the tags of the repository, as plain tag structures. Named arguments are
-sent as the query string.
+List the tags of the repository, as plain tag structures in an arrayref. Named
+arguments are sent as the query string.
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return @$data;
+    return [@$data];
 }
 
 =method get
@@ -73,15 +73,16 @@ sub get {
 
 =method create
 
-    my $tag = $repo->tags->create({ tag_name => 'v1.0.0', target => 'main' });
+    my $tag = $repo->tags->create(tag_name => 'v1.0.0', target => 'main');
 
-Create a tag; the API requires C<tag_name>.
+Create a tag; the API requires C<tag_name>. The named arguments are sent as the
+JSON body.
 
 =cut
 
 sub create {
-    my ($self, $data) = @_;
-    return $self->client->post($self->_path_for, $data);
+    my ($self, %params) = @_;
+    return $self->client->post($self->_path_for, \%params);
 }
 
 =method delete
@@ -106,15 +107,15 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @tags = $repo->tags->list;
+    my $tags = $repo->tags->list;
 
     my $tag = $repo->tags->get('v1.0.0');
 
-    $tag = $repo->tags->create({
+    $tag = $repo->tags->create(
         tag_name => 'v1.0.0',
         target   => 'main',
         message  => 'Release v1.0.0',
-    });
+    );
 
 =head1 DESCRIPTION
 

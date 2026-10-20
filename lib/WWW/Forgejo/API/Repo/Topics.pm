@@ -73,15 +73,16 @@ sub add {
 
 =method replace
 
-    $repo->topics->replace(['perl', 'cpan']);
+    $repo->topics->replace(topics => ['perl', 'cpan']);
 
-Replace the whole list of topics of the repository with the given one.
+Replace the whole list of topics of the repository with the given one. The
+named arguments are sent as the JSON body.
 
 =cut
 
 sub replace {
-    my ($self, $topics) = @_;
-    $self->client->put($self->_path_for, { topics => $topics });
+    my ($self, %params) = @_;
+    $self->client->put($self->_path_for, \%params);
     return;
 }
 
@@ -112,7 +113,7 @@ __END__
 
     $repo->topics->add('perl');
 
-    $repo->topics->replace(['perl', 'cpan']);
+    $repo->topics->replace(topics => ['perl', 'cpan']);
 
     $repo->topics->remove('old-topic');
 

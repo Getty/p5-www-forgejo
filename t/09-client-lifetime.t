@@ -40,16 +40,16 @@ subtest 'whole chains on a temporary client, down to calls on the entity' => sub
 
     # repository entity: the per-repository controller needs the client again
     $io->reset->add(200, '{"name":"r","owner":{"login":"o"}}')->add(200, '[{"number":1,"title":"a"},{"number":2,"title":"b"}]');
-    my @issues = eval { fresh()->repos->get('o', 'r')->issues->list(state => 'open') };
+    my $issues = eval { fresh()->repos->get('o', 'r')->issues->list(state => 'open') };
     is($@, '', 'repos->get->issues->list as one chain does not die');
-    is_deeply([ map { $_->number } @issues ], [ 1, 2 ], 'and returns the issues');
+    is_deeply([ map { $_->number } @$issues ], [ 1, 2 ], 'and returns the issues');
     is($io->count, 2, 'two requests were sent');
     like($io->last->url, qr{/repos/o/r/issues\?state=open\z}, 'the second one for the issues of that repository');
     is($io->last->headers->{Authorization}, 'token t', 'still authenticated');
 
     # the entities of the list still reach the client after the chain is gone
     $io->reset->add(200, '{"name":"r"}');
-    my $updated = eval { fresh()->repos->get('o', 'r')->update({ description => 'd' }) };
+    my $updated = eval { fresh()->repos->get('o', 'r')->update(description => 'd') };
     is($@, '', 'repos->get->update as one chain does not die');
     is($io->last->method, 'PATCH', 'and sends the update');
 
@@ -74,10 +74,10 @@ subtest 'a chain leaves nothing behind' => sub {
         my $client = fresh();
         $weak = $client;
         weaken($weak);
-        my @issues = $client->repos->get('o', 'r')->issues->list;
+        my $issues = $client->repos->get('o', 'r')->issues->list;
         undef $client;
         ok($weak, 'the entities keep the client alive after its variable is gone');
-        ok($issues[0]->client == $weak, 'it is the same client');
+        ok($issues->[0]->client == $weak, 'it is the same client');
     }
     ok(!defined $weak, 'and it is destroyed with the last entity');
 
@@ -101,10 +101,10 @@ subtest 'an entity outlives the variable holding the client' => sub {
     ok($repo->client, 'entity still has its client');
 
     $io->add(200, '[{"number":1,"title":"a"}]');
-    my @issues = eval { $repo->issues->list };
+    my $issues = eval { $repo->issues->list };
     is($@, '', 'per-repository controller works');
-    is(scalar @issues, 1, 'one issue');
-    ok($issues[0]->client, 'nested entity has the client too');
+    is(scalar @$issues, 1, 'one issue');
+    ok($issues->[0]->client, 'nested entity has the client too');
 };
 
 subtest 'nothing leaks: the client is freed with its last user' => sub {

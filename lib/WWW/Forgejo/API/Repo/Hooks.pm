@@ -55,17 +55,17 @@ sub _hook {
 
 =method list
 
-    my @hooks = $repo->hooks->list;
+    my $hooks = $repo->hooks->list;
 
-List all hooks as L<WWW::Forgejo::Entity::Hook> objects. Named arguments are
-sent as the query string.
+List all hooks as L<WWW::Forgejo::Entity::Hook> objects, in an arrayref. Named
+arguments are sent as the query string.
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return map { $self->_hook($_) } @$data;
+    return [ map { $self->_hook($_) } @$data ];
 }
 
 =method get
@@ -83,32 +83,33 @@ sub get {
 
 =method create
 
-    my $hook = $repo->hooks->create({
+    my $hook = $repo->hooks->create(
         type   => 'forgejo',
         config => { url => 'https://example.com/hook', content_type => 'json' },
         events => ['push'],
-    });
+    );
 
-Create a new hook; the API requires C<type> and C<config>.
+Create a new hook; the API requires C<type> and C<config>. The named arguments
+are sent as the JSON body.
 
 =cut
 
 sub create {
-    my ($self, $data) = @_;
-    return $self->_hook($self->client->post($self->_path_for, $data));
+    my ($self, %params) = @_;
+    return $self->_hook($self->client->post($self->_path_for, \%params));
 }
 
 =method update
 
-    my $hook = $repo->hooks->update($id, { active => \0 });
+    my $hook = $repo->hooks->update($id, active => \0);
 
-Update a hook.
+Update a hook. The named arguments are sent as the JSON body.
 
 =cut
 
 sub update {
-    my ($self, $id, $data) = @_;
-    return $self->_hook($self->client->patch($self->_path_for(escape_component($id)), $data));
+    my ($self, $id, %params) = @_;
+    return $self->_hook($self->client->patch($self->_path_for(escape_component($id)), \%params));
 }
 
 =method edit
@@ -148,6 +149,66 @@ sub test {
     return $self->client->post($self->_path_for(escape_component($id), 'tests'), undef, params => \%params);
 }
 
+=method list_git
+
+    my $hooks = $repo->hooks->list_git;
+
+List the git hooks of the repository
+(C<GET /repos/{owner}/{repo}/hooks/git>). These are the hooks that live in the
+repository itself (C<.githooks>), not the ones of the instance. The hooks are
+returned as plain structures.
+
+=cut
+
+sub list_git {
+    my ($self) = @_;
+    return $self->client->get($self->_repo_path('hooks', 'git'));
+}
+
+=method get_git
+
+    my $hook = $repo->hooks->get_git($id);
+
+Get one git hook of the repository
+(C<GET /repos/{owner}/{repo}/hooks/git/{id}>). The hook is returned as a plain
+structure.
+
+=cut
+
+sub get_git {
+    my ($self, $id) = @_;
+    return $self->client->get($self->_repo_path('hooks', 'git', escape_component($id)));
+}
+
+=method update_git
+
+    $repo->hooks->update_git($id, content => "#!/bin/sh\necho hook\n");
+
+Change the content of a git hook
+(C<PATCH /repos/{owner}/{repo}/hooks/git/{id}>). The named arguments are sent as
+the JSON body; the API takes the new C<content> of the hook.
+
+=cut
+
+sub update_git {
+    my ($self, $id, %params) = @_;
+    return $self->client->patch($self->_repo_path('hooks', 'git', escape_component($id)), \%params);
+}
+
+=method delete_git
+
+    $repo->hooks->delete_git($id);
+
+Delete a git hook of the repository. Returns true.
+
+=cut
+
+sub delete_git {
+    my ($self, $id) = @_;
+    $self->client->delete($self->_repo_path('hooks', 'git', escape_component($id)));
+    return 1;
+}
+
 1;
 
 __END__
@@ -157,16 +218,16 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @hooks = $repo->hooks->list;
+    my $hooks = $repo->hooks->list;
 
     my $hook = $repo->hooks->get(1);
 
-    $hook = $repo->hooks->create({
+    $hook = $repo->hooks->create(
         type   => 'forgejo',
         config => { url => 'https://example.com/hook', content_type => 'json' },
         events => ['push', 'pull_request'],
         active => \1,
-    });
+    );
 
 =head1 DESCRIPTION
 

@@ -14,13 +14,34 @@ Revision history for WWW-Forgejo
       assignees, branches, branch_protections, collaborators, contents, flags,
       forks, git, hooks, issues, keys, labels, milestones, pulls, releases,
       reviewers, stargazers, subscribers, subscription, tags, tag_protections,
-      topics and wiki; WWW::Forgejo::API::Repo::Statuses for commit statuses.
-      Includes Branches::rename, Flags::check/replace/remove_all,
+      teams, topics and wiki; WWW::Forgejo::API::Repo::Statuses for commit
+      statuses. Includes Branches::rename, Flags::check/replace/remove_all,
       Releases::latest/delete_by_tag/get_asset/edit_asset/delete_asset and
       TagProtections::edit. Contents raw, media and get_archive return the
       file bytes unchanged; statuses->combined escapes a slash in the ref.
     - Per-organization controllers on WWW::Forgejo::Entity::Org: actions,
-      blocked_users, hooks, labels, members, quota and teams.
+      blocked_users, hooks, labels, members, quota and teams. The
+      organization comes from the bound entity, not from an argument.
+    - One call style for all controllers: query parameters and request bodies
+      are named arguments, no hashref is passed positionally, a collection
+      comes back as an arrayref; the parameters that are part of the path
+      (owner, repo, index, org, name) stay positional.
+    - The controllers cover the operations of the Forgejo swagger spec: the
+      repositories, the issues, the pull requests, the actions, the users, the
+      organizations, the teams, the activitypub endpoints, the admin quota
+      rules and groups and the git diffs. The deprecated alias
+      POST /org/{org}/repos is left out, its current form
+      POST /orgs/{org}/repos is there.
+    - Controllers for the admin quota groups and rules (with the rules and the
+      users of a group) and for starring a repository and following a user;
+      a quota group and a quota rule are entities.
+    - The ActivityPub endpoints are a boundary of the client: actor, inbox and
+      outbox need an HTTP signature and answer without one with
+      "request signature verification failed"; without federation the paths
+      are not registered at all.
+    - users->create_token and users->delete_token use the basic authentication
+      of the request, so the tokens of another user can be managed;
+      packages->upload sends a package to the instance outside /api/v1.
     - Yes/no endpoints (204/404) are answered as booleans via check(); the
       verdict of a response is a method of its own, so a transport that
       fetched the response itself can ask the same question. Release assets
@@ -37,7 +58,9 @@ Revision history for WWW-Forgejo
       plain-text body (such as "404 page not found") becomes the message of
       the croak, and check croaks on a missing route instead of answering
       "no". Text bodies are decoded by their declared charset; get takes a
-      raw option that returns the body bytes unchanged. get follows
+      raw option that returns the body bytes unchanged. A single request can
+      carry basic authentication instead of the token, a raw body with its
+      content type and a base URL outside /api/v1. get follows
       X-Total-Count based auto-pagination (page_size, max_pages) for plain
       arrays and the search envelope, with the default LWP backend as well.
       It also paginates the Actions runs envelope (workflow_runs, total from

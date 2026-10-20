@@ -83,7 +83,7 @@ __END__
 =head1 SYNOPSIS
 
     my $release = $repo->releases->latest;
-    for my $asset ($repo->releases->assets($release->id)) {
+    for my $asset (@{ $repo->releases->assets($release->id) }) {
         print $asset->name, ' ', $asset->browser_download_url, "\n";
     }
 

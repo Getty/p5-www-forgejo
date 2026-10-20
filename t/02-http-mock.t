@@ -8,6 +8,7 @@ use WWW::Forgejo::HTTPRequest;
 use WWW::Forgejo::HTTPResponse;
 use WWW::Forgejo::Role::IO;
 use JSON::MaybeXS qw(decode_json);
+use MIME::Base64 qw(encode_base64);
 
 # Build a simple in-memory mock IO backend
 {
@@ -140,6 +141,63 @@ subtest 'auth required' => sub {
     like($@, qr/No API token configured/i);
 };
 
+# A few endpoints of Forgejo want basic authentication instead of the token of
+# the client: creating a token for another user is one of them.
+subtest 'basic authentication for a single request' => sub {
+    clear_responses;
+    add_response(200, '{"id":1}');
+
+    $client->get('/users/someone/tokens',
+        auth => { user => 'someone', password => 'secret' });
+    my $req = $Test::MockIO::requests[-1];
+    is($req->headers->{Authorization},
+        'Basic ' . encode_base64('someone:secret', ''),
+        'the request carries basic authentication');
+};
+
+subtest 'a request with basic authentication needs no token' => sub {
+    clear_responses;
+    add_response(200, '{"id":1}');
+
+    my $anonymous = WWW::Forgejo->new(
+        url   => 'https://test.example',
+        token => '',
+        io    => $mock_io,
+    );
+    my $data = eval { $anonymous->get('/users/someone/tokens',
+        auth => { user => 'someone', password => 'secret' }) };
+    is($@, '', 'no croak without a token');
+    my $req = $Test::MockIO::requests[-1];
+    ok($req, 'a request was sent');
+    is($req && $req->headers->{Authorization},
+        'Basic ' . encode_base64('someone:secret', ''),
+        'the request carries basic authentication');
+};
+
+# The package upload sends the bytes of the file as they are.
+subtest 'raw content with its media type' => sub {
+    clear_responses;
+    add_response(201, '');
+
+    $client->put('/packages/o/generic/n/1.0.0/f.txt', undef,
+        content => "raw bytes\x00", content_type => 'application/octet-stream');
+    my $req = $Test::MockIO::requests[-1];
+    is($req->content, "raw bytes\x00", 'the body is the bytes as they are');
+    is($req->headers->{'Content-Type'}, 'application/octet-stream', 'with the media type');
+};
+
+# A few paths of Forgejo live outside the /api/v1 of the API.
+subtest 'a path outside /api/v1' => sub {
+    clear_responses;
+    add_response(201, '');
+
+    $client->put('/packages/o/generic/n/1.0.0/f.txt', undef,
+        base_url => 'https://test.example/api', content => 'x');
+    is($Test::MockIO::requests[-1]->url,
+        'https://test.example/api/packages/o/generic/n/1.0.0/f.txt',
+        'the path is appended to the given base');
+};
+
 # =============================================================================
 # Misc API Tests
 # =============================================================================
@@ -225,6 +283,51 @@ subtest 'users get' => sub {
     is($user->{login}, 'testuser');
 };
 
+# Forgejo wants basic authentication for a token of another user.
+subtest 'users create_token' => sub {
+    clear_responses;
+    add_response(201, '{"id":1,"name":"ci","sha1":"abc"}');
+
+    my $token = eval {
+        $client->users->create_token('testuser',
+            name => 'ci', scopes => ['all'],
+            auth => { user => 'testuser', password => 'secret' });
+    };
+    ok($token, 'the token is created') or diag($@);
+    is($token && $token->{sha1}, 'abc', 'the new token');
+    my $req = $Test::MockIO::requests[-1];
+    ok($req, 'a request was sent');
+    is($req && $req->method . ' ' . $req->url,
+        'POST https://test.example/api/v1/users/testuser/tokens',
+        'POST /users/{username}/tokens');
+    is($req && $req->headers->{Authorization},
+        'Basic ' . encode_base64('testuser:secret', ''),
+        'the request carries basic authentication');
+    is_deeply($req ? decode_json($req->content) : undef,
+        { name => 'ci', scopes => ['all'] },
+        'the body carries name and scopes');
+};
+
+# The path of the deletion names the token, not the secret it holds.
+subtest 'users delete_token' => sub {
+    clear_responses;
+    add_response(204, '');
+
+    eval {
+        $client->users->delete_token('testuser', 'ci',
+            auth => { user => 'testuser', password => 'secret' });
+    };
+    is($@, '', 'the token is deleted') or diag($@);
+    my $req = $Test::MockIO::requests[-1];
+    ok($req, 'a request was sent');
+    is($req && $req->method . ' ' . $req->url,
+        'DELETE https://test.example/api/v1/users/testuser/tokens/ci',
+        'DELETE /users/{username}/tokens/{token}');
+    is($req && $req->headers->{Authorization},
+        'Basic ' . encode_base64('testuser:secret', ''),
+        'the request carries basic authentication');
+};
+
 # =============================================================================
 # Orgs API Tests
 # =============================================================================
@@ -260,7 +363,7 @@ subtest 'teams are listed per organization' => sub {
     clear_responses;
     add_response(200, '[{"id":1,"name":"Owners"},{"id":2,"name":"Developers"}]');
 
-    my $teams = WWW::Forgejo::API::Org::Teams->new(client => $client)->list('testorg');
+    my $teams = WWW::Forgejo::API::Org::Teams->new(client => $client, owner => 'testorg')->list;
     is(ref $teams, 'ARRAY');
     is(scalar(@$teams), 2, 'both teams');
     my $req = $Test::MockIO::requests[-1];
@@ -329,6 +432,26 @@ subtest 'packages get' => sub {
 
     my $pkg = $client->packages->get('testowner', 'maven', 'my-package', '1.0.0');
     ok($pkg, 'get package works');
+};
+
+# The upload lives outside /api/v1: the packages router of Forgejo is mounted
+# at /api/packages on the instance.
+subtest 'packages upload' => sub {
+    clear_responses;
+    add_response(201, '{"id":1,"name":"my-package"}');
+
+    my $pkg = eval {
+        $client->packages->upload('testowner', 'generic', 'my-package', '1.0.0',
+            'hello.txt', content => "hello\n");
+    };
+    ok($pkg, 'upload answers') or diag($@);
+    my $req = $Test::MockIO::requests[-1];
+    ok($req, 'a request was sent');
+    is($req && $req->method . ' ' . $req->url,
+        'PUT https://test.example/api/packages/testowner/generic/my-package/1.0.0/hello.txt',
+        'the upload is sent to /api/packages');
+    is($req && $req->content, "hello\n", 'the body is the file');
+    is($req && $req->headers->{'Content-Type'}, 'application/octet-stream', 'as bytes');
 };
 
 # =============================================================================
@@ -533,9 +656,9 @@ subtest 'repo entity branches' => sub {
     my $repo = $client->repos->get('testorg', 'test-repo');
     my $branches_api = $repo->branches;
     ok($branches_api, 'branches accessor returned');
-    my @branches = $branches_api->list;
-    cmp_ok(scalar(@branches), '>=', 1);
-    is($branches[0]->name, 'main');
+    my $branches = $branches_api->list;
+    cmp_ok(scalar(@$branches), '>=', 1);
+    is($branches->[0]->name, 'main');
 };
 
 subtest 'repo entity collaborators' => sub {
@@ -544,9 +667,9 @@ subtest 'repo entity collaborators' => sub {
     add_response(200, '[{"login":"user1","permissions":"write"}]');
 
     my $repo = $client->repos->get('testorg', 'test-repo');
-    my @collabs = $repo->collaborators->list;
-    cmp_ok(scalar(@collabs), '>=', 1);
-    is($collabs[0]->login, 'user1');
+    my $collabs = $repo->collaborators->list;
+    cmp_ok(scalar(@$collabs), '>=', 1);
+    is($collabs->[0]->login, 'user1');
 };
 
 subtest 'repo entity hooks' => sub {
@@ -555,8 +678,8 @@ subtest 'repo entity hooks' => sub {
     add_response(200, '[{"id":1,"type":"web","url":"https://example.com/hook"}]');
 
     my $repo = $client->repos->get('testorg', 'test-repo');
-    my @hooks = $repo->hooks->list;
-    cmp_ok(scalar(@hooks), '>=', 1);
+    my $hooks = $repo->hooks->list;
+    cmp_ok(scalar(@$hooks), '>=', 1);
 };
 
 subtest 'repo entity labels' => sub {
@@ -565,9 +688,9 @@ subtest 'repo entity labels' => sub {
     add_response(200, '[{"id":1,"name":"bug","color":"ff0000"}]');
 
     my $repo = $client->repos->get('testorg', 'test-repo');
-    my @labels = $repo->labels->list;
-    cmp_ok(scalar(@labels), '>=', 1);
-    is($labels[0]->{name}, 'bug');
+    my $labels = $repo->labels->list;
+    cmp_ok(scalar(@$labels), '>=', 1);
+    is($labels->[0]->{name}, 'bug');
 };
 
 subtest 'repo entity milestones' => sub {
@@ -576,8 +699,8 @@ subtest 'repo entity milestones' => sub {
     add_response(200, '[{"id":1,"title":"v1.0","state":"open"}]');
 
     my $repo = $client->repos->get('testorg', 'test-repo');
-    my @milestones = $repo->milestones->list;
-    cmp_ok(scalar(@milestones), '>=', 1);
+    my $milestones = $repo->milestones->list;
+    cmp_ok(scalar(@$milestones), '>=', 1);
 };
 
 subtest 'repo entity issues' => sub {
@@ -586,8 +709,8 @@ subtest 'repo entity issues' => sub {
     add_response(200, '[{"id":1,"title":"Bug report","state":"open"}]');
 
     my $repo = $client->repos->get('testorg', 'test-repo');
-    my @issues = $repo->issues->list;
-    cmp_ok(scalar(@issues), '>=', 1);
+    my $issues = $repo->issues->list;
+    cmp_ok(scalar(@$issues), '>=', 1);
 };
 
 # =============================================================================

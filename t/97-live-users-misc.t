@@ -2,7 +2,6 @@
 use strict;
 use warnings;
 use Test::More;
-use MIME::Base64 qw(encode_base64);
 use lib 'lib';
 use WWW::Forgejo;
 
@@ -66,15 +65,12 @@ $client->admin->users->create(
     must_change_password => \0,
 );
 
-# A token for the throwaway user. Creating one needs basic auth: swap the
-# authentication of the client for the length of the block.
-my ($token, $listed_tokens);
-{
-    no warnings 'redefine';
-    local *WWW::Forgejo::_set_auth = sub { $_[1]{Authorization} = 'Basic ' . encode_base64("$USER:$PASSWORD", '') };
-    $token         = $client->post("/users/$USER/tokens", { name => 'live', scopes => ['all'] });
-    $listed_tokens = $client->users->tokens($USER);
-}
+# A token for the throwaway user. Creating one needs basic auth: the token of
+# the client may not create a token for another user.
+my $auth = { user => $USER, password => $PASSWORD };
+my $token         = $client->users->create_token($USER,
+    name => 'live', scopes => ['all'], auth => $auth);
+my $listed_tokens = $client->users->tokens($USER, auth => $auth);
 my $other = WWW::Forgejo->new(url => $ENV{TEST_FORGEJO_URL}, token => $token->{sha1});
 
 subtest 'a second user with a token of its own' => sub {
@@ -169,9 +165,9 @@ subtest 'lists' => sub {
     ok(exists $quota->{used}, 'quota');
 };
 
-subtest 'follow, through the plain verbs' => sub {
-    $other->put("/user/following/$OWNER");
-    is($other->check("/user/following/$OWNER"), 1, 'the second user follows the token user');
+subtest 'follow' => sub {
+    ok($other->current_user->follow($OWNER), 'follow');
+    is($other->current_user->check_following($OWNER), 1, 'the second user follows the token user');
     my %followers = map { ($_->{login} => 1) } @{ $client->current_user->followers };
     ok($followers{$USER}, 'current_user->followers');
     %followers = map { ($_->{login} => 1) } @{ $client->users->followers($OWNER) };
@@ -179,8 +175,8 @@ subtest 'follow, through the plain verbs' => sub {
     my %following = map { ($_->{login} => 1) } @{ $client->users->following($USER) };
     ok($following{$OWNER}, 'users->following');
     is(ref $client->current_user->following, 'ARRAY', 'current_user->following');
-    $other->delete("/user/following/$OWNER");
-    is($other->check("/user/following/$OWNER"), 0, 'unfollowed');
+    $other->current_user->unfollow($OWNER);
+    is($other->current_user->check_following($OWNER), 0, 'unfollowed');
 };
 
 subtest 'block' => sub {
@@ -192,7 +188,7 @@ subtest 'block' => sub {
 };
 
 subtest 'actions secrets, variables and runners of the user' => sub {
-    $client->current_user->set_secret('WFL97_SECRET', { data => 's3cret' });
+    $client->current_user->set_secret('WFL97_SECRET', data => 's3cret');
     pass('set_secret');
     $client->current_user->delete_secret('WFL97_SECRET');
     pass('delete_secret');
@@ -258,14 +254,9 @@ subtest 'notifications' => sub {
 # =============================================================================
 
 subtest 'packages' => sub {
-    # Uploading lives outside /api/v1; put the file there with the transport.
-    my $base = $client->url . "/api/packages/$OWNER/generic/$NAME/1.0.0/hello.txt";
-    $client->io->call(WWW::Forgejo::HTTPRequest->new(
-        method  => 'PUT',
-        url     => $base,
-        headers => { Authorization => 'token ' . $ENV{TEST_FORGEJO_TOKEN} },
-        content => "hello\n",
-    ));
+    # The upload lives outside /api/v1; the client sends it to the instance.
+    $client->packages->upload($OWNER, 'generic', $NAME, '1.0.0', 'hello.txt',
+        content => "hello\n");
     my %packages = map { ($_->{name} => $_) } @{ $client->packages->list($OWNER, type => 'generic') };
     ok($packages{$NAME}, 'list');
     my $package = $client->packages->get($OWNER, 'generic', $NAME, '1.0.0');
@@ -306,19 +297,34 @@ subtest 'misc' => sub {
 
 subtest 'activitypub' => sub {
     # The ActivityPub endpoints want HTTP signatures, which this client does
-    # not make; Forgejo turns an unsigned request away with a message.
-    for my $call ([ actor => sub { $client->activitypub->actor($me->{id}) } ],
-                  [ outbox => sub { $client->activitypub->outbox($me->{id}) } ],
-                  [ inbox => sub { $client->activitypub->inbox($me->{id}, { type => 'Follow' }) } ]) {
-        my ($name, $code) = @$call;
-        my $result = eval { $code->() };
+    # not make: with federation on the instance answers 400 with the message
+    # "request signature verification failed", with federation off the paths
+    # do not exist and the instance answers 404.
+    my %call = (
+        actor  => sub { $client->activitypub->actor($me->{id}) },
+        outbox => sub { $client->activitypub->outbox($me->{id}) },
+        inbox  => sub { $client->activitypub->inbox($me->{id}, type => 'Follow') },
+    );
+    for my $name (sort keys %call) {
+        my $result = eval { $call{$name}->() };
         if (defined $result) {
-            ok(ref $result, "$name: answered without a signature");
+            ok(ref $result, "$name: answered");
+            next;
         }
-        else {
-            like($@, qr/^Forgejo API error: request signature verification failed/, "$name: needs a signature");
-        }
+        like(
+            $@,
+            qr/^Forgejo API error: (request signature verification failed|Not found\.|The target couldn't be found\.)/,
+            "$name: the documented answer (no signature, or no such route)"
+        );
     }
+};
+
+# The token of the throwaway user is not needed any more: delete it again.
+# The path of the deletion names the token, not the secret it holds.
+subtest 'the token of the second user is deleted again' => sub {
+    $client->users->delete_token($USER, 'live', auth => $auth);
+    my @tokens = @{ $client->users->tokens($USER, auth => $auth) };
+    is(scalar @tokens, 0, 'no token left');
 };
 
 done_testing;

@@ -8,6 +8,7 @@ use MockForgejo qw(mock_client);
 use WWW::Forgejo::API::Org::Actions;
 use WWW::Forgejo::API::Org::Hooks;
 use WWW::Forgejo::API::Org::Labels;
+use WWW::Forgejo::API::Org::Teams;
 
 # Regression tests for operations that used the wrong verb, path or body
 # before they were checked against the Swagger document.
@@ -32,7 +33,7 @@ subtest 'activitypub actor' => sub {
 subtest 'activitypub inbox' => sub {
     $io->reset->add(202, '');
     my $activity = { type => 'Follow', actor => 'https://other.test/users/a' };
-    $client->activitypub->inbox(7, $activity);
+    $client->activitypub->inbox(7, %$activity);
     is(request(), 'POST /activitypub/user-id/7/inbox', 'POST /activitypub/user-id/{user-id}/inbox');
     is_deeply(body(), $activity, 'the activity is the JSON body');
 };
@@ -64,27 +65,23 @@ subtest 'org actions runner_registration_token' => sub {
     is(request(), 'GET /orgs/myorg/actions/runners/registration-token',
         'GET /orgs/{org}/actions/runners/registration-token');
     is($token->{token}, 'abc', 'token returned');
-
-    $io->reset->add(200, '{"token":"def"}');
-    $actions->runner_registration_token('other');
-    is(request(), 'GET /orgs/other/actions/runners/registration-token', 'explicit organization wins');
 };
 
 subtest 'org actions secrets and variables' => sub {
     my $actions = WWW::Forgejo::API::Org::Actions->new(client => $client, owner => 'myorg');
 
     $io->reset->add(204, '');
-    $actions->set_secret(undef, 'KEY', { data => 'v' });
+    $actions->set_secret('KEY', data => 'v');
     is(request(), 'PUT /orgs/myorg/actions/secrets/KEY', 'set_secret');
     is_deeply(body(), { data => 'v' }, 'set_secret body');
 
     $io->reset->add(204, '');
-    $actions->create_variable(undef, 'STAGE', { value => 'prod' });
+    $actions->create_variable('STAGE', value => 'prod');
     is(request(), 'POST /orgs/myorg/actions/variables/STAGE', 'create_variable');
     is_deeply(body(), { value => 'prod' }, 'create_variable body');
 
     $io->reset->add(204, '');
-    $actions->set_variable(undef, 'STAGE', { value => 'test' });
+    $actions->set_variable('STAGE', value => 'test');
     is(request(), 'PUT /orgs/myorg/actions/variables/STAGE', 'set_variable');
 };
 
@@ -142,13 +139,13 @@ subtest 'teams create and edit' => sub {
 subtest 'org hooks edit' => sub {
     my $hooks = WWW::Forgejo::API::Org::Hooks->new(client => $client, owner => 'myorg');
     $io->reset->add(200, '{"id":3,"active":false}');
-    my $hook = $hooks->edit(undef, 3, active => \0);
+    my $hook = $hooks->edit(3, active => \0);
     is(request(), 'PATCH /orgs/myorg/hooks/3', 'PATCH /orgs/{org}/hooks/{id}');
     is_deeply(body(), { active => JSON::MaybeXS::false }, 'body');
     is($hook->{id}, 3, 'hook returned');
 
     $io->reset;
-    eval { $hooks->edit(undef, undef, active => \0) };
+    eval { $hooks->edit(undef, active => \0) };
     like($@, qr/Hook ID required/, 'croaks without hook id');
     is($io->count, 0, 'nothing sent');
 };
@@ -156,10 +153,31 @@ subtest 'org hooks edit' => sub {
 subtest 'org labels edit' => sub {
     my $labels = WWW::Forgejo::API::Org::Labels->new(client => $client, owner => 'myorg');
     $io->reset->add(200, '{"id":4,"name":"defect"}');
-    my $label = $labels->edit(undef, 4, name => 'defect');
+    my $label = $labels->edit(4, name => 'defect');
     is(request(), 'PATCH /orgs/myorg/labels/4', 'PATCH /orgs/{org}/labels/{id}');
     is_deeply(body(), { name => 'defect' }, 'body');
     is($label->{name}, 'defect', 'label returned');
+};
+
+subtest 'a bound organization controller addresses its own organization' => sub {
+    my $teams = WWW::Forgejo::API::Org::Teams->new(client => $client, owner => 'myorg');
+
+    $io->reset->add(200, '[]');
+    $teams->list;
+    is(request(), 'GET /orgs/myorg/teams', 'the organization of the controller is used');
+
+    $io->reset->add(200, '[]');
+    $teams->list(limit => 1);
+    is(request(), 'GET /orgs/myorg/teams?limit=1', 'the query parameters are named arguments');
+
+    $io->reset->add(200, '[]');
+    {
+        # A stray positional argument is a user error: Perl reports it as an
+        # odd number of elements, and the argument lands in the query string.
+        local $SIG{__WARN__} = sub { };
+        $teams->list('other');
+    }
+    is(request(), 'GET /orgs/myorg/teams', 'a positional argument does not name the organization');
 };
 
 subtest 'an organization controller without owner needs the name' => sub {

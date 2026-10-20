@@ -44,17 +44,17 @@ sub _path_for {
 
 =method list
 
-    my @labels = $repo->labels->list;
+    my $labels = $repo->labels->list;
 
-List the labels of the repository, as plain label structures. Named arguments
-are sent as the query string (C<sort>, C<page>, C<limit>).
+List the labels of the repository, as plain label structures in an arrayref.
+Named arguments are sent as the query string (C<sort>, C<page>, C<limit>).
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return @$data;
+    return [@$data];
 }
 
 =method get
@@ -72,28 +72,29 @@ sub get {
 
 =method create
 
-    my $label = $repo->labels->create({ name => 'bug', color => 'ff0000' });
+    my $label = $repo->labels->create(name => 'bug', color => 'ff0000');
 
-Create a label; the API requires C<name> and C<color>.
+Create a label; the API requires C<name> and C<color>. The named arguments are
+sent as the JSON body.
 
 =cut
 
 sub create {
-    my ($self, $data) = @_;
-    return $self->client->post($self->_path_for, $data);
+    my ($self, %params) = @_;
+    return $self->client->post($self->_path_for, \%params);
 }
 
 =method update
 
-    my $label = $repo->labels->update($id, { color => '00ff00' });
+    my $label = $repo->labels->update($id, color => '00ff00');
 
-Update a label.
+Update a label. The named arguments are sent as the JSON body.
 
 =cut
 
 sub update {
-    my ($self, $id, $data) = @_;
-    return $self->client->patch($self->_path_for(escape_component($id)), $data);
+    my ($self, $id, %params) = @_;
+    return $self->client->patch($self->_path_for(escape_component($id)), \%params);
 }
 
 =method edit
@@ -126,15 +127,15 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @labels = $repo->labels->list;
+    my $labels = $repo->labels->list;
 
     my $label = $repo->labels->get(1);
 
-    $label = $repo->labels->create({
+    $label = $repo->labels->create(
         name        => 'bug',
         color       => 'ff0000',
         description => 'Bug report label',
-    });
+    );
 
 =head1 DESCRIPTION
 

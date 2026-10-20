@@ -35,6 +35,7 @@ use WWW::Forgejo::API::Repo::Assignees;
 use WWW::Forgejo::API::Repo::Reviewers;
 use WWW::Forgejo::API::Repo::Flags;
 use WWW::Forgejo::API::Repo::Statuses;
+use WWW::Forgejo::API::Repo::Teams;
 use namespace::clean;
 
 our $VERSION = '0.001';
@@ -79,7 +80,8 @@ my %CONTROLLER = (
     assignees          => 'WWW::Forgejo::API::Repo::Assignees',
     reviewers          => 'WWW::Forgejo::API::Repo::Reviewers',
     flags              => 'WWW::Forgejo::API::Repo::Flags',
-    statuses           => 'WWW::Forgejo::API::Repo::Statuses'
+    statuses           => 'WWW::Forgejo::API::Repo::Statuses',
+    teams              => 'WWW::Forgejo::API::Repo::Teams'
 );
 
 for my $name (sort keys %CONTROLLER) {
@@ -199,6 +201,10 @@ The L<WWW::Forgejo::API::Repo::Flags> controller for this repository. Built lazi
 
 The L<WWW::Forgejo::API::Repo::Statuses> controller for this repository. Built lazily.
 
+=attr teams
+
+The L<WWW::Forgejo::API::Repo::Teams> controller for this repository. Built lazily.
+
 =cut
 
 sub _path {
@@ -208,17 +214,18 @@ sub _path {
 
 =method update
 
-    my $updated = $repo->update({ description => 'Updated description' });
+    my $updated = $repo->update(description => 'Updated description');
 
-Update repository settings (C<PATCH /repos/{owner}/{repo}>). Returns a new
-L<WWW::Forgejo::Entity::Repo> carrying the data from the response; the
-object it was called on keeps its old data.
+Update repository settings (C<PATCH /repos/{owner}/{repo}>). The named
+arguments are sent as the JSON body. Returns a new L<WWW::Forgejo::Entity::Repo>
+carrying the data from the response; the object it was called on keeps its old
+data.
 
 =cut
 
 sub update {
-    my ($self, $data) = @_;
-    my $result = $self->client->patch($self->_path, $data);
+    my ($self, %params) = @_;
+    my $result = $self->client->patch($self->_path, \%params);
     return (ref $self)->new(
         client => $self->client,
         owner  => $self->owner,
@@ -265,8 +272,8 @@ __END__
 
     print $repo->data->{full_name}, "\n";
 
-    my @issues   = $repo->issues->list(state => 'open');
-    my @branches = $repo->branches->list;
+    my $issues   = $repo->issues->list(state => 'open');
+    my $branches = $repo->branches->list;
     my $release  = $repo->releases->get_by_tag('v1.0.0');
 
 =head1 DESCRIPTION

@@ -13,8 +13,8 @@ use WWW::Forgejo;
 # the end.
 #
 # The controllers of a bound organization (C<< $org->teams >> and friends)
-# still take the organization name as their first argument (karr #19); the
-# TODO tests below record how the natural call behaves today.
+# take the organization from the entity they belong to; there is no
+# organization argument to pass.
 
 plan skip_all => 'TEST_FORGEJO_URL and TEST_FORGEJO_TOKEN required'
     unless $ENV{TEST_FORGEJO_URL} && $ENV{TEST_FORGEJO_TOKEN};
@@ -101,11 +101,11 @@ subtest 'organization repositories' => sub {
 my $team_data;
 
 subtest 'teams' => sub {
-    my $teams = $org->teams->list(undef);
+    my $teams = $org->teams->list;
     is(scalar @$teams, 1, 'a new organization has its owners team');
     is($teams->[0]{name}, 'Owners', 'named Owners');
 
-    $team_data = $org->teams->create(undef,
+    $team_data = $org->teams->create(
         name                      => 'live-team',
         description               => 'from t/94',
         permission                => 'write',
@@ -115,7 +115,7 @@ subtest 'teams' => sub {
     ok($team_data->{id}, 'created');
     is($team_data->{permission}, 'write', 'permission');
 
-    my $found = $org->teams->search(undef, q => 'live');
+    my $found = $org->teams->search(q => 'live');
     ok($found->{ok}, 'search answers ok');
     is($found->{data}[0]{name}, 'live-team', 'search finds the team');
 
@@ -141,43 +141,40 @@ subtest 'teams' => sub {
     ok($teams_of_me{ $teams->[0]{id} }, 'the owners team is among the teams of the token user');
 
     {
-        # Today: GET /orgs/limit/teams, an odd-number warning, and a 404.
-        local $TODO = 'karr #19: a bound organization controller still reads the first argument as the org name';
-        local $SIG{__WARN__} = sub { };
-        ok(eval { $org->teams->list(limit => 1); 1 }, 'org->teams->list(limit => 1)') or diag $@;
+        # The organization of the entity is used; the query parameters are
+        # named arguments. The limit is a page size, so the client collects
+        # the rest of the pages itself.
+        my $all = $org->teams->list(limit => 1);
+        my %names = map { ($_->{name} => 1) } @$all;
+        ok($names{Owners} && $names{'live-team'}, 'org->teams->list(limit => 1) answers with the teams of the organization');
     }
 };
 
 subtest 'members' => sub {
-    is($org->members->check(undef, $USER),  1, 'the team member is a member');
-    is($org->members->check(undef, $OWNER), 1, 'so is the owner');
-    my %members = map { ($_->{login} => 1) } @{ $org->members->list(undef) };
+    is($org->members->check($USER),  1, 'the team member is a member');
+    is($org->members->check($OWNER), 1, 'so is the owner');
+    my %members = map { ($_->{login} => 1) } @{ $org->members->list };
     ok($members{$USER} && $members{$OWNER}, 'both listed');
 
-    is($org->members->check_public(undef, $OWNER), 0, 'membership is not public');
-    $org->members->publicize(undef, $OWNER);
-    is($org->members->check_public(undef, $OWNER), 1, 'publicize');
-    my %public = map { ($_->{login} => 1) } @{ $org->members->list_public(undef) };
+    is($org->members->check_public($OWNER), 0, 'membership is not public');
+    $org->members->publicize($OWNER);
+    is($org->members->check_public($OWNER), 1, 'publicize');
+    my %public = map { ($_->{login} => 1) } @{ $org->members->list_public };
     ok($public{$OWNER}, 'list_public');
-    $org->members->conceal(undef, $OWNER);
-    is($org->members->check_public(undef, $OWNER), 0, 'conceal');
+    $org->members->conceal($OWNER);
+    is($org->members->check_public($OWNER), 0, 'conceal');
 
-    $org->members->remove(undef, $USER);
-    is($org->members->check(undef, $USER), 0, 'remove');
-
-    {
-        local $TODO = 'karr #19: a bound organization controller still reads the first argument as the org name';
-        is(eval { $org->members->check($USER) }, 0, 'org->members->check($user)');
-    }
+    $org->members->remove($USER);
+    is($org->members->check($USER), 0, 'remove');
 };
 
 subtest 'blocked users' => sub {
-    $org->blocked_users->block(undef, $USER);
-    my $blocked = $org->blocked_users->list(undef);
+    $org->blocked_users->block($USER);
+    my $blocked = $org->blocked_users->list;
     is(scalar @$blocked, 1, 'block');
     ok($blocked->[0]{block_id}, 'listed with the id of the blocked user');
-    $org->blocked_users->unblock(undef, $USER);
-    is(scalar @{ $org->blocked_users->list(undef) }, 0, 'unblock');
+    $org->blocked_users->unblock($USER);
+    is(scalar @{ $org->blocked_users->list }, 0, 'unblock');
 };
 
 subtest 'delete a team' => sub {
@@ -192,19 +189,19 @@ subtest 'delete a team' => sub {
 # =============================================================================
 
 subtest 'labels' => sub {
-    my $label = $org->labels->create(undef, name => 'org-label', color => '#00aabb', description => 'from t/94');
+    my $label = $org->labels->create(name => 'org-label', color => '#00aabb', description => 'from t/94');
     ok($label->{id}, 'created');
     is($label->{color}, '00aabb', 'the color comes back without #');
-    is($org->labels->get(undef, $label->{id})->{name}, 'org-label', 'get');
-    my $edited = $org->labels->edit(undef, $label->{id}, name => 'org-label-2');
+    is($org->labels->get($label->{id})->{name}, 'org-label', 'get');
+    my $edited = $org->labels->edit($label->{id}, name => 'org-label-2');
     is($edited->{name}, 'org-label-2', 'edit');
-    is(scalar @{ $org->labels->list(undef) }, 1, 'list');
-    $org->labels->delete(undef, $label->{id});
-    is(scalar @{ $org->labels->list(undef) }, 0, 'delete');
+    is(scalar @{ $org->labels->list }, 1, 'list');
+    $org->labels->delete($label->{id});
+    is(scalar @{ $org->labels->list }, 0, 'delete');
 };
 
 subtest 'hooks' => sub {
-    my $hook = $org->hooks->create(undef,
+    my $hook = $org->hooks->create(
         type   => 'forgejo',
         config => { url => 'http://127.0.0.1:9/hook', content_type => 'json' },
         events => ['push'],
@@ -212,15 +209,15 @@ subtest 'hooks' => sub {
     );
     ok($hook->{id}, 'created');
     is($hook->{type}, 'forgejo', 'type');
-    is($org->hooks->get(undef, $hook->{id})->{config}{url}, 'http://127.0.0.1:9/hook', 'get');
-    my $edited = $org->hooks->edit(undef, $hook->{id}, events => [qw(push issues)]);
+    is($org->hooks->get($hook->{id})->{config}{url}, 'http://127.0.0.1:9/hook', 'get');
+    my $edited = $org->hooks->edit($hook->{id}, events => [qw(push issues)]);
     # Forgejo answers with the single events "issues" stands for.
     my %events = map { ($_ => 1) } @{ $edited->{events} };
     ok($events{push}, 'edit keeps push');
     ok((grep { /^issue/ } keys %events), 'and adds the issue events') or diag explain $edited->{events};
-    is(scalar @{ $org->hooks->list(undef) }, 1, 'list');
-    $org->hooks->delete(undef, $hook->{id});
-    is(scalar @{ $org->hooks->list(undef) }, 0, 'delete');
+    is(scalar @{ $org->hooks->list }, 1, 'list');
+    $org->hooks->delete($hook->{id});
+    is(scalar @{ $org->hooks->list }, 0, 'delete');
 };
 
 # =============================================================================
@@ -228,37 +225,37 @@ subtest 'hooks' => sub {
 # =============================================================================
 
 subtest 'actions variables' => sub {
-    $org->actions->create_variable(undef, 'LIVE_VAR', { value => 'one' });
-    my $var = $org->actions->get_variable(undef, 'LIVE_VAR');
+    $org->actions->create_variable('LIVE_VAR', value => 'one');
+    my $var = $org->actions->get_variable('LIVE_VAR');
     is($var->{name}, 'LIVE_VAR', 'created');
     is($var->{data}, 'one', 'value comes back as data');
-    $org->actions->set_variable(undef, 'LIVE_VAR', { value => 'two' });
-    is($org->actions->get_variable(undef, 'LIVE_VAR')->{data}, 'two', 'set_variable');
-    my $vars = $org->actions->list_variables(undef);
+    $org->actions->set_variable('LIVE_VAR', value => 'two');
+    is($org->actions->get_variable('LIVE_VAR')->{data}, 'two', 'set_variable');
+    my $vars = $org->actions->list_variables;
     is(scalar @$vars, 1, 'list_variables');
-    $org->actions->delete_variable(undef, 'LIVE_VAR');
-    is(scalar @{ $org->actions->list_variables(undef) }, 0, 'delete_variable');
+    $org->actions->delete_variable('LIVE_VAR');
+    is(scalar @{ $org->actions->list_variables }, 0, 'delete_variable');
 };
 
 subtest 'actions secrets' => sub {
-    $org->actions->set_secret(undef, 'LIVE_SECRET', { data => 's3cret' });
-    my $secrets = $org->actions->list_secrets(undef);
+    $org->actions->set_secret('LIVE_SECRET', data => 's3cret');
+    my $secrets = $org->actions->list_secrets;
     is(scalar @$secrets, 1, 'set_secret');
     is($secrets->[0]{name}, 'LIVE_SECRET', 'listed by name');
     ok(!exists $secrets->[0]{data}, 'without the value');
-    $org->actions->delete_secret(undef, 'LIVE_SECRET');
-    is(scalar @{ $org->actions->list_secrets(undef) }, 0, 'delete_secret');
+    $org->actions->delete_secret('LIVE_SECRET');
+    is(scalar @{ $org->actions->list_secrets }, 0, 'delete_secret');
 };
 
 subtest 'actions runners' => sub {
-    my $token = $org->actions->runner_registration_token(undef);
+    my $token = $org->actions->runner_registration_token;
     ok($token->{token}, 'registration token');
-    my $runners = $org->actions->list_runners(undef);
+    my $runners = $org->actions->list_runners;
     is(ref $runners, 'ARRAY', 'no runners registered');
 };
 
 subtest 'quota' => sub {
-    my $quota = $org->quota->get(undef);
+    my $quota = $org->quota->get;
     ok(exists $quota->{used}, 'quota reports what is used');
     ok(exists $quota->{groups}, 'and the quota groups');
 };

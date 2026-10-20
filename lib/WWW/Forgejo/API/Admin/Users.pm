@@ -7,6 +7,7 @@ use warnings;
 package WWW::Forgejo::API::Admin::Users;
 
 use Moo;
+use Carp qw(croak);
 use WWW::Forgejo::URL qw( escape_component );
 use namespace::clean;
 
@@ -216,6 +217,57 @@ Set the quota groups of a user to the given list (C<POST
 sub set_quota_groups {
     my ($self, $username, @groups) = @_;
     return $self->client->post('/admin/users/' . escape_component($username) . '/quota/groups', { groups => \@groups });
+}
+
+=method list_tokens
+
+    my $tokens = $forgejo->admin->users->list_tokens($username);
+
+List the access tokens of a user (C<GET /admin/users/{username}/tokens>). Named
+arguments are sent as the query string of the request.
+
+=cut
+
+sub list_tokens {
+    my ($self, $username, %params) = @_;
+    croak "Username required" unless defined $username && length $username;
+    return $self->client->get(
+        '/admin/users/' . escape_component($username) . '/tokens', params => \%params);
+}
+
+=method create_token
+
+    my $token = $forgejo->admin->users->create_token($username, name => 'My token');
+
+Create an access token for a user (C<POST /admin/users/{username}/tokens>).
+The key/value pairs are sent as the JSON body; the API takes the C<name> of
+the token, the C<repositories> it may use and the C<scopes> it may have.
+
+=cut
+
+sub create_token {
+    my ($self, $username, %params) = @_;
+    croak "Username required" unless defined $username && length $username;
+    return $self->client->post(
+        '/admin/users/' . escape_component($username) . '/tokens', \%params);
+}
+
+=method delete_token
+
+    $forgejo->admin->users->delete_token($username, $token);
+
+Delete an access token of a user
+(C<DELETE /admin/users/{username}/tokens/{token}>).
+
+=cut
+
+sub delete_token {
+    my ($self, $username, $token) = @_;
+    croak "Username required" unless defined $username && length $username;
+    croak "Token required" unless defined $token && length $token;
+    my $path = join '/', '/admin/users', escape_component($username), 'tokens', escape_component($token);
+    $self->client->delete($path);
+    return 1;
 }
 
 1;

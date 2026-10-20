@@ -82,57 +82,58 @@ sub get_archive {
 
 =method create
 
-    my $file = $repo->contents->create($path, {
+    my $file = $repo->contents->create($path,
         content => $base64_encoded_content,
         message => 'Add file',
         branch  => 'main',
-    });
+    );
 
-Create a file; the API requires the base64 encoded C<content>.
+Create a file; the API requires the base64 encoded C<content>. The named
+arguments are sent as the JSON body.
 
 =cut
 
 sub create {
-    my ($self, $path, $data) = @_;
-    return $self->client->post($self->_path_for($self->_file_path($path)), $data);
+    my ($self, $path, %params) = @_;
+    return $self->client->post($self->_path_for($self->_file_path($path)), \%params);
 }
 
 =method update
 
-    my $file = $repo->contents->update($path, {
+    my $file = $repo->contents->update($path,
         content => $base64_encoded_content,
         sha     => $current_sha,
         message => 'Update file',
-    });
+    );
 
 Update a file; the API requires C<content> and the C<sha> of the file being
-replaced.
+replaced. The named arguments are sent as the JSON body.
 
 =cut
 
 sub update {
-    my ($self, $path, $data) = @_;
-    return $self->client->put($self->_path_for($self->_file_path($path)), $data);
+    my ($self, $path, %params) = @_;
+    return $self->client->put($self->_path_for($self->_file_path($path)), \%params);
 }
 
 =method delete
 
-    my $result = $repo->contents->delete($path, {
+    my $result = $repo->contents->delete($path,
         sha     => $current_sha,
         message => 'Remove file',
         branch  => 'main',
-    });
+    );
 
-Delete a file. The data is sent as the JSON body of the request; the API
-requires the C<sha> of the file being deleted and this method croaks without
-it. Returns the decoded response, which describes the resulting commit.
+Delete a file. The named arguments are sent as the JSON body of the request;
+the API requires the C<sha> of the file being deleted and this method croaks
+without it. Returns the decoded response, which describes the resulting commit.
 
 =cut
 
 sub delete {
-    my ($self, $path, $data) = @_;
-    croak "sha required to delete a file" unless ref $data eq 'HASH' && defined $data->{sha};
-    return $self->client->delete($self->_path_for($self->_file_path($path)), $data);
+    my ($self, $path, %params) = @_;
+    croak "sha required to delete a file" unless defined $params{sha};
+    return $self->client->delete($self->_path_for($self->_file_path($path)), \%params);
 }
 
 =method raw
@@ -165,6 +166,25 @@ sub media {
     return $self->client->get($self->_repo_path('media', $self->_file_path($path)), params => \%params, raw => 1);
 }
 
+=method create_files
+
+    my $files = $repo->contents->create_files(
+        files   => [ { path => 'a.txt', content => $base64 } ],
+        message => 'Add files',
+    );
+
+Create several files in one commit
+(C<POST /repos/{owner}/{repo}/contents>). The named arguments are sent as the
+JSON body; the API takes the C<files> (a list of paths with their base64
+encoded content), the C<message> of the commit and the C<branch> to commit on.
+
+=cut
+
+sub create_files {
+    my ($self, %params) = @_;
+    return $self->client->post($self->_path_for, \%params);
+}
+
 1;
 
 __END__
@@ -176,16 +196,16 @@ __END__
 
     my $content = $repo->contents->get('path/to/file.txt');
 
-    my $file = $repo->contents->create('path/to/file.txt', {
+    my $file = $repo->contents->create('path/to/file.txt',
         message => 'Add file',
         content => $base64_encoded_content,
         branch  => 'main',
-    });
+    );
 
-    $repo->contents->delete('path/to/file.txt', {
+    $repo->contents->delete('path/to/file.txt',
         sha     => $content->{sha},
         message => 'Remove file',
-    });
+    );
 
     my $zip = $repo->contents->get_archive('main.zip');
 

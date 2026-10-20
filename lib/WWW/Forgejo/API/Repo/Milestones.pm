@@ -56,18 +56,19 @@ sub _to_milestone {
 
 =method list
 
-    my @milestones = $repo->milestones->list;
-    my @closed     = $repo->milestones->list(state => 'closed');
+    my $milestones = $repo->milestones->list;
+    my $closed     = $repo->milestones->list(state => 'closed');
 
-List the milestones as L<WWW::Forgejo::Entity::Milestone> objects. Named
-arguments are sent as the query string (C<state>, C<name>, C<page>, C<limit>).
+List the milestones as L<WWW::Forgejo::Entity::Milestone> objects, in an
+arrayref. Named arguments are sent as the query string (C<state>, C<name>,
+C<page>, C<limit>).
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return map { $self->_to_milestone($_) } @$data;
+    return [ map { $self->_to_milestone($_) } @$data ];
 }
 
 =method get
@@ -85,28 +86,28 @@ sub get {
 
 =method create
 
-    my $milestone = $repo->milestones->create({ title => 'v1.0' });
+    my $milestone = $repo->milestones->create(title => 'v1.0');
 
-Create a milestone.
+Create a milestone. The named arguments are sent as the JSON body.
 
 =cut
 
 sub create {
-    my ($self, $data) = @_;
-    return $self->_to_milestone($self->client->post($self->_path_for, $data));
+    my ($self, %params) = @_;
+    return $self->_to_milestone($self->client->post($self->_path_for, \%params));
 }
 
 =method edit
 
-    my $milestone = $repo->milestones->edit($id, { state => 'closed' });
+    my $milestone = $repo->milestones->edit($id, state => 'closed');
 
-Edit a milestone.
+Edit a milestone. The named arguments are sent as the JSON body.
 
 =cut
 
 sub edit {
-    my ($self, $id, $data) = @_;
-    return $self->_to_milestone($self->client->patch($self->_path_for(escape_component($id)), $data));
+    my ($self, $id, %params) = @_;
+    return $self->_to_milestone($self->client->patch($self->_path_for(escape_component($id)), \%params));
 }
 
 =method update
@@ -133,27 +134,27 @@ sub delete {
 
 =method issues
 
-    my @issues = $repo->milestones->issues($id);
-    my @closed = $repo->milestones->issues($id, state => 'closed');
+    my $issues = $repo->milestones->issues($id);
+    my $closed = $repo->milestones->issues($id, state => 'closed');
 
 List the issues of a milestone, given by its ID or name, as
-L<WWW::Forgejo::Entity::Issue> objects. This is the issue list of the
-repository filtered by C<milestones>; further named arguments are sent as the
-query string like in L<WWW::Forgejo::API::Repo::Issues/list>.
+L<WWW::Forgejo::Entity::Issue> objects, in an arrayref. This is the issue list
+of the repository filtered by C<milestones>; further named arguments are sent
+as the query string like in L<WWW::Forgejo::API::Repo::Issues/list>.
 
 =cut
 
 sub issues {
     my ($self, $id, %params) = @_;
     my $data = $self->client->get($self->_repo_path('issues'), params => { %params, milestones => $id });
-    return map {
+    return [ map {
         WWW::Forgejo::Entity::Issue->new(
             client => $self->client,
             owner  => $self->owner,
             repo   => $self->repo,
             data   => $_,
         )
-    } @$data;
+    } @$data ];
 }
 
 1;
@@ -165,15 +166,15 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @milestones = $repo->milestones->list;
+    my $milestones = $repo->milestones->list;
 
     my $milestone = $repo->milestones->get(1);
 
-    $milestone = $repo->milestones->create({
+    $milestone = $repo->milestones->create(
         title       => 'v1.0',
         description => 'Version 1 milestone',
         due_on      => '2025-12-31T00:00:00Z',
-    });
+    );
 
 =head1 DESCRIPTION
 

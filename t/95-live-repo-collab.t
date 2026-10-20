@@ -74,7 +74,7 @@ my $repo = $client->repos->get($OWNER, $NAME);
 
 subtest 'repository' => sub {
     is($repo->data->{description}, 'from t/95', 'get');
-    my $updated = $repo->update({ description => 'updated by t/95', has_wiki => \0 });
+    my $updated = $repo->update(description => 'updated by t/95', has_wiki => \0);
     isa_ok($updated, 'WWW::Forgejo::Entity::Repo');
     is($updated->data->{description}, 'updated by t/95', 'update');
     ok(!$updated->data->{has_wiki}, 'units switched off');
@@ -93,21 +93,21 @@ subtest 'repository' => sub {
 my ($bug, $feature, $milestone_id, $issue_number);
 
 subtest 'labels' => sub {
-    $bug = $repo->labels->create({ name => 'bug', color => '#ee0701', description => 'something broke' });
+    $bug = $repo->labels->create(name => 'bug', color => '#ee0701', description => 'something broke');
     ok($bug->{id}, 'created');
     is($bug->{color}, 'ee0701', 'color');
-    $feature = $repo->labels->create({ name => 'feature', color => '00aa00' });
+    $feature = $repo->labels->create(name => 'feature', color => '00aa00');
     is($repo->labels->get($bug->{id})->{name}, 'bug', 'get');
-    is($repo->labels->update($bug->{id}, { description => 'edited' })->{description}, 'edited', 'update');
-    is(scalar(my @labels = $repo->labels->list), 2, 'list');
+    is($repo->labels->update($bug->{id}, description => 'edited')->{description}, 'edited', 'update');
+    is(scalar @{ $repo->labels->list }, 2, 'list');
 };
 
 subtest 'milestones' => sub {
-    my $milestone = $repo->milestones->create({
+    my $milestone = $repo->milestones->create(
         title       => 'v1',
         description => 'first milestone',
         due_on      => '2030-01-01T00:00:00Z',
-    });
+    );
     isa_ok($milestone, 'WWW::Forgejo::Entity::Milestone');
     ok($milestone_id = $milestone->id, 'created');
     is($milestone->title, 'v1', 'title');
@@ -119,21 +119,21 @@ subtest 'milestones' => sub {
     ok(!$milestone->closed_at, 'not closed');
 
     is($repo->milestones->get($milestone_id)->title, 'v1', 'get');
-    my $closed = $repo->milestones->edit($milestone_id, { state => 'closed' });
+    my $closed = $repo->milestones->edit($milestone_id, state => 'closed');
     is($closed->state, 'closed', 'edit');
     ok($closed->closed_at, 'closed_at');
-    $repo->milestones->update($milestone_id, { state => 'open' });
-    is(scalar(my @open = $repo->milestones->list), 1, 'list');
+    $repo->milestones->update($milestone_id, state => 'open');
+    is(scalar @{ $repo->milestones->list }, 1, 'list');
 };
 
 subtest 'issues' => sub {
-    my $issue = $repo->issues->create({
+    my $issue = $repo->issues->create(
         title     => "Gr\x{fc}\x{df}e \x{2713}",
         body      => 'created by t/95',
         labels    => [ $bug->{id} ],
         milestone => $milestone_id,
         assignees => [$OWNER],
-    });
+    );
     isa_ok($issue, 'WWW::Forgejo::Entity::Issue');
     ok($issue_number = $issue->number, 'created');
     ok($issue->id, 'id');
@@ -142,21 +142,22 @@ subtest 'issues' => sub {
     is($issue->state, 'open', 'state');
     is($issue->labels->[0]{name}, 'bug', 'labels');
 
-    my @in_milestone = $repo->milestones->issues($milestone_id);
-    is(scalar @in_milestone, 1, 'milestones->issues');
-    for my $listed (@in_milestone) { is($listed->number, $issue_number, 'the issue') }
+    my $in_milestone = $repo->milestones->issues($milestone_id);
+    is(scalar @$in_milestone, 1, 'milestones->issues');
+    for my $listed (@$in_milestone) { is($listed->number, $issue_number, 'the issue') }
 
-    $repo->issues->add_label($issue_number, { labels => [ $feature->{id} ] });
-    my %labels = map { ($_->{name} => 1) } $repo->issues->list_labels($issue_number);
+    $repo->issues->add_label($issue_number, labels => [ $feature->{id} ]);
+    my $issue_labels = $repo->issues->list_labels($issue_number);
+    my %labels = map { ($_->{name} => 1) } @$issue_labels;
     ok($labels{bug} && $labels{feature}, 'add_label, list_labels');
     ok($repo->issues->remove_label($issue_number, $bug->{id}), 'remove_label');
-    is(scalar(my @left = $repo->issues->labels($issue_number)), 1, 'one label left');
+    is(scalar @{ $repo->issues->labels($issue_number) }, 1, 'one label left');
 
-    my $comment = $repo->issues->add_comment($issue_number, { body => "first \x{2713}" });
+    my $comment = $repo->issues->add_comment($issue_number, body => "first \x{2713}");
     ok($comment->{id}, 'add_comment');
-    my @comments = $repo->issues->list_comments($issue_number);
-    is(scalar @comments, 1, 'list_comments');
-    for my $listed_comment (@comments) {
+    my $comments = $repo->issues->list_comments($issue_number);
+    is(scalar @$comments, 1, 'list_comments');
+    for my $listed_comment (@$comments) {
         isa_ok($listed_comment, 'WWW::Forgejo::Entity::IssueComment');
         is($listed_comment->id, $comment->{id}, 'comment id');
         is($listed_comment->body, "first \x{2713}", 'comment body');
@@ -165,10 +166,10 @@ subtest 'issues' => sub {
         ok($listed_comment->updated_at, 'updated_at');
     }
 
-    my $closed = $repo->issues->edit($issue_number, { state => 'closed' });
+    my $closed = $repo->issues->edit($issue_number, state => 'closed');
     is($closed->state, 'closed', 'edit');
-    is(scalar(my @open = $repo->issues->list(state => 'open', type => 'issues')), 0, 'list with a filter');
-    is(scalar(my @all = $repo->issues->list(state => 'closed', type => 'issues')), 1, 'the closed one');
+    is(scalar @{ $repo->issues->list(state => 'open', type => 'issues') }, 0, 'list with a filter');
+    is(scalar @{ $repo->issues->list(state => 'closed', type => 'issues') }, 1, 'the closed one');
     is($repo->issues->get($issue_number)->state, 'closed', 'get');
 };
 
@@ -178,27 +179,28 @@ subtest 'issues' => sub {
 
 subtest 'collaborators' => sub {
     is($repo->collaborators->check($USER), 0, 'not a collaborator yet');
-    ok($repo->collaborators->add($USER, { permission => 'write' }), 'add');
+    ok($repo->collaborators->add($USER, permission => 'write'), 'add');
     is($repo->collaborators->check($USER), 1, 'check');
     is($repo->collaborators->permission($USER)->{permission}, 'write', 'permission');
-    my @collaborators = $repo->collaborators->list;
-    is(scalar @collaborators, 1, 'list');
-    for my $collaborator (@collaborators) {
+    my $collaborators = $repo->collaborators->list;
+    is(scalar @$collaborators, 1, 'list');
+    for my $collaborator (@$collaborators) {
         is($collaborator->login, $USER, 'login');
         ok($collaborator->id, 'id');
     }
-    my %assignees = map { ($_->{login} => 1) } $repo->assignees->list;
+    my $assignees = $repo->assignees->list;
+    my %assignees = map { ($_->{login} => 1) } @$assignees;
     ok($assignees{$USER} && $assignees{$OWNER}, 'assignees');
 };
 
 subtest 'pull request from a branch, reviewed and merged' => sub {
-    $repo->contents->create('feature.txt', {
+    $repo->contents->create('feature.txt',
         content    => encode_base64("new feature\n", ''),
         message    => 'add a feature',
         branch     => 'main',
         new_branch => 'feature/pr',
-    });
-    my $pr = $repo->pulls->create({ head => 'feature/pr', base => 'main', title => 'Add a feature', body => 'please' });
+    );
+    my $pr = $repo->pulls->create(head => 'feature/pr', base => 'main', title => 'Add a feature', body => 'please');
     isa_ok($pr, 'WWW::Forgejo::Entity::PullRequest');
     my $index = $pr->number;
     ok($index, 'created');
@@ -218,20 +220,21 @@ subtest 'pull request from a branch, reviewed and merged' => sub {
     is($got->changed_files, 1, 'changed_files');
     is($got->comments, 0, 'comments');
 
-    my $edited = $repo->pulls->edit($index, { body => 'please merge' });
+    my $edited = $repo->pulls->edit($index, body => 'please merge');
     is($edited->body, 'please merge', 'edit');
 
-    my %possible = map { ($_->{login} => 1) } $repo->reviewers->list;
+    my $reviewers = $repo->reviewers->list;
+    my %possible = map { ($_->{login} => 1) } @$reviewers;
     ok($possible{$USER}, 'the collaborator can review');
-    my $requested = $repo->reviewers->add($index, $USER);
+    my $requested = $repo->reviewers->add($index, reviewers => $USER);
     is($requested->[0]{state}, 'REQUEST_REVIEW', 'review requested');
-    is($repo->reviewers->remove($index, [$USER]), undef, 'request removed');
+    is($repo->reviewers->remove($index, reviewers => [$USER]), undef, 'request removed');
 
-    my $review = $repo->pulls->create_review($index, { body => 'looks fine', event => 'COMMENT' });
+    my $review = $repo->pulls->create_review($index, body => 'looks fine', event => 'COMMENT');
     ok($review->{id}, 'create_review');
-    my @reviews = $repo->pulls->reviews($index);
+    my $reviews = $repo->pulls->reviews($index);
     my $listed = 0;
-    for my $listed_review (@reviews) {
+    for my $listed_review (@$reviews) {
         next unless $listed_review->id == $review->{id};
         $listed++;
         is($listed_review->body, 'looks fine', 'review body');
@@ -241,9 +244,9 @@ subtest 'pull request from a branch, reviewed and merged' => sub {
     }
     is($listed, 1, 'the review is listed');
 
-    is(scalar(my @open = $repo->pulls->list(state => 'open')), 1, 'list');
+    is(scalar @{ $repo->pulls->list(state => 'open') }, 1, 'list');
     is($repo->pulls->is_merged($index), 0, 'is_merged: no');
-    $repo->pulls->merge($index, { Do => 'merge', delete_branch_after_merge => \1 });
+    $repo->pulls->merge($index, Do => 'merge', delete_branch_after_merge => \1);
     is($repo->pulls->is_merged($index), 1, 'is_merged: yes');
 
     my $merged = $repo->pulls->get($index);
@@ -252,7 +255,7 @@ subtest 'pull request from a branch, reviewed and merged' => sub {
     is($merged->state, 'closed', 'closed');
     ok(!eval { $repo->branches->get('feature/pr'); 1 }, 'the head branch was deleted');
 
-    eval { $repo->pulls->merge($index, { Do => 'merge' }) };
+    eval { $repo->pulls->merge($index, Do => 'merge') };
     like($@, qr/^Forgejo API error: \S/, 'merging twice croaks with the message of the server');
 };
 
@@ -266,12 +269,12 @@ subtest 'remove the collaborator' => sub {
 # =============================================================================
 
 subtest 'hooks' => sub {
-    my $hook = $repo->hooks->create({
+    my $hook = $repo->hooks->create(
         type   => 'forgejo',
         config => { url => 'http://127.0.0.1:9/hook', content_type => 'json' },
         events => ['push'],
         active => \1,
-    });
+    );
     isa_ok($hook, 'WWW::Forgejo::Entity::Hook');
     ok($hook->id, 'created');
     is($hook->type, 'forgejo', 'type');
@@ -280,31 +283,31 @@ subtest 'hooks' => sub {
     ok($hook->active, 'active');
 
     is($repo->hooks->get($hook->id)->id, $hook->id, 'get');
-    my $updated = $repo->hooks->update($hook->id, { active => \0 });
+    my $updated = $repo->hooks->update($hook->id, active => \0);
     ok(!$updated->active, 'update');
     is($repo->hooks->test($hook->id), undef, 'test delivery queued');
-    is(scalar(my @hooks = $repo->hooks->list), 1, 'list');
+    is(scalar @{ $repo->hooks->list }, 1, 'list');
     $repo->hooks->delete($hook->id);
-    is(scalar(my @none = $repo->hooks->list), 0, 'delete');
+    is(scalar @{ $repo->hooks->list }, 0, 'delete');
 };
 
 subtest 'deploy keys' => sub {
-    my $key = $repo->keys->create({ title => 'live deploy key', key => $DEPLOY_KEY, read_only => \1 });
+    my $key = $repo->keys->create(title => 'live deploy key', key => $DEPLOY_KEY, read_only => \1);
     isa_ok($key, 'WWW::Forgejo::Entity::DeployKey');
     ok($key->id, 'created');
     is($key->title, 'live deploy key', 'title');
     like($DEPLOY_KEY, qr/^\Q@{[ $key->key ]}\E/, 'key');
     ok($key->read_only, 'read_only');
     is($repo->keys->get($key->id)->title, 'live deploy key', 'get');
-    is(scalar(my @keys = $repo->keys->list), 1, 'list');
+    is(scalar @{ $repo->keys->list }, 1, 'list');
     $repo->keys->delete($key->id);
-    is(scalar(my @none = $repo->keys->list), 0, 'delete');
+    is(scalar @{ $repo->keys->list }, 0, 'delete');
 };
 
 subtest 'topics' => sub {
     $repo->topics->add('live');
     is_deeply($repo->topics->list, ['live'], 'add');
-    $repo->topics->replace([qw(alpha beta)]);
+    $repo->topics->replace(topics => [qw(alpha beta)]);
     is_deeply([ sort @{ $repo->topics->list } ], [qw(alpha beta)], 'replace');
     $repo->topics->remove('alpha');
     is_deeply($repo->topics->list, ['beta'], 'remove');
@@ -319,37 +322,38 @@ subtest 'forks' => sub {
     isa_ok($fork, 'WWW::Forgejo::Entity::Repo');
     is($fork->owner, $ORG, 'forked into the organization');
     ok($fork->data->{fork}, 'a fork');
-    my @forks = $repo->forks->list;
-    is($forks[0]{full_name}, "$ORG/$NAME", 'forks list');
+    my $forks = $repo->forks->list;
+    is($forks->[0]{full_name}, "$ORG/$NAME", 'forks list');
 
     # One fork per owner: a second one into the organization is refused.
-    eval { $repo->forks->create({ organization => $ORG, name => $NAME . '-2' }) };
+    eval { $repo->forks->create(organization => $ORG, name => $NAME . '-2') };
     like($@, qr/^Forgejo API error: repository is already forked/, 'a second fork into the same owner croaks');
 
     $client->repos->delete($ORG, $NAME);
-    my $second = $repo->forks->create({ organization => $ORG, name => $NAME . '-2' });
+    my $second = $repo->forks->create(organization => $ORG, name => $NAME . '-2');
     is($second->{name}, $NAME . '-2', 'forks create, with another name');
-    is(scalar(my @one = $repo->forks->list), 1, 'one fork again');
+    is(scalar @{ $repo->forks->list }, 1, 'one fork again');
 };
 
-subtest 'stars, through the plain verbs' => sub {
-    my $starred = "/user/starred/$OWNER/$NAME";
-    is($client->check($starred), 0, 'not starred');
-    $client->put($starred);
-    is($client->check($starred), 1, 'starred');
-    my %stargazers = map { ($_->{login} => 1) } $repo->stargazers->list;
+subtest 'stars' => sub {
+    is($client->current_user->check_starred($OWNER, $NAME), 0, 'not starred');
+    ok($client->current_user->star($OWNER, $NAME), 'star');
+    is($client->current_user->check_starred($OWNER, $NAME), 1, 'starred');
+    my $stargazers = $repo->stargazers->list;
+    my %stargazers = map { ($_->{login} => 1) } @$stargazers;
     ok($stargazers{$OWNER}, 'stargazers');
     my %mine = map { ($_->{name} => 1) } @{ $client->current_user->starred };
     ok($mine{$NAME}, 'current_user->starred');
     my %theirs = map { ($_->{name} => 1) } @{ $client->users->starred($OWNER) };
     ok($theirs{$NAME}, 'users->starred');
-    $client->delete($starred);
-    is($client->check($starred), 0, 'unstarred');
+    $client->current_user->unstar($OWNER, $NAME);
+    is($client->current_user->check_starred($OWNER, $NAME), 0, 'unstarred');
 };
 
 subtest 'watching' => sub {
     ok($repo->subscription->get->{subscribed}, 'the owner watches the new repository');
-    my %subscribers = map { ($_->{login} => 1) } $repo->subscribers->list;
+    my $subscribers = $repo->subscribers->list;
+    my %subscribers = map { ($_->{login} => 1) } @$subscribers;
     ok($subscribers{$OWNER}, 'subscribers');
     my %watched = map { ($_->{name} => 1) } @{ $client->current_user->subscriptions };
     ok($watched{$NAME}, 'current_user->subscriptions');
@@ -359,7 +363,7 @@ subtest 'watching' => sub {
 };
 
 subtest 'create from a template' => sub {
-    $repo->update({ template => \1 });
+    $repo->update(template => \1);
     my $generated = $client->repos->create_from_template($OWNER, $NAME,
         owner       => $OWNER,
         name        => $NAME . '-gen',
@@ -377,20 +381,20 @@ subtest 'create from a template' => sub {
 # =============================================================================
 
 subtest 'flags' => sub {
-    if (!eval { my @flags = $repo->flags->list; 1 }) {
+    if (!eval { $repo->flags->list; 1 }) {
         like($@, qr/^Forgejo API error: 404 page not found/, 'no flags routes on this instance');
         plan skip_all => 'repository flags are switched off ([repository] ENABLE_FLAGS)';
     }
     is($repo->flags->check('live-flag'), 0, 'not set');
     $repo->flags->add('live-flag');
     is($repo->flags->check('live-flag'), 1, 'add, check');
-    is_deeply([ $repo->flags->list ], ['live-flag'], 'list');
-    $repo->flags->replace([qw(one two)]);
-    is_deeply([ sort $repo->flags->list ], [qw(one two)], 'replace');
+    is_deeply($repo->flags->list, ['live-flag'], 'list');
+    $repo->flags->replace(flags => [qw(one two)]);
+    is_deeply([ sort @{ $repo->flags->list } ], [qw(one two)], 'replace');
     $repo->flags->remove('one');
-    is_deeply([ $repo->flags->list ], ['two'], 'remove');
+    is_deeply($repo->flags->list, ['two'], 'remove');
     $repo->flags->remove_all;
-    is_deeply([ $repo->flags->list ], [], 'remove_all');
+    is_deeply($repo->flags->list, [], 'remove_all');
 };
 
 # =============================================================================
@@ -398,42 +402,42 @@ subtest 'flags' => sub {
 # =============================================================================
 
 subtest 'actions variables and secrets' => sub {
-    $repo->actions->create_variable('LIVE_VAR', { value => 'one' });
+    $repo->actions->create_variable('LIVE_VAR', value => 'one');
     my $var = $repo->actions->get_variable('LIVE_VAR');
     is($var->{name}, 'LIVE_VAR', 'create_variable');
     is($var->{data}, 'one', 'value comes back as data');
-    $repo->actions->set_variable('LIVE_VAR', { value => 'two' });
+    $repo->actions->set_variable('LIVE_VAR', value => 'two');
     is($repo->actions->get_variable('LIVE_VAR')->{data}, 'two', 'set_variable');
     is(scalar @{ $repo->actions->list_variables }, 1, 'list_variables');
     $repo->actions->delete_variable('LIVE_VAR');
     is(scalar @{ $repo->actions->list_variables }, 0, 'delete_variable');
 
-    $repo->actions->set_secret('LIVE_SECRET', { data => 's3cret' });
+    $repo->actions->set_secret('LIVE_SECRET', data => 's3cret');
     my $secrets = $repo->actions->list_secrets;
     is($secrets->[0]{name}, 'LIVE_SECRET', 'set_secret');
     $repo->actions->delete_secret('LIVE_SECRET');
     is(scalar @{ $repo->actions->list_secrets }, 0, 'delete_secret');
 
-    is(scalar(my @runners = $repo->actions->list_runners), 0, 'list_runners: none registered');
+    is(scalar @{ $repo->actions->list_runners }, 0, 'list_runners: none registered');
 };
 
 subtest 'actions runs' => sub {
     # Each push of a workflow starts runs; no runner picks them up.
     for my $n (1 .. 2) {
-        $repo->contents->create(".forgejo/workflows/live$n.yml", {
+        $repo->contents->create(".forgejo/workflows/live$n.yml",
             content => encode_base64("on: [push]\njobs:\n  test:\n    runs-on: docker\n    steps:\n      - run: echo $n\n", ''),
             message => "workflow $n",
-        });
+        );
     }
-    my @runs;
+    my $runs = [];
     for (1 .. 10) {
-        @runs = $repo->actions->list_runs;
-        last if @runs >= 3;
+        $runs = $repo->actions->list_runs;
+        last if @$runs >= 3;
         sleep 1;
     }
-    is(scalar @runs, 3, 'list_runs: three runs from two pushes');
+    is(scalar @$runs, 3, 'list_runs: three runs from two pushes');
     my $run_id;
-    for my $run (@runs) {
+    for my $run (@$runs) {
         $run_id //= $run->id;
         isa_ok($run, 'WWW::Forgejo::Entity::WorkflowRun');
         ok($run->id, 'id');
@@ -449,18 +453,18 @@ subtest 'actions runs' => sub {
     # The answer is an envelope { workflow_runs, total_count } without an
     # X-Total-Count header (karr #22); Forgejo 15 honours limit only together
     # with page, and then answers with exactly that page.
-    my @page = $repo->actions->list_runs(page => 1, limit => 2);
-    is(scalar @page, 2, 'list_runs: an explicit page');
-    my @limited = $repo->actions->list_runs(limit => 1);
-    ok(scalar @limited >= 1, 'list_runs with limit alone: ' . scalar(@limited) . ' runs');
+    my $page = $repo->actions->list_runs(page => 1, limit => 2);
+    is(scalar @$page, 2, 'list_runs: an explicit page');
+    my $limited = $repo->actions->list_runs(limit => 1);
+    ok(scalar @$limited >= 1, 'list_runs with limit alone: ' . scalar(@$limited) . ' runs');
 
     my $run = $repo->actions->get_run($run_id);
     is($run->id, $run_id, 'get_run');
 
     SKIP: {
         skip "Forgejo $MAJOR: run jobs, cancel and delete are API operations of Forgejo 16", 3 if $MAJOR < 16;
-        my @jobs = $repo->actions->get_run_jobs($run->id);
-        ok(scalar @jobs, 'get_run_jobs');
+        my $jobs = $repo->actions->get_run_jobs($run->id);
+        ok(scalar @$jobs, 'get_run_jobs');
         ok($repo->actions->cancel_run($run->id), 'cancel_run');
         ok($repo->actions->delete_run($run->id), 'delete_run');
     }

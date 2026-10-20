@@ -57,7 +57,7 @@ __END__
 
 =head1 SYNOPSIS
 
-    for my $collaborator ($repo->collaborators->list) {
+    for my $collaborator (@{ $repo->collaborators->list }) {
         print $collaborator->login, "\n";
     }
 

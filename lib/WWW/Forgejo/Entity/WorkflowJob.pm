@@ -48,7 +48,7 @@ __END__
 
 =head1 SYNOPSIS
 
-    for my $job ($repo->actions->get_run_jobs($run_id)) {
+    for my $job (@{ $repo->actions->get_run_jobs($run_id) }) {
         printf "%s: %s\n", $job->name, $job->status;
     }
 

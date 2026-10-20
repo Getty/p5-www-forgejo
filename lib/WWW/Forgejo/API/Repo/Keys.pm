@@ -55,19 +55,19 @@ sub _key {
 
 =method list
 
-    my @keys = $repo->keys->list;
-    my @keys = $repo->keys->list(fingerprint => $fingerprint);
+    my $keys = $repo->keys->list;
+    my $keys = $repo->keys->list(fingerprint => $fingerprint);
 
-List the deploy keys as L<WWW::Forgejo::Entity::DeployKey> objects. Named
-arguments are sent as the query string (C<key_id>, C<fingerprint>, C<page>,
-C<limit>).
+List the deploy keys as L<WWW::Forgejo::Entity::DeployKey> objects, in an
+arrayref. Named arguments are sent as the query string (C<key_id>, C<fingerprint>,
+C<page>, C<limit>).
 
 =cut
 
 sub list {
     my ($self, %params) = @_;
     my $data = $self->client->get($self->_path_for, params => \%params);
-    return map { $self->_key($_) } @$data;
+    return [ map { $self->_key($_) } @$data ];
 }
 
 =method get
@@ -85,15 +85,16 @@ sub get {
 
 =method create
 
-    my $key = $repo->keys->create({ title => 'Deploy Key', key => 'ssh-ed25519 AAAA...' });
+    my $key = $repo->keys->create(title => 'Deploy Key', key => 'ssh-ed25519 AAAA...');
 
-Add a deploy key; the API requires C<title> and C<key>.
+Add a deploy key; the API requires C<title> and C<key>. The named arguments are
+sent as the JSON body.
 
 =cut
 
 sub create {
-    my ($self, $data) = @_;
-    return $self->_key($self->client->post($self->_path_for, $data));
+    my ($self, %params) = @_;
+    return $self->_key($self->client->post($self->_path_for, \%params));
 }
 
 =method delete
@@ -118,15 +119,15 @@ __END__
     my $forgejo = WWW::Forgejo->new(url => 'https://forgejo.example.com', token => $token);
     my $repo    = $forgejo->repos->get('owner', 'repo-name');
 
-    my @keys = $repo->keys->list;
+    my $keys = $repo->keys->list;
 
     my $key = $repo->keys->get(1);
 
-    $key = $repo->keys->create({
+    $key = $repo->keys->create(
         title     => 'Deploy Key',
         key       => 'ssh-ed25519 AAAA...',
         read_only => \1,
-    });
+    );
 
 =head1 DESCRIPTION
 
