@@ -1,0 +1,22 @@
+---
+class: standard
+completed: 2026-10-20T02:25:21Z
+created: 2026-10-20T02:20:51Z
+id: 33
+priority: medium
+started: 2026-10-20T02:25:21Z
+status: done
+title: 'dzil test fails in the real repository: the POD coverage test counts the weaver''s
+  IRC heading as a documented name'
+updated: 2026-10-20T02:25:21Z
+---
+
+Befund beim Release-Gate von WWW::Forgejo 0.001 (2026-10-20).
+
+Im echten Checkout (/home/getty/dev/p5-www-forgejo, Remote github.com/Getty/p5-www-forgejo) schlaegt dzil test --release an t/41-pod-coverage.t: 76 von 2128 Subtests, in jedem Modul "everything documented exists" mit dem Namen IRC. Im frischen Klon desselben Commits (e66570d) ist der Test gruen.
+
+Ursache: der Weaver (@Author::GETTY) setzt unter =head1 SUPPORT zwei Ueberschriften: =head2 Issues (nur wenn er die Bugtracker-URL aus dem Git-Remote erkennt) und =head2 IRC. Der Test schliesst die Ueberschriften der Weber-Sektionen aus, setzt die Sektion aber nach der ersten =head2 auf undef - der zweite Kopf (IRC) steht damit ohne Sektion da und wird als dokumentierter Name gezaehlt. Im Worktree des Harness fehlt die Issues-Sektion (dort erkennt der Weaver kein Git-Repo), deshalb ist der Fehler dort nicht aufgefallen.
+
+Erledigt, wenn: der Test im gebauten Paket des echten Checkouts gruen ist und im gebauten Paket eines frischen Klons genauso, und die Erkennung der Weber-Sektionen ueber mehrere =head2 hinweg traegt. Reine Testaenderung, lib/ bleibt unberuehrt.
+
+Behoben: der Test haelt die Sektion des Webers ueber alle ihre Ueberschriften hinweg fest - die Ueberschriften der Weber-Sektionen (SUPPORT mit Issues und IRC) zaehlen damit nicht mehr als dokumentierte Namen. Dazu ein eigener Subtest, der die Ueberschriften der Weber-Sektionen an einer synthetischen POD prueft; der ist gegen die alte Fassung rot (Verhalten, nicht 'Can't locate'). Verifiziert: Quelle gruen (232 Tests), gebauter Baum des echten Checkouts gruen (mit Issues-Sektion), gebauter Baum eines frischen Klons gruen (ohne Issues-Sektion), dzil test --release gruen (44 Dateien/2129 Tests inkl. author-pod-syntax und release-changes_has_content). Landed in aedb892 auf lokalem main.
