@@ -18,6 +18,7 @@ recommends 'LWP::Protocol::https';
 on test => sub {
     requires 'File::Find';
     requires 'HTTP::Response';
+    requires 'IO::Compress::Gzip';
     requires 'Scalar::Util';
     requires 'Test::More', '0.96';
 };

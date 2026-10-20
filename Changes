@@ -88,3 +88,6 @@ Revision history for WWW-Forgejo
       runtime and the test phase of the cpanfile and wants every module of
       lib/ and of the test suite to be named there, so a lost prerequisite
       fails while the distribution is built and not on the first request.
+    - The test suite loads IO::Compress::Gzip; the cpanfile names it in the
+      test phase, so a fresh installation has the module and the test suite
+      compiles.

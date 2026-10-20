@@ -52,6 +52,7 @@ my @runtime = (
 
 my @test = (
     [ 'HTTP::Response' => qw( HTTP::Response HTTP::Message HTTP::Request ) ],
+    [ 'IO::Compress::Gzip' => qw( IO::Compress::Gzip ) ],
     [ 'JSON::MaybeXS'  => qw( JSON::MaybeXS ) ],
     [ 'Moo'            => qw( Moo ) ],
     [ 'Test::More'     => qw( Test::More ) ],
