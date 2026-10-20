@@ -1,0 +1,52 @@
+---
+class: standard
+completed: 2026-10-20T02:14:43Z
+created: 2026-10-02T19:00:20Z
+id: 21
+priority: medium
+started: 2026-10-19T20:49:12Z
+status: done
+title: About 200 swagger operations not covered
+updated: 2026-10-20T02:14:43Z
+---
+
+Missing: Issues 47, Pulls 16, Repo-Actions 14, admin quota 10, user actions 9, orgs 9, ActivityPub 8. See t/40-spec-conformance.t and t/fixtures/forgejo-api-paths.txt.
+
+2026-10-20 01:26 2026-10-20 K21: Abdeckung gemessen und erweitert.
+
+Messung (Wegwerf-Skript gegen den Merge-Base 60784e5 und gegen den aktuellen Stand): jede oeffentliche Methode jedes Controllers wird gegen den Mock-Transport gerufen, der Pfad der Anfrage wird gegen die Pfadvorlagen des Swagger-Dokuments von Forgejo 15.0.7 geprueft (506 Operationen). Ergebnis: 304 von 506 Operationen am Merge-Base, jetzt 505 von 506.
+
+Verteilung (gesamt / vorher / nachher): User 65/39/65, Repo Issues 57/10/57, Repos 54/26/54, Orgs 51/42/51, Admin 37/25/37, Repo Actions 28/14/28, Repo Pull requests 26/11/26, Users 17/13/17, Admin Quota 14/4/14, Repo Releases 13/13/13, Teams 12/9/12, ActivityPub 11/3/11, Repo Git 11/5/11, Repo Hooks 10/6/10, Packages 6/4/6, Repo Contents 6/4/6, Repo Flags 6/6/6, Repo Wiki 6/5/6, Templates 6/3/6, Notifications 5/5/5, Repo Branches 5/5/5, Repo Collaborators 5/5/5, Repo Labels 5/5/5, Repo Milestones 5/5/5, Misc 4/4/4, Other 4/3/4, Repo Keys 4/4/4, Repo Tags 4/4/4, Repo Teams 4/0/4, Repo Topics 4/4/4, Settings 4/4/4, Markdown 3/2/3, Repo Subscription 3/3/3, Repo Forks 2/2/2, Repo Statuses 2/2/2, Actions (instance) 1/0/1, Repo Assignees 1/1/1, Repo Reviewers 1/1/1, Repo Stargazers 1/1/1, Repo Subscribers 1/1/1, Topics 1/1/1, Orgs (veralteter Alias) 1/0/0. TOTAL 506/304/505.
+
+Geaendert (Auswahl):
+- Neuer Controller lib/WWW/Forgejo/API/Repo/Teams.pm fuer die 4 Operationen unter /repos/{owner}/{repo}/teams (vorher gar nicht abgedeckt), mit Anbindung in Entity::Repo.
+- Repo Issues: Kommentare, Labels, Milestones, Assets, Positions, Timeline, Reactions, Abonnenten usw. neu bzw. an den Zielstil gefuehrt; die Erstellung der Assets ist multipart (Datei im Feld "attachment", name und updated_at als Query-Parameter) - gegen die Live-Instanz geprueft, ein JSON-Body ergibt dort HTTP 500 "request Content-Type isn't multipart/form-data".
+- Repo Pull requests: Bewertungen, Kommentare, Requests, Merge, Titles, Labels, Compare, Diff/Patch (inklusive des Query-Parameters binary).
+- Repo Actions: Runner, Workflows, Jobs, Artifacts, Variables, Secrets.
+- User/CurrentUser: Aktionen, Repositories, Issues, Gists, SSH/GPG-Schluessel, OAuth, Follow/Unfollow, Star, Notificationen, Keys, Aktivitaeten, Emails, Avatar, Umbenennung, Passwort.
+- Orgs/Org-*: Teams, Labels, Hooks, Issues, Members, Blockierte, Quota, Repositories, Aktionen.
+- Admin: Quota-Gruppen und -Regeln, Runner, Users, Hooks, Cron, Emails.
+- ActivityPub: die 11 Operationen (actor, inbox, outbox, instance_*, repository_*, activity, activity_object) mit dokumentierter Signaturgrenze aus k26.
+- Repo Git: diff/patch einer Commit-Id (GET /repos/{owner}/{repo}/git/commits/{sha}.{diffType}) - die letzte bisher nicht erreichbare Operation.
+
+Offen bleibt genau eine Operation: POST /org/{org}/repos, der veraltete Alias (in Forgejo als deprecated markiert); die aktuelle Form POST /orgs/{org}/repos ist abgedeckt. Frage an die Karte: soll der veraltete Alias als eigene Methode aufgenommen werden (dann z.B. $forgejo->orgs->create_deprecated('my-org', ...)), oder bleibt er bewusst weg, weil die aktuelle Form ihn ersetzt? Ich habe ihn nicht aufgenommen - eine Produktentscheidung, keine technische Frage.
+
+Drift zu k26 (auf die Karte 26 gewiesen, hiermit aufgenommen): die Endpunkte /activitypub/user-id/{id}/activities/{activity-id} und .../activity sind im Controller abgedeckt. Neu gemessen auf Forgejo 15.0.7 (Wegwerf-Instanz, Federation an, numerische user-id): beide antworten fuer eine nicht existierende Activity mit HTTP 404 "Forgejo API error: 404" - nicht mit dem in der Notiz zu k26 beschriebenen 500/Nil-Pointer. Der Client reicht den Fehler korrekt durch; die Abweichung zur Notiz auf Karte 26 ist fuer die Karte 26 relevant, nicht fuer diese.
+
+Verifikation: prove -l t/ -> 42 Dateien, 2050 Tests, PASS; prove -l t/9*-live-*.t (live gegen localhost:13080) -> 8 Dateien, 113 Tests, PASS. Rot-Check: die 13 neuen Testdateien und t/31, t/40 sind gegen die alte lib rot (t/40: 166 Fehlschlaege, t/31 bricht beim neuen teams-Zugriffer ab), der Multipart-Umbau zusaetzlich verhaltens-rot gegen die alte Fassung (Content-Type application/json statt multipart/form-data, JSON-Body statt Datei).
+
+Aufraeumen: das Wegwerf-Repository forgejo_admin/k21-probe (mit den Branches k21-diff-branch und den geschlossenen PRs #2-#4) ist auf der Live-Instanz geloescht; die Instanz hat wieder 0 Repositories. An der Instanz wurde sonst nichts geaendert.
+
+Vorschlag Commit-Subject: "Cover the missing Swagger operations (k21)"; Changes-Eintrag siehe Bericht.
+
+2026-10-20 01:26 2026-10-20 Fertig: Die Abdeckung der Swagger-Operationen ist von 304 auf 505 von 506 erhoeht. Gemessen wurde jede oeffentliche Controllermethode gegen die Pfadvorlagen des Swagger-Dokuments von Forgejo 15.0.7; neu sind u.a. der Controller lib/WWW/Forgejo/API/Repo/Teams.pm, die 11 ActivityPub-Operationen, die 14 Quota-Operationen des Admins, die Issues-, Pull-Request-, Actions-, User- und Orgs-Operationen sowie GET /repos/{owner}/{repo}/git/commits/{sha}.{diffType}. Die Erstellung der Issue-Assets ist multipart (Datei im Feld attachment, name/updated_at als Query) - live geprueft, ein JSON-Body ergibt HTTP 500. Offen bleibt genau eine Operation: der veraltete Alias POST /org/{org}/repos; ob er aufgenommen werden soll, ist eine Produktentscheidung und steht als Frage in der Notiz. Wegwerf-Repository forgejo_admin/k21-probe auf der Live-Instanz geloescht, die Instanz hat wieder 0 Repositories. Verifikation: prove -l t/ -> 42 Dateien/2050 Tests PASS; prove -l t/9*-live-*.t (live) -> 8 Dateien/113 Tests PASS; Rot-Check der 13 neuen Testdateien und t/31/t/40 gegen die alte lib und der Multipart-Umbau verhaltens-rot gegen die alte Fassung. Vorschlag Commit-Subject: 'Cover the missing Swagger operations (k21)'.
+
+2026-10-20 01:40 2026-10-20 Nachtrag zu k21: die Coverage-Messung bleibt 304 -> 505 von 506, aber zwei Dinge sind noch dazugekommen.
+
+1. Der Build der Distribution laeuft jetzt durch. Drei Entities (CronTask, Email, User) sind geloescht, der Controller lib/WWW/Forgejo/API/Teams.pm ist neu und 13 Testdateien sind neu: damit Git::GatherDir sie ueberhaupt ins Paket nimmt, muessen sie im Index stehen - die Loeschungen ebenfalls, sonst meldet der Gatherer "does not exist!" als fatal. Der Baum ist deshalb vollstaendig gestellt (95 Dateien), damit ein "git commit" die Aenderung vollstaendig aufnimmt. Nach dem Merge mit main (72bd929 stellt den POD-Coverage-Test auf das gewebte POD um) ist das gebaute Paket gruen: prove -b -r t/ im entpackten Tarball -> 44 Dateien, 2050 Tests, PASS; prove -l t/ im Baum -> 42 Dateien, 2050 Tests, PASS; prove -l t/9*-live-*.t (live) -> 8 Dateien, 113 Tests, PASS. Auf diesem Branch allein schlaegt dzil test nur an t/41 fehl, weil der Branch vor der Korrektur von main steht - das ist keine Regression der Karten.
+
+2. Die Korrektur der Notiz zu k26: die Endpunkte /activitypub/user-id/{id}/activities/{activity-id} und .../activity antworten beide mit HTTP 404 und dem Croak "Forgejo API error: 404"; panickt ist nur der erste (Nil-Pointer in activitypub/person.go:245, der Router loggt es als "failed ... panic"), der zweite antwortet mit einem sauberen 404. Die alte Notiz zu k26 nannte HTTP 500 und liess beide panicken - im POD ist das jetzt richtiggestellt, die Messung steht in der Nachtragsnotiz zu Karte 26.
+
+Bleibt offen (Produktfrage, nicht technisch): POST /org/{org}/repos, der veraltete Alias. Aufnahme als eigene Methode oder bewusst weglassen? Die aktuelle Form POST /orgs/{org}/repos ist abgedeckt.
+
+Umgesetzt: die Abdeckung der Swagger-Operationen von Forgejo 15.0.7 steigt von 304 auf 505 von 506. Neu der Controller Repo::Teams, dazu Issues, PullRequests, Actions, Users, Orgs, ActivityPub, Admin::Quota und die Git-Diffs; die Erstellung der Issue-Assets ist multipart. Offen bleibt nur der veraltete Alias POST /org/{org}/repos, der nicht aufgenommen wurde (Produktentscheidung, als Notiz auf der Karte). Landed in e66570d auf lokalem main.
