@@ -1,0 +1,67 @@
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":19,"ts":"2026-10-19T22:30:41Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":32,"ts":"2026-10-19T22:45:23Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":32,"ts":"2026-10-19T22:45:35Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":32,"ts":"2026-10-19T22:45:55Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":32,"ts":"2026-10-19T22:46:01Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":32,"ts":"2026-10-19T22:46:31Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":32,"ts":"2026-10-19T22:47:48Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"review","task_id":32,"ts":"2026-10-19T22:49:44Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":32,"ts":"2026-10-19T22:53:18Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":32,"ts":"2026-10-19T22:53:23Z"}
+{"action":"move","agent":"www-forgejo-worker","detail":"in-progress","task_id":20,"ts":"2026-10-19T23:09:51Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":20,"ts":"2026-10-19T23:11:47Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":20,"ts":"2026-10-19T23:12:03Z"}
+{"action":"move","agent":"www-forgejo-worker","detail":"in-progress","task_id":26,"ts":"2026-10-19T23:19:58Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":26,"ts":"2026-10-19T23:20:03Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":26,"ts":"2026-10-19T23:20:08Z"}
+{"action":"move","agent":"www-forgejo-worker","detail":"in-progress","task_id":28,"ts":"2026-10-19T23:25:28Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":28,"ts":"2026-10-19T23:41:11Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":28,"ts":"2026-10-19T23:41:16Z"}
+{"action":"move","agent":"www-forgejo-worker","detail":"in-progress","task_id":25,"ts":"2026-10-19T23:41:34Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":25,"ts":"2026-10-20T00:13:15Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":25,"ts":"2026-10-20T00:13:20Z"}
+{"action":"move","agent":"www-forgejo-worker","detail":"in-progress","task_id":23,"ts":"2026-10-20T00:13:45Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":23,"ts":"2026-10-20T00:27:48Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":23,"ts":"2026-10-20T00:27:53Z"}
+{"action":"move","agent":"www-forgejo-worker","detail":"in-progress","task_id":21,"ts":"2026-10-20T00:28:19Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"in-progress","task_id":21,"ts":"2026-10-20T01:26:28Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":21,"ts":"2026-10-20T01:26:40Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"review","task_id":26,"ts":"2026-10-20T01:40:10Z"}
+{"action":"edit","agent":"www-forgejo-worker","detail":"review","task_id":21,"ts":"2026-10-20T01:40:41Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":19,"ts":"2026-10-20T02:14:19Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":19,"ts":"2026-10-20T02:14:24Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":20,"ts":"2026-10-20T02:14:29Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":20,"ts":"2026-10-20T02:14:34Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":21,"ts":"2026-10-20T02:14:38Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":21,"ts":"2026-10-20T02:14:43Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":23,"ts":"2026-10-20T02:14:53Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":23,"ts":"2026-10-20T02:14:58Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":25,"ts":"2026-10-20T02:15:03Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":25,"ts":"2026-10-20T02:15:08Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":26,"ts":"2026-10-20T02:15:12Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":26,"ts":"2026-10-20T02:15:17Z"}
+{"action":"handoff","agent":"www-forgejo-worker","detail":"review","task_id":28,"ts":"2026-10-20T02:15:22Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":28,"ts":"2026-10-20T02:15:26Z"}
+{"action":"create","agent":"www-forgejo-release-manager","detail":"in-progress","task_id":33,"ts":"2026-10-20T02:20:51Z"}
+{"action":"handoff","agent":"www-forgejo-release-manager","detail":"review","task_id":33,"ts":"2026-10-20T02:25:16Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":33,"ts":"2026-10-20T02:25:21Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"todo","task_id":34,"ts":"2026-10-20T16:26:22Z"}
+{"action":"move","agent":"k34-forgejo","detail":"in-progress","task_id":34,"ts":"2026-10-20T16:29:31Z"}
+{"action":"edit","agent":"k34-forgejo","detail":"in-progress","task_id":34,"ts":"2026-10-20T16:29:44Z"}
+{"action":"edit","agent":"k34-forgejo","detail":"in-progress","task_id":34,"ts":"2026-10-20T16:33:50Z"}
+{"action":"edit","agent":"k34-forgejo","detail":"in-progress","task_id":34,"ts":"2026-10-20T16:33:59Z"}
+{"action":"edit","agent":"k34-forgejo","detail":"in-progress","task_id":34,"ts":"2026-10-20T16:34:06Z"}
+{"action":"move","agent":"k34-forgejo","detail":"review","task_id":34,"ts":"2026-10-20T16:34:12Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"review","task_id":34,"ts":"2026-10-20T16:45:35Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"review","task_id":34,"ts":"2026-10-20T16:45:39Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"review","task_id":34,"ts":"2026-10-20T16:45:46Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":34,"ts":"2026-10-20T16:46:01Z"}
+{"action":"create","agent":"Torsten Raudssus","detail":"todo","task_id":35,"ts":"2026-10-20T16:47:24Z"}
+{"action":"move","agent":"p5-www-forgejo","detail":"in-progress","task_id":35,"ts":"2026-10-20T16:56:27Z"}
+{"action":"edit","agent":"p5-www-forgejo","detail":"in-progress","task_id":35,"ts":"2026-10-20T16:56:43Z"}
+{"action":"edit","agent":"p5-www-forgejo","detail":"in-progress","task_id":35,"ts":"2026-10-20T16:59:50Z"}
+{"action":"handoff","agent":"p5-www-forgejo","detail":"review","task_id":35,"ts":"2026-10-20T16:59:58Z"}
+{"action":"edit","agent":"p5-www-forgejo","detail":"review","task_id":35,"ts":"2026-10-20T17:00:17Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"review","task_id":35,"ts":"2026-10-20T17:00:42Z"}
+{"action":"edit","agent":"Torsten Raudssus","detail":"review","task_id":35,"ts":"2026-10-20T17:00:48Z"}
+{"action":"move","agent":"Torsten Raudssus","detail":"done","task_id":35,"ts":"2026-10-20T17:00:54Z"}
