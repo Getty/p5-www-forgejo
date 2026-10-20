@@ -3,7 +3,6 @@ package WWW::Forgejo::Entity;
 # PODNAME: WWW::Forgejo::Entity
 
 use Moo;
-use Log::Any qw($log);
 use Carp qw(croak);
 use namespace::clean;
 
@@ -64,13 +63,13 @@ sub delete {
 
 =head1 SYNOPSIS
 
-    my $user = WWW::Forgejo::Entity::User->new(
+    my $team = WWW::Forgejo::Entity::Team->new(
         client => $forgejo,
-        data   => { id => 1, login => 'test' },
+        data   => { id => 1, name => 'devs' },
     );
 
-    print $user->login, "\n";            # an accessor of the subclass
-    print $user->data->{id}, "\n";       # the complete decoded structure
+    print $team->name, "\n";             # an accessor of the subclass
+    print $team->data->{id}, "\n";       # the complete decoded structure
 
 =cut
 

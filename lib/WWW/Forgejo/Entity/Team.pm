@@ -8,7 +8,6 @@ package WWW::Forgejo::Entity::Team;
 
 use Moo;
 extends 'WWW::Forgejo::Entity';
-use Log::Any qw($log);
 use Carp qw(croak);
 use namespace::clean;
 

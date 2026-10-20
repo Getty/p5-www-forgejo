@@ -4,7 +4,6 @@ package WWW::Forgejo::Entity::QuotaRule;
 
 use Moo;
 extends 'WWW::Forgejo::Entity';
-use Log::Any qw($log);
 use namespace::clean;
 
 our $VERSION = '0.001';

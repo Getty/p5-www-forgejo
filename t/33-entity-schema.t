@@ -28,9 +28,7 @@ my %wraps = (
     BranchProtection  => 'BranchProtection',
     Collaborator      => 'User',
     CommitStatus      => 'CommitStatus',
-    CronTask          => 'Cron',
     DeployKey         => 'DeployKey',
-    Email             => 'Email',
     Hook              => 'Hook',
     Issue             => 'Issue',
     IssueComment      => 'Comment',
@@ -44,7 +42,6 @@ my %wraps = (
     ReleaseAsset      => 'Attachment',
     Repo              => 'Repository',
     Team              => 'Team',
-    User              => 'User',
     WorkflowJob       => 'ActionRunJob',
     WorkflowRun       => 'ActionRun',
 );

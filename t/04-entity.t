@@ -7,7 +7,7 @@ use Scalar::Util qw(isweak);
 use lib 'lib';
 
 use WWW::Forgejo::Entity;
-use WWW::Forgejo::Entity::User;
+use WWW::Forgejo::Entity::WorkflowJob;
 use WWW::Forgejo::Entity::Release;
 use WWW::Forgejo::Entity::Repo;
 
@@ -18,9 +18,9 @@ sub mock_client { bless {}, 'MockClient' }
 subtest 'concrete entities extend the base WWW::Forgejo::Entity' => sub {
     my $client = mock_client();
 
-    my $user = WWW::Forgejo::Entity::User->new(
+    my $job = WWW::Forgejo::Entity::WorkflowJob->new(
         client => $client,
-        data   => { id => 1, login => 'alice', email => 'alice@example.com' },
+        data   => { id => 1, name => 'build', status => 'success' },
     );
     my $rel = WWW::Forgejo::Entity::Release->new(
         client => $client,
@@ -35,7 +35,7 @@ subtest 'concrete entities extend the base WWW::Forgejo::Entity' => sub {
         data   => { id => 42, name => 'proj' },
     );
 
-    isa_ok($user, 'WWW::Forgejo::Entity', 'Entity::User (non-repo-scoped)');
+    isa_ok($job,  'WWW::Forgejo::Entity', 'Entity::WorkflowJob (non-repo-scoped)');
     isa_ok($rel,  'WWW::Forgejo::Entity', 'Entity::Release (repo-scoped)');
     isa_ok($repo, 'WWW::Forgejo::Entity', 'Entity::Repo (repo-scoped)');
 };
@@ -48,9 +48,9 @@ subtest 'concrete entities extend the base WWW::Forgejo::Entity' => sub {
 subtest 'inherited client attribute keeps the client alive' => sub {
     my $client = mock_client();
 
-    my $user = WWW::Forgejo::Entity::User->new(
+    my $job = WWW::Forgejo::Entity::WorkflowJob->new(
         client => $client,
-        data   => { id => 1, login => 'alice' },
+        data   => { id => 1, name => 'build' },
     );
     my $rel = WWW::Forgejo::Entity::Release->new(
         client => $client,
@@ -59,7 +59,7 @@ subtest 'inherited client attribute keeps the client alive' => sub {
         data   => { id => 7 },
     );
 
-    ok(!isweak($user->{client}), 'Entity::User stored client is a strong reference');
+    ok(!isweak($job->{client}), 'Entity::WorkflowJob stored client is a strong reference');
     ok(!isweak($rel->{client}),  'Entity::Release stored client is a strong reference');
 
     # Behavioural proof: the entity is the only holder left and still has
@@ -67,9 +67,9 @@ subtest 'inherited client attribute keeps the client alive' => sub {
     my $obj;
     {
         my $scoped_client = mock_client();
-        $obj = WWW::Forgejo::Entity::User->new(
+        $obj = WWW::Forgejo::Entity::WorkflowJob->new(
             client => $scoped_client,
-            data   => { id => 2, login => 'bob' },
+            data   => { id => 2, name => 'test' },
         );
     }
     isa_ok($obj->client, 'MockClient',
@@ -92,28 +92,28 @@ subtest 'inherited update/delete croak stubs' => sub {
     like($@, qr/delete not implemented for WWW::Forgejo::Entity::Release/,
         'Release inherits the base delete() croak stub');
 
-    my $user = WWW::Forgejo::Entity::User->new(
+    my $job = WWW::Forgejo::Entity::WorkflowJob->new(
         client => $client,
         data   => { id => 1 },
     );
-    eval { $user->update };
-    like($@, qr/update not implemented for WWW::Forgejo::Entity::User/,
-        'User inherits the base update() croak stub');
-    eval { $user->delete };
-    like($@, qr/delete not implemented for WWW::Forgejo::Entity::User/,
-        'User inherits the base delete() croak stub');
+    eval { $job->update };
+    like($@, qr/update not implemented for WWW::Forgejo::Entity::WorkflowJob/,
+        'WorkflowJob inherits the base update() croak stub');
+    eval { $job->delete };
+    like($@, qr/delete not implemented for WWW::Forgejo::Entity::WorkflowJob/,
+        'WorkflowJob inherits the base delete() croak stub');
 };
 
 subtest 'concrete-specific attributes and field accessors survive' => sub {
     my $client = mock_client();
 
-    my $user = WWW::Forgejo::Entity::User->new(
+    my $job = WWW::Forgejo::Entity::WorkflowJob->new(
         client => $client,
-        data   => { id => 1, login => 'alice', email => 'alice@example.com' },
+        data   => { id => 1, name => 'build', status => 'success' },
     );
-    is($user->id,    1,                   'User->id');
-    is($user->login, 'alice',             'User->login');
-    is($user->email, 'alice@example.com', 'User->email');
+    is($job->id,     1,           'WorkflowJob->id');
+    is($job->name,   'build',     'WorkflowJob->name');
+    is($job->status, 'success',   'WorkflowJob->status');
 
     my $rel = WWW::Forgejo::Entity::Release->new(
         client => $client,
@@ -133,14 +133,14 @@ subtest 'concrete-specific attributes and field accessors survive' => sub {
 subtest 'inherited data attribute is optional (defaults to {})' => sub {
     my $client = mock_client();
 
-    my $user;
+    my $job;
     my $ok = eval {
-        $user = WWW::Forgejo::Entity::User->new(client => $client);
+        $job = WWW::Forgejo::Entity::WorkflowJob->new(client => $client);
         1;
     };
     ok($ok, 'construct a concrete without data (inherits base optional data)')
         or diag $@;
-    is_deeply($user->data, {}, 'data defaults to an empty hashref');
+    is_deeply($job->data, {}, 'data defaults to an empty hashref');
 };
 
 done_testing;

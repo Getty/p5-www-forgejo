@@ -58,3 +58,6 @@ Revision history for WWW-Forgejo
       both, and checks the kind of a name where the POD states one.
     - A wiki page edited without a title keeps the name it is addressed by:
       the client sends that name as the title.
+    - The unused entity classes WWW::Forgejo::Entity::User, ::Email and
+      ::CronTask are gone, and the Log::Any import is gone from the modules
+      that do not log.
