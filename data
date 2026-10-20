@@ -1,0 +1,69 @@
+---
+class: standard
+completed: 2026-10-20T02:15:26Z
+created: 2026-10-03T00:29:15Z
+id: 28
+priority: low
+started: 2026-10-19T20:49:12Z
+status: done
+title: Basic auth for other users' tokens; package upload outside /api/v1
+updated: 2026-10-20T02:15:26Z
+---
+
+users->tokens / token creation for other users needs basic auth, client has none. Package upload lives outside /api/v1 (t/97 uses io->call).
+
+2026-10-19 23:41 k28 ist umgesetzt.
+
+Transport-Seam (lib/WWW/Forgejo/Role/HTTP.pm):
+- _set_auth nimmt ein optionales zweites Argument: { user => ..., password => ... }
+  schickt "Authorization: Basic ..." statt "Authorization: token ...".
+- _build_request kennt vier zusaetzliche Optionen: auth (Basic-Auth fuer genau
+  diesen Request), base_url (URL-Basis statt /api/v1), content (Rohkoerper als
+  Bytes), content_type (Media-Type dazu). Alles additiv: der bisherige
+  Ein-Argument-Aufruf von _set_auth, die Value-Objects HTTPRequest und
+  HTTPResponse und die Seam-Methoden _build_request / _parse_response bleiben
+  unveraendert.
+- "No API token configured" wird nicht mehr gecroakt, wenn auth gesetzt ist.
+
+API:
+- WWW::Forgejo::API::Users: create_token($username, name => ..., scopes => [...],
+  auth => {...}), delete_token($username, $tokenname, auth => {...}) und
+  tokens($username, auth => {...}). auth ist kein Query-Parameter, sondern die
+  Credentials des Requests.
+- WWW::Forgejo::API::Packages: upload($owner, $type, $name, $version, $filename,
+  content => $bytes | file => $pfad). Der Upload liegt ausserhalb /api/v1
+  (PUT <instanz>/api/packages/...), der Client schickt ihn jetzt selbst.
+
+Gemessen an Forgejo 15.0.7 (Live-Instanz):
+- POST /users/{u}/tokens: mit Token-Auth 401 "auth method not allowed", mit
+  Basic-Auth 201; der sha1 ist nur einmal sichtbar.
+- GET /users/{u}/tokens: mit Token- und mit Basic-Auth 200.
+- DELETE /users/{u}/tokens/{token}: 204 mit Basic-Auth, wenn der Pfad den
+  NAMEN des Tokens nennt; mit dem sha1 404. delete_token nimmt deshalb den
+  Namen, nicht das Geheimnis.
+- Paket-Upload: PUT <instanz>/api/packages/<owner>/<typ>/<name>/<version>/<datei>
+  funktioniert mit "Authorization: token ..."; keine Swagger-Operation deckt sie
+  ab, darum der eigene Weg im Client.
+
+Verifiziert:
+- prove -l t/ -> 29 Dateien, 1767 Tests PASS
+- prove -l t/9*-live-*.t -> 8 Dateien, 113 Tests PASS
+- t/97-live-users-misc.t -> 16 Tests PASS (Token anlegen, benutzen, loeschen)
+- Rot-Nachweis: das gegen die lib vor k28 reverse-gepatchte lib laesst t/02 an
+  7 Subtests scheitern (Basic-Authorization fehlt, Upload fehlt, create_token
+  fehlt, delete_token fehlt) - Verhalten, nicht "Can't locate".
+- Schwester ../p5-net-async-forgejo: 9 Dateien, 62 Tests PASS gegen das
+  geaenderte lib.
+
+Ticket fuer das Board von p5-net-async-forgejo (von hier nicht bearbeitet):
+- Die Schwester soll die Optionen auth, content, content_type und base_url in
+  ihren Request-Aufrufen durchreichen koennen; heute kann sie nur Token-Auth
+  und JSON-Body schicken. Damit kann sie die Endpunkte fuer die Tokens eines
+  fremden Users und den Paket-Upload genauso nutzen wie dieser Client. Die
+  Seam-Methoden _build_request / _parse_response und die Value-Objects bleiben
+  unveraendert, die Aenderung ist additiv - die Schwester muss die Optionen
+  aber erst weiterreichen.
+
+2026-10-19 23:41 k28 umgesetzt und verifiziert: Basic-Auth je Request (auth), Rohkoerper (content/content_type), eigene URL-Basis (base_url); Users::create_token/delete_token, Packages::upload ausserhalb /api/v1. Offline 1767 Tests PASS, live 113 Tests PASS, Rot-Nachweis und Schwester-Suite gruen. Details und Ticket fuer das Board p5-net-async-forgejo in der Notiz.
+
+Umgesetzt: Role::HTTP versteht optionales Basic-Auth fuer einen Request, einen Rohkoerper mit Content-Type und eine Basis-URL ausserhalb /api/v1; users->create_token/delete_token nutzen das fuer die Tokens anderer Nutzer, packages->upload schickt das Paket an die Instanz ausserhalb /api/v1. Alles additiv, die Seam-Methoden und die Value-Objects bleiben stabil. Landed in e66570d auf lokalem main; live gemessen (Token-Auth 401, Basic-Auth 201). Offen auf dem Board der async-Schwester: auth/content/content_type/base_url durchreichen.
