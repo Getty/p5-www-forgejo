@@ -1,0 +1,40 @@
+---
+class: standard
+completed: 2026-10-20T02:15:17Z
+created: 2026-10-03T00:29:07Z
+id: 26
+priority: low
+started: 2026-10-19T20:49:12Z
+status: done
+title: ActivityPub endpoints need HTTP signatures on Forgejo 15
+updated: 2026-10-20T02:15:17Z
+---
+
+With federation on, Forgejo 15 requires HTTP signatures; client cannot sign. API decision: document the limitation or drop the controller.
+
+2026-10-19 23:20 Entscheidung: Der ActivityPub-Controller bleibt, die Grenze ist dokumentiert. Live gemessen auf Forgejo 15.0.7 (Wegwerf-Instanz auf localhost:13080, Federation per FORGEJO__federation__ENABLED=true und [federation] ENABLED = true aktiviert, nodeinfo nennt "activitypub" als Protokoll):
+
+- Die Endpunkte liegen unter der API-Basis, also /api/v1/activitypub/user-id/{user-id}; ohne /api/v1 (also /activitypub/...) antwortet die Instanz mit 404 "Not found.". Der Client baut die Basis ohnehin mit /api/v1, die Pfade im Controller sind also richtig.
+- GET user-id, POST inbox und GET outbox laufen bei aktivierter Federation durch die Middleware ReqHTTPSignature: ohne gueltige HTTP-Signatur antwortet die Instanz mit HTTP 400 und dem JSON {"message":"request signature verification failed"}. Der Client macht daraus den Croak "Forgejo API error: request signature verification failed".
+- Die Gruppen /user-id/{id} selbst wird in Forgejo nur registriert, wenn Federation aktiv ist; ohne Federation gibt es diese Pfade nicht (404). Die Actor-Endpunkte (/activitypub/actor) werden ohne Signatur bedient (200), sind aber vom Controller nicht abgedeckt.
+- Quelltext-Beleg (Forgejo v15.0.7, routers/api/v1/api.go): die Gruppe m.Group("/activitypub", ...) steht in einem if setting.Federation.Enabled, und actor/inbox/outbox haben activitypub.ReqHTTPSignature() als Middleware.
+
+Geaendert: Die Beschreibung von lib/WWW/Forgejo/API/ActivityPub.pm beschreibt jetzt genau diese Grenze (Basispfad, Registrierung nur bei Federation, Signaturpflicht, Croak-Text) statt der bisherigen, zu pauschalen Aussage; der Live-Test in t/97 prueft die beiden dokumentierten Antworten (Signaturfehler bzw. 404) statt eines beliebigen Fehlers.
+
+Verifikation: prove -l t/ -> 29 Dateien, 1757 Tests, PASS; prove -l t/97-live-users-misc.t (live) -> 1 Datei, 15 Tests, PASS.
+
+Drift (nicht in dieser Karte, gehört auf das Board von k21): die Endpunkte /activitypub/user-id/{id}/activities/{activity-id} verlangen keine Signatur, paniken aber bei einer nicht vorhandenen Activity mit einem Nil-Pointer in routers/api/v1/activitypub/person.go:245 (HTTP 500, Forgejo-Bug). Wenn k21 diese Endpunkte aufnehmen soll, bitte mit Vorsicht.
+
+Vorschlag Commit-Subject: "Document the boundary of the ActivityPub endpoints (k26)"; Changes-Eintrag siehe Bericht.
+
+2026-10-19 23:20 Fertig: Der ActivityPub-Controller bleibt, die Grenze ist in der POD genau dokumentiert. Live gemessen auf Forgejo 15.0.7 mit Federation an: die Endpunkte liegen unter /api/v1/activitypub/..., actor/inbox/outbox verlangen eine HTTP-Signatur und antworten ohne sie mit 400 'request signature verification failed' (Client: Croak 'Forgejo API error: request signature verification failed'); ohne Federation sind die Pfade nicht registriert (404). t/97 prueft live genau diese beiden Antworten. prove -l t/ -> 29 Dateien/1757 Tests PASS; t/97 live -> 15 Tests PASS. Vorschlag Commit-Subject: 'Document the boundary of the ActivityPub endpoints (k26)'.
+
+2026-10-20 01:40 2026-10-20 Nachbesserung zu k26 (POD und Messung).
+
+POD: die beiden Textabsaetze "The boundary of this client" und "A bug of the instance" stand jetzt als =item * in einer =over-4-Liste statt als eigene =head2-Ueberschriften. Grund: der Weaver dieser Distribution macht aus jedem =method/=attr ein =head2 und laesst es an Ort und Stelle stehen - im gebauten Paket ist daher jedes =head2 ein Name des Moduls. Der POD-Coverage-Test von main (72bd929, k32, "Understand the woven POD in the POD coverage test") liest genau so und schlug bei den beiden Prosa-Ueberschriften fehl ("everything documented exists": der Name 'A' existiert nicht). Mit der Liste ist das gebaute Paket gruen: prove -b -r t/ im entpackten Tarball -> 44 Dateien, 2050 Tests, PASS (darin t/41 in der Fassung von main).
+
+Messung korrigiert: panickt nur der eine Endpunkt. GET /api/v1/activitypub/user-id/{id}/activities/{activity-id} (PersonActivityNote) laesst die Instanz in einem Nil-Pointer sterben (Router-Log: "panic ... @ activitypub/person.go:218 ... person.go:245"), der Client sieht HTTP 404 mit einem Doppelkoerper aus JSON-Fehler ("The target couldn't be found.") und der HTML-Fehlerseite des Panics - kein gueltiges JSON, also croakt der Client "Forgejo API error: 404". Der zweite Endpunkt .../activities/{activity-id}/activity (PersonActivity) antwortet dagegen mit einem sauberen 404 und ohne Panik. Die alte Notiz zu k26 nannte HTTP 500 und liess beide Endpunkte panicken; beides ist jetzt im POD richtiggestellt. Die Live-Instanz belegt es im Log (podman logs wwwforgejo-live-forgejo-1).
+
+Hinweis fuer die Abnahme: `dzil test` auf diesem Branch schlaegt an t/41 fehl, weil der Branch auf 60784e5 (vor 72bd929) steht und die alte Fassung des POD-Coverage-Tests das gewebte POD nicht versteht. Mit der Fassung von main ist das gebaute Paket gruen - der Merge mit main loest das auf. Zusaetzlich mussten die neuen Dateien (lib/WWW/Forgejo/API/Repo/Teams.pm und die 13 neuen Testdateien) in den Index gestellt werden, sonst nimmt sie Git::GatherDir nicht ins Paket; die drei geloeschten Entities sind dort ebenfalls gestellt, weil GatherDir eine im Index bekannte, aber fehlende Datei als fatal meldet.
+
+Umgesetzt: die Grenze der ActivityPub-Endpunkte ist im POD dokumentiert — die Pfade gibt es nur bei eingeschalteter Federation, actor/inbox/outbox verlangen eine HTTP-Signatur und antworten ohne sie mit 400 request signature verification failed. Die Karte sprach von HTTP 500 und einem Panic in beiden Endpunkten; gemessen panickt nur GET /activitypub/user-id/{id}/activities/{activity-id} (HTTP 404 mit Doppelkoerper), der zweite Endpunkt antwortet mit einem sauberen 404. Landed in e66570d auf lokalem main.
