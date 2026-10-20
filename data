@@ -1,0 +1,129 @@
+---
+class: standard
+completed: 2026-10-20T02:15:08Z
+created: 2026-10-03T00:29:04Z
+id: 25
+priority: low
+started: 2026-10-19T20:49:12Z
+status: done
+title: Quota rules, group rules/users, star/follow have no controller
+updated: 2026-10-20T02:15:08Z
+---
+
+Found in k17 live run. Admin quota rules and group rules/users: live test uses plain verbs. Star/follow PUT/DELETE/check (/user/starred, /user/following) not in client. See also k21.
+
+2026-10-20 00:13 k25 umgesetzt: Controller fuer Admin-Quota und Star/Follow.
+
+Neu in lib/WWW/Forgejo/API/Admin/Quota.pm (Operationstabelle, Pfade
+aus /api/v1/admin/quota/...):
+- list_groups / get_group / create_group(name => ..., rules => [...])
+  / delete_group
+- list_rules / get_rule / create_rule(name => ..., limit => ...,
+  subjects => [...]) / edit_rule / delete_rule
+- add_rule_to_group($gruppe, $regel) / remove_rule_from_group($gruppe, $regel)
+- list_group_users($gruppe) / add_user_to_group($gruppe, $user) /
+  remove_user_from_group($gruppe, $user)
+Die Regeln einer Gruppe und eine Gruppe selbst sind jetzt Entities:
+WWW::Forgejo::Entity::QuotaGroup (name, rules) und
+WWW::Forgejo::Entity::QuotaRule. Die Nutzer einer Gruppe bleiben plain data,
+wie die Nutzer im Rest des Clients.
+
+Neu in lib/WWW/Forgejo/API/CurrentUser.pm:
+- star($owner, $repo) / unstar($owner, $repo) / check_starred($owner, $repo)
+  (PUT/DELETE/GET /user/starred/{owner}/{repo})
+- follow($user) / unfollow($user) / check_following($user)
+  (PUT/DELETE/GET /user/following/{user})
+
+Zielstil wie in k20: Query-Parameter als benannte Argumente, Request-Body
+als benannte Argumente, keine Hashref als Positionsargument, Sammlungen als
+Arrayref, Pfadparameter (owner, repo, gruppe, regel, user) bleiben positional.
+Pfadbestandteile werden escaped.
+
+Bewusste Aenderung der oeffentlichen API: list_groups, get_group und
+create_group liefern jetzt Entity::QuotaGroup-Objekte statt plain data. Das
+verlangt die Karte ("Controller-Methode + Entity in der etablierten Form")
+und ist die Vorbereitung fuer k21, wo die Quota-Operationen in der Breite
+wiederkommen.
+
+Entity::QuotaGroup und Entity::QuotaRule sind damit nicht mehr ungenutzt und
+bleiben fuer k23 (a) erhalten; Entity::User bleibt ungenutzt, weil die Nutzer
+einer Gruppe plain data sind - k23 (a) kann es entfernen.
+
+Werkzeug-Korrektur in t/lib/MethodChains.pm: die Pruefung der Live-Tests
+konnte Controller nicht aufloesen, deren Request-Body benannte Argumente
+verlangen (create_group/create_rule croaken ohne "name"). Die Dummy-Argument-
+liste hat jetzt ein [ name => "a" ] bekommen. Das ist eine Luecke, die bei den
+vielen create_*-Endpunkten aus k21 sonst wieder auftaucht.
+
+Verifiziert:
+- prove -l t/ -> 30 Dateien, 1793 Tests PASS (die Live-Dateien ueberspringen
+  sich ohne die ENV-Variablen)
+- prove -l t/9*-live-*.t -> 8 Dateien, 113 Tests PASS gegen die Wegwerf-
+  Forgejo 15.0.7 (http://localhost:13080)
+- t/13-quota-and-stars.t -> 12 Subtests PASS (neu, deckt die Quota-Gruppen,
+  die Regeln, die Nutzer der Gruppe, Star und Follow ab)
+- t/40-spec-conformance.t -> die neuen Methoden laufen mit und ihre Pfade
+  stehen in t/fixtures/forgejo-api-paths.txt
+- t/41-pod-coverage.t und t/42-live-tests-static.t PASS
+- Rot-Nachweis: das gegen die lib vor k25 reverse-gepatchte lib laesst
+  t/13-quota-and-stars.t in allen 12 Subtests scheitern (Verhalten, nicht
+  "Can't locate")
+
+2026-10-20 00:13 k25 umgesetzt: Controller fuer Admin-Quota und Star/Follow.
+
+Neu in lib/WWW/Forgejo/API/Admin/Quota.pm (Operationstabelle, Pfade
+aus /api/v1/admin/quota/...):
+- list_groups / get_group / create_group(name => ..., rules => [...])
+  / delete_group
+- list_rules / get_rule / create_rule(name => ..., limit => ...,
+  subjects => [...]) / edit_rule / delete_rule
+- add_rule_to_group($gruppe, $regel) / remove_rule_from_group($gruppe, $regel)
+- list_group_users($gruppe) / add_user_to_group($gruppe, $user) /
+  remove_user_from_group($gruppe, $user)
+Die Regeln einer Gruppe und eine Gruppe selbst sind jetzt Entities:
+WWW::Forgejo::Entity::QuotaGroup (name, rules) und
+WWW::Forgejo::Entity::QuotaRule. Die Nutzer einer Gruppe bleiben plain data,
+wie die Nutzer im Rest des Clients.
+
+Neu in lib/WWW/Forgejo/API/CurrentUser.pm:
+- star($owner, $repo) / unstar($owner, $repo) / check_starred($owner, $repo)
+  (PUT/DELETE/GET /user/starred/{owner}/{repo})
+- follow($user) / unfollow($user) / check_following($user)
+  (PUT/DELETE/GET /user/following/{user})
+
+Zielstil wie in k20: Query-Parameter als benannte Argumente, Request-Body
+als benannte Argumente, keine Hashref als Positionsargument, Sammlungen als
+Arrayref, Pfadparameter (owner, repo, gruppe, regel, user) bleiben positional.
+Pfadbestandteile werden escaped.
+
+Bewusste Aenderung der oeffentlichen API: list_groups, get_group und
+create_group liefern jetzt Entity::QuotaGroup-Objekte statt plain data. Das
+verlangt die Karte ("Controller-Methode + Entity in der etablierten Form")
+und ist die Vorbereitung fuer k21, wo die Quota-Operationen in der Breite
+wiederkommen.
+
+Entity::QuotaGroup und Entity::QuotaRule sind damit nicht mehr ungenutzt und
+bleiben fuer k23 (a) erhalten; Entity::User bleibt ungenutzt, weil die Nutzer
+einer Gruppe plain data sind - k23 (a) kann es entfernen.
+
+Werkzeug-Korrektur in t/lib/MethodChains.pm: die Pruefung der Live-Tests
+konnte Controller nicht aufloesen, deren Request-Body benannte Argumente
+verlangen (create_group/create_rule croaken ohne "name"). Die Dummy-Argument-
+liste hat jetzt ein [ name => "a" ] bekommen. Das ist eine Luecke, die bei den
+vielen create_*-Endpunkten aus k21 sonst wieder auftaucht.
+
+Verifiziert:
+- prove -l t/ -> 30 Dateien, 1793 Tests PASS (die Live-Dateien ueberspringen
+  sich ohne die ENV-Variablen)
+- prove -l t/9*-live-*.t -> 8 Dateien, 113 Tests PASS gegen die Wegwerf-
+  Forgejo 15.0.7 (http://localhost:13080)
+- t/13-quota-and-stars.t -> 12 Subtests PASS (neu, deckt die Quota-Gruppen,
+  die Regeln, die Nutzer der Gruppe, Star und Follow ab)
+- t/40-spec-conformance.t -> die neuen Methoden laufen mit und ihre Pfade
+  stehen in t/fixtures/forgejo-api-paths.txt
+- t/41-pod-coverage.t und t/42-live-tests-static.t PASS
+- Rot-Nachweis: das gegen die lib vor k25 reverse-gepatchte lib laesst
+  t/13-quota-and-stars.t in allen 12 Subtests scheitern (Verhalten, nicht
+  "Can't locate")
+
+Umgesetzt: neuer Controller Admin::Quota fuer die Quota-Gruppen und -Regeln (mit den Regeln und den Nutzern einer Gruppe), QuotaGroup und QuotaRule sind Entities; in CurrentUser kommen star/unstar/check_starred und follow/unfollow/check_following. Landed in e66570d auf lokalem main; neu t/13-quota-and-stars.t, 42 Dateien/2050 Tests PASS, live 113 Tests PASS.
