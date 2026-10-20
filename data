@@ -1,0 +1,80 @@
+---
+class: standard
+completed: 2026-10-20T16:46:01Z
+created: 2026-10-20T16:26:22Z
+id: 34
+priority: medium
+started: 2026-10-20T16:46:01Z
+status: done
+tags:
+- release
+- prereq
+title: Ein Test, der die Voraussetzungen haelt, fehlt
+updated: 2026-10-20T16:46:01Z
+---
+
+Ein Test, der die Voraussetzungen haelt, fehlt.
+
+Andere Distributionen der WWW-Flotte pruefen mit t/cpanfile.t, dass jede
+Bibliothek, die der Code laedt, im cpanfile genannt ist. In diesem Repo gibt
+es keinen solchen Test: eine verlorene Voraussetzung faellt dann erst beim
+Laden der Bibliothek auf einer Maschine auf, auf der das Modul fehlt - nicht
+beim Bauen.
+
+Der Test entsteht neu nach dem Hausmuster (siehe p5-www-hetzner,
+p5-www-idrac, p5-www-keycloak): er liest das cpanfile, trennt die
+Laufzeit-Phase von der Test-Phase und haelt eine hart kodierte Liste fest -
+je Voraussetzung ein ok(). Wo Modul und Distribution auseinanderlaufen, zaehlt
+die Distribution: der Test akzeptiert deshalb beide Formen (in Klammern die
+zulaessigen Namen im cpanfile).
+
+Laufzeit:
+  HTTP::Request (HTTP::Request, HTTP::Message)
+  HTTP::Request::Common (HTTP::Request::Common, HTTP::Message)
+  JSON::MaybeXS
+  LWP::UserAgent
+  Log::Any
+  Moo (Moo, Moo::Role)
+  URI::Escape (URI::Escape, URI)
+  namespace::clean
+
+Test:
+  HTTP::Response (HTTP::Response, HTTP::Message, HTTP::Request)
+  JSON::MaybeXS
+  Moo
+  Test::More
+
+Regeln fuer den Test:
+- Eine Laufzeit-Voraussetzung muss in der Laufzeit-Phase stehen; ein Eintrag
+  nur in der Test-Phase installiert sie beim Anwenden nicht.
+- Eine Test-Voraussetzung wird akzeptiert, wenn sie in der Test-Phase oder in
+  der Laufzeit-Phase steht - die Laufzeit-Phase wird immer installiert.
+- Kernmodule gehoeren nicht in die Liste. Die Testhelfer im Repo (MockUA,
+  MockForgejo, Test::WWW::MikroTik::MockUA) sind keine Voraussetzungen.
+
+Am cpanfile:
+Alle genannten Voraussetzungen sind heute schon genannt, es fehlt nur
+der Test; am cpanfile aendert sich sonst nichts.
+
+LWP::Protocol::https bleibt `recommends`: das cpanfile sagt, warum (https-
+Instanzen brauchen es, private Netze ohne TLS nicht). Der Test darf es deshalb
+nicht verlangen.
+
+Der rote Beweis: der Test muss gegen das alte cpanfile rot sein. Belege ihn so
+und nenne das Ergebnis in der Abschlussmeldung:
+
+    cd <worktree>
+    cp cpanfile cpanfile.bak
+    git show main:cpanfile > cpanfile
+    prove -lr t/cpanfile.t     # muss rot sein
+    mv cpanfile.bak cpanfile
+    prove -lr t/cpanfile.t     # muss gruen sein
+
+cpanfile.bak ist nur eine Sicherung: sie wird nicht committet und am Ende
+geloescht.
+
+Aenderungen ausserhalb von cpanfile, t/cpanfile.t und Changes: nicht.
+Ein Changes-Eintrag unter {$NEXT} (ohne Kartennummern, bei 78 Spalten
+umbrochen). Commit-Betreff nennt die Karte als (k34), kein #34.
+
+2026-10-20 16:45 Koordination: der Commit f822287 steht auf main (ff-only gemergt). Der vorgegebene rote Beweis ist hier gruen by construction: das alte cpanfile nennt alle in der Karte genannten Voraussetzungen schon, der Test ist gegen main also gruen - die Karte hat den Test und den Changes-Eintrag gebracht, mehr nicht. Als Ersatz dient der Mutations-Beweis: nimmt man 'requires Log::Any' aus dem cpanfile, meldet der Test 'Log::Any is a declared prerequisite' als fehlgeschlagen. Suite offline: 43 Dateien, 2063 Tests, PASS. Befund aus derselben Pruefung: t/07-lwpio.t laedt IO::Compress::Gzip aus der Distribution IO-Compress, die das cpanfile nicht nennt - dafuer gibt es eine eigene Karte.
