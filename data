@@ -1,0 +1,63 @@
+---
+class: standard
+completed: 2026-10-20T17:00:54Z
+created: 2026-10-20T16:47:24Z
+id: 35
+priority: medium
+started: 2026-10-20T17:00:54Z
+status: done
+tags:
+- release
+- prereq
+title: Die Distribution IO-Compress fehlt in den Voraussetzungen
+updated: 2026-10-20T17:00:54Z
+---
+
+t/07-lwpio.t laedt IO::Compress::Gzip gleich beim Start der Datei. Das Modul
+stammt aus der Distribution IO-Compress, die seit Perl 5.20 nicht mehr zum
+Kern gehoert - es ist ein CPAN-Modul, das der Installer nachziehen muss. Das
+cpanfile von WWW-Forgejo nennt diese Distribution nicht, weder in der
+Laufzeit- noch in der Test-Phase.
+
+Folge: bei einer frischen Installation ist das Modul nicht da. Die Testdatei
+bricht dann schon beim Kompilieren ab ("Can't locate IO/Compress/Gzip.pm"),
+die Suite laeuft also gar nicht erst. Beim Bauen der Distribution faellt das
+nicht auf - es faellt erst auf einer Maschine, auf der das Modul fehlt.
+
+Am cpanfile genau eine Zeile, in der Test-Phase, alphabetisch zwischen
+HTTP::Response und Scalar::Util:
+
+    requires 'IO::Compress::Gzip';
+
+Der Test t/cpanfile.t bekommt IO::Compress::Gzip in der Liste der
+Test-Voraussetzungen (@test), alphabetisch zwischen HTTP::Response und
+JSON::MaybeXS:
+
+    [ 'IO::Compress::Gzip' => qw( IO::Compress::Gzip ) ],
+
+Die Form des Tests bleibt sonst unveraendert.
+
+Der rote Beweis: der Test muss gegen das alte cpanfile rot sein. Belege ihn so
+und nenne das Ergebnis in der Abschlussmeldung:
+
+    cd <worktree>
+    cp cpanfile cpanfile.bak
+    git show main:cpanfile > cpanfile
+    prove -lr t/cpanfile.t     # muss rot sein
+    mv cpanfile.bak cpanfile
+    prove -lr t/cpanfile.t     # muss gruen sein
+
+cpanfile.bak ist nur eine Sicherung: sie wird nicht committet und am Ende
+geloescht.
+
+Aenderungen ausserhalb von cpanfile, t/cpanfile.t und Changes: nicht.
+Ein Changes-Eintrag unter {{$NEXT}} (ohne Kartennummern, bei 78 Spalten
+umbrochen). Commit-Betreff nennt die Karte als (kNN), kein #NN.
+
+Umsetzung auf Branch k35-forgejo (Worktree .claude/worktrees/k35-forgejo), Commit c3d044c 'Declare IO::Compress::Gzip as a test prerequisite (k35)'. cpanfile: requires 'IO::Compress::Gzip' in der Test-Phase zwischen HTTP::Response und Scalar::Util. t/cpanfile.t: Eintrag in @test zwischen HTTP::Response und JSON::MaybeXS, Form sonst unveraendert. Changes: Eintrag unter {{$NEXT}}. Roter Beweis: mit dem alten cpanfile (git show main:cpanfile) ist t/cpanfile.t rot (13 Tests, 1 failed: 'IO::Compress::Gzip is a declared prerequisite for the tests'), mit dem neuen cpanfile gruen (13 Tests, alle ok). Volle Suite offline: prove -lr t/ -> 43 Dateien, 2064 Tests, PASS; die 8 Live-Tests (t/90-97) ueberspringen sich ohne TEST_FORGEJO_URL/TEST_FORGEJO_TOKEN selbst.
+
+2026-10-20 16:59 Fertig: IO::Compress::Gzip steht als Test-Voraussetzung im cpanfile, t/cpanfile.t haelt das fest (rot gegen das alte cpanfile, gruen mit dem neuen), Changes-Eintrag ergaenzt, volle Offline-Suite gruen. Commit c3d044c auf Branch k35-forgejo.
+
+Also found: die @runtime-Liste in t/cpanfile.t nennt MIME::Base64 (und Encode) nicht, obwohl lib/WWW/Forgejo/Role/HTTP.pm sie laedt - der cpanfile fuehrt MIME::Base64 zwar, der Abdeckungstest haelt es aber nicht fest. Nicht behoben (ausserhalb des Auftrags).
+
+Koordination: der Commit c3d044c steht auf main (ff-only gemergt). Der rote Beweis wurde nachgeprueft: gegen das alte cpanfile aus main ist 1 von 13 Tests rot (IO::Compress::Gzip fehlt im cpanfile), mit dem neuen cpanfile sind alle 13 gruen. Suite offline: 43 Dateien, 2064 Tests, PASS.
