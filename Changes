@@ -84,3 +84,7 @@ Revision history for WWW-Forgejo
     - The unused entity classes WWW::Forgejo::Entity::User, ::Email and
       ::CronTask are gone, and the Log::Any import is gone from the modules
       that do not log.
+    - The cpanfile holds every prerequisite the code loads: a test reads the
+      runtime and the test phase of the cpanfile and wants every module of
+      lib/ and of the test suite to be named there, so a lost prerequisite
+      fails while the distribution is built and not on the first request.
