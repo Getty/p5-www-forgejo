@@ -1,6 +1,7 @@
 /.build/
 /Makefile
 /*.tar.gz
+/WWW-Forgejo-*/
 /cover_db/
 /_build/
 /local/
