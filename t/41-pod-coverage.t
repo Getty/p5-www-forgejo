@@ -73,20 +73,28 @@ sub documented {
         }
         elsif ($line =~ /^=head2\s+(\w+)/) {
             my ($name, $under) = ($1, $section);
-            $section = undef;    # a heading opens a subsection of its own
             if ($woven) {
                 # A woven =head2 is a directive left in place: the name is
-                # known, the kind is not.
-                $doc{$name} = 'unknown' unless $under && $weaver_section{$under};
+                # known, the kind is not. The weaver's own sections hold
+                # headings of their own - SUPPORT has Issues and IRC - and
+                # document the distribution, not the module. Their section
+                # stands for every heading below it.
+                if (!$under || !$weaver_section{$under}) {
+                    $doc{$name} = 'unknown';
+                    $section = undef;    # a heading opens a subsection of its own
+                }
             }
-            elsif ($under && $under =~ /^REQUIRED /) {
-                $doc{$name} = 'required';
-            }
-            elsif ($under && $under eq 'ATTRIBUTES') {
-                $doc{$name} = 'attr';
-            }
-            elsif ($under && $under eq 'METHODS') {
-                $doc{$name} = 'method';
+            else {
+                $section = undef;    # a heading opens a subsection of its own
+                if ($under && $under =~ /^REQUIRED /) {
+                    $doc{$name} = 'required';
+                }
+                elsif ($under && $under eq 'ATTRIBUTES') {
+                    $doc{$name} = 'attr';
+                }
+                elsif ($under && $under eq 'METHODS') {
+                    $doc{$name} = 'method';
+                }
             }
         }
         elsif ($line =~ /^=(method|attr|func)\s+(\w+)/) {
@@ -230,6 +238,29 @@ for my $file (sort @files) {
         $synopsis_calls += $result->{checked};
     };
 }
+
+# The weaver's own sections carry headings of their own: SUPPORT holds
+# Issues and IRC. They document the distribution, not the module - and the
+# second heading of a section is still a heading of that section.
+subtest 'the headings of the weaver sections are no names of the module' => sub {
+    my $pod = <<'POD';
+=head1 NAME
+
+WWW::Forgejo - a client for the Forgejo API
+
+=head1 DESCRIPTION
+
+=head2 a_method
+
+=head1 SUPPORT
+
+=head2 Issues
+
+=head2 IRC
+POD
+    my $doc = documented($pod, 1);
+    is_deeply([ sort keys %$doc ], ['a_method'], 'only the name of the module is documented');
+};
 
 subtest 'README.md: the Perl examples' => sub {
     plan skip_all => 'no README.md in this tree' unless -e 'README.md';
