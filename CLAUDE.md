@@ -18,7 +18,8 @@ dzil build
 ## Delegation
 
 Delegate behavior-relevant code to the right agent instead of touching it yourself —
-principle and lane are in `.claude/rules/www-forgejo-rules.md`.
+the principle is a shared house rule (skilletor bundle `getty-cpan-dist@getty`); lanes
+and hazards are in `.claude/rules/www-forgejo-rules.md`.
 
 | Task | Agent |
 |---|---|
@@ -27,5 +28,5 @@ principle and lane are in `.claude/rules/www-forgejo-rules.md`.
 
 The agents carry their skills via `briefing.skills` (see `.claude/agents/`); the main
 agent delegates rather than loading them. Skill sources live under `.claude/skills/`
-(`www-forgejo-core` plus hardlinked shared skills). House rules and the delegation lock:
-`.claude/rules/www-forgejo-rules.md`.
+(`www-forgejo-core` plus hardlinked shared skills). House rules: the shared bundle
+`getty-cpan-dist@getty` plus `.claude/rules/www-forgejo-rules.md`.
