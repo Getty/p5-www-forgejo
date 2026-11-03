@@ -4,12 +4,12 @@ requires 'Carp';
 requires 'HTTP::Request';
 requires 'HTTP::Request::Common';
 requires 'JSON::MaybeXS';
-requires 'LWP::UserAgent';
 requires 'Log::Any';
+requires 'LWP::UserAgent';
 requires 'MIME::Base64';
 requires 'Moo';
-requires 'URI::Escape';
 requires 'namespace::clean';
+requires 'URI::Escape';
 
 # https:// instance URLs need it; plain-http instances do not, and Forgejo
 # often runs without TLS inside a private network.
