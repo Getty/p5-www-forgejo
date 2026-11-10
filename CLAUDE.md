@@ -28,5 +28,5 @@ and hazards are in `.claude/rules/www-forgejo-rules.md`.
 
 The agents carry their skills via `briefing.skills` (see `.claude/agents/`); the main
 agent delegates rather than loading them. Skill sources live under `.claude/skills/`
-(`www-forgejo-core` plus hardlinked shared skills). House rules: the shared bundle
+(`www-forgejo-core` plus the shared skills skilletor installs). House rules: the shared bundle
 `getty-cpan-dist@getty` plus `.claude/rules/www-forgejo-rules.md`.
